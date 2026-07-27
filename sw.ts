@@ -28,10 +28,13 @@ const DYNAMIC_CACHE = 'minijuegos-dynamic-v2';
 //404 en cache.addAll() aborta el precache completo. Solo precacheamos
 // rutas con nombre estable; los bundles hasheados se cachean en caliente
 // vía la estrategia "Network First" del handler de fetch más abajo.
+// Rutas relativas al scope del propio Service Worker (self.registration.scope),
+// no a la raíz del dominio: en GitHub Pages este proyecto vive en un subpath
+// (/Mini-juegos/), y '/index.html' hardcodeado a raíz nunca matchea ahí.
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json'
+  './',
+  './index.html',
+  './manifest.json'
 ];
 
 // Instalación - cachear assets estáticos
@@ -101,7 +104,7 @@ self.addEventListener('fetch', (event) => {
   // Estrategia: Network First para HTML y JS de juegos
   if (request.destination === 'document' || 
       request.destination === 'script' ||
-      url.pathname.startsWith('/js/games/')) {
+      url.pathname.includes('/js/games/')) {
     event.respondWith(
       fetch(request)
         .then(response => {
@@ -161,8 +164,8 @@ self.addEventListener('push', (event) => {
     const data = event.data.json();
     const options = {
       body: data.body || 'Nueva actualización disponible',
-      icon: '/assets/icon-192.png',
-      badge: '/assets/badge-72.png',
+      icon: './assets/icon-192.png',
+      badge: './assets/badge-72.png',
       vibrate: [200, 100, 200]
     };
     event.waitUntil(self.registration.showNotification(data.title, options));
