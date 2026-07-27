@@ -89,11 +89,13 @@ alter table public.scores enable row level security;
 -- — se necesita para mostrar nombres en el scoreboard global — pero solo
 -- el dueño de la fila puede crear/editar la suya, y nunca puede tener
 -- más de un perfil (el INSERT exige id = auth.uid()).
-create policy if not exists "profiles_select_all"
+drop policy if exists "profiles_select_all" on public.profiles;
+create policy "profiles_select_all"
   on public.profiles for select
   using (true);
 
-create policy if not exists "profiles_insert_own"
+drop policy if exists "profiles_insert_own" on public.profiles;
+create policy "profiles_insert_own"
   on public.profiles for insert
   -- (select auth.uid()) en vez de auth.uid() directo: envuelto en un
   -- subselect, Postgres lo evalúa una sola vez por consulta en vez de
@@ -103,7 +105,8 @@ create policy if not exists "profiles_insert_own"
   -- desde el principio.
   with check ((select auth.uid()) = id);
 
-create policy if not exists "profiles_update_own"
+drop policy if exists "profiles_update_own" on public.profiles;
+create policy "profiles_update_own"
   on public.profiles for update
   using ((select auth.uid()) = id);
 
@@ -112,11 +115,13 @@ create policy if not exists "profiles_update_own"
 -- user_id — así nadie puede insertar un score a nombre de otro jugador.
 -- No hay política de UPDATE/DELETE: los scores son inmutables una vez
 -- guardados, por diseño (evita manipular el historial después del hecho).
-create policy if not exists "scores_select_all"
+drop policy if exists "scores_select_all" on public.scores;
+create policy "scores_select_all"
   on public.scores for select
   using (true);
 
-create policy if not exists "scores_insert_own"
+drop policy if exists "scores_insert_own" on public.scores;
+create policy "scores_insert_own"
   on public.scores for insert
   with check ((select auth.uid()) = user_id);
 
