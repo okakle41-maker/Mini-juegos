@@ -1,0 +1,616 @@
+/* ======================================================================
+   IDENTIDAD VISUAL TÁCTICA — pase 2
+   Portado desde el prototipo React "Lobby" (Rajdhani / Share Tech Mono /
+   Exo 2, esquinas angulosas tipo HUD, cuadrícula de fondo).
+   100% CSS — no toca markup ni lógica. Se carga después de styles.css
+   para poder sobreescribir con especificidad mínima.
+   ====================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@400;500;600;700&display=swap');
+/* ↑ Nota: este import ahora vive también (como fuente de verdad) en
+   css/styles.css, que se carga primero. Se deja aquí igualmente por
+   robustez — los navegadores deduplican peticiones idénticas de fuente,
+   así que no hay coste extra de red. */
+
+:root {
+  /* Tipografía táctica: Rajdhani para titulares, Share Tech Mono para
+     datos/HUD (reemplaza el mono anterior en cascada), Exo 2 como base. */
+  --font-tactical: 'Rajdhani', var(--font-sans);
+  --font-mono: 'Share Tech Mono', ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+  --font-sans: 'Exo 2', system-ui, -apple-system, sans-serif;
+
+  --hud-corner-size: 9px;
+  --hud-corner-w: 2px;
+}
+
+/* ----------------------------------------------------------------------
+   Cuadrícula táctica de fondo (ortogonal, tipo blueprint) + viñeta.
+   Se suma a .diagonal-grid existente, no la sustituye.
+   ---------------------------------------------------------------------- */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(249,115,22,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(249,115,22,0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(ellipse 85% 75% at 50% 30%, #000 45%, transparent 92%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 30%, #000 45%, transparent 92%);
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(249,115,22,0.10) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(249,115,22,0.10) 1px, transparent 1px);
+  background-size: 210px 210px;
+  opacity: 0.6;
+}
+
+/* ----------------------------------------------------------------------
+   Tipografía: titulares y datos HUD en clave táctica
+   ---------------------------------------------------------------------- */
+.lobby-title,
+.header-name,
+.card-name,
+.stat-card-value {
+  font-family: var(--font-tactical);
+}
+
+.lobby-title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+
+.card-name {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.stat-card-value {
+  font-family: var(--font-tactical);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.header-name .header-sys,
+.header-sub,
+.header-credit,
+.lobby-label,
+.lobby-pill,
+.card-tag,
+.card-num,
+.card-cta,
+.lobby-footer,
+.stat-card-label {
+  font-family: var(--font-mono);
+}
+
+/* ----------------------------------------------------------------------
+   Esquinas: radio pequeño y limpio (así es la referencia — nada de
+   chaflanes, el lenguaje HUD lo dan los brackets de esquina, no el borde).
+   ---------------------------------------------------------------------- */
+.game-card,
+.stat-card,
+.lobby-search,
+.header-logo,
+.card-favorite-btn {
+  border-radius: 3px !important;
+}
+
+.card-tag,
+.card-record-badge,
+.status-badge,
+.theme-select {
+  border-radius: 3px !important;
+}
+
+.lobby-pill {
+  border-radius: 3px !important;
+}
+
+.card-favorite-btn {
+  border-radius: 3px !important;
+}
+
+/* ----------------------------------------------------------------------
+   Esquinas HUD (brackets) sobre las cards — vía background-image en
+   capas, sin añadir elementos: deja intacto el background-color/gradiente
+   ya definido por .game-card / .game-card:hover.
+   ---------------------------------------------------------------------- */
+.game-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0.55;
+  transition: opacity 0.28s ease;
+  background-image:
+    linear-gradient(var(--accent, #f97316), var(--accent, #f97316)),
+    linear-gradient(var(--accent, #f97316), var(--accent, #f97316)),
+    linear-gradient(var(--accent, #f97316), var(--accent, #f97316)),
+    linear-gradient(var(--accent, #f97316), var(--accent, #f97316));
+  background-repeat: no-repeat;
+  background-position:
+    top left,
+    top right,
+    bottom left,
+    bottom right;
+  background-size:
+    var(--hud-corner-size) var(--hud-corner-w),
+    var(--hud-corner-size) var(--hud-corner-w),
+    var(--hud-corner-size) var(--hud-corner-w),
+    var(--hud-corner-size) var(--hud-corner-w);
+}
+.game-card::before {
+  z-index: 3;
+}
+.game-card:hover::after {
+  opacity: 1;
+}
+
+/* Usamos un pseudo extra vía .card-hero para el trazo vertical de las
+   esquinas superiores (evita pelear por los 2 pseudo-elementos ya usados
+   en .game-card). */
+.card-hero {
+  position: relative;
+}
+.card-hero::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  top: 0; left: 0; right: 0; height: var(--hud-corner-size);
+  background-image:
+    linear-gradient(var(--accent, #f97316), var(--accent, #f97316)),
+    linear-gradient(var(--accent, #f97316), var(--accent, #f97316));
+  background-repeat: no-repeat;
+  background-position: top left, top right;
+  background-size: var(--hud-corner-w) 100%, var(--hud-corner-w) 100%;
+  opacity: 0.55;
+  transition: opacity 0.28s ease;
+}
+.game-card:hover .card-hero::after {
+  opacity: 1;
+}
+
+/* ----------------------------------------------------------------------
+   Detalles menores: brand/header más tácticos
+   ---------------------------------------------------------------------- */
+.header-logo {
+  border-radius: 3px !important;
+}
+
+.filter-btn {
+  letter-spacing: 0.18em;
+}
+
+/* Reduce motion: sin transición en los brackets */
+@media (prefers-reduced-motion: reduce) {
+  .game-card::after,
+  .card-hero::after {
+    transition: none;
+  }
+}
+
+/* ======================================================================
+   PASE 2 — rediseño completo tipo dashboard táctico
+   Refuerzo de sidebar/header existentes + panel HUD derecho nuevo.
+   ====================================================================== */
+
+/* ---- Sidebar: tipografía y glow reforzados ---- */
+.side-nav {
+  background: linear-gradient(180deg, #0c0500 0%, #050200 100%);
+  border-right-color: rgba(249,115,22,0.30);
+  box-shadow: 4px 0 30px rgba(249,115,22,0.08);
+}
+.side-nav-title {
+  font-family: var(--font-tactical);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-shadow: 0 0 12px rgba(249,115,22,0.5);
+}
+.side-nav-link {
+  font-family: var(--font-tactical);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 2px !important;
+}
+.side-nav-link--active {
+  box-shadow: inset 0 0 16px rgba(249,115,22,0.10), 0 0 12px rgba(249,115,22,0.18);
+  text-shadow: 0 0 10px rgba(249,115,22,0.65);
+}
+.side-nav-session {
+  border-radius: 2px !important;
+  box-shadow: 0 0 16px rgba(249,115,22,0.06), inset 0 0 16px rgba(249,115,22,0.03);
+}
+
+/* ---- Header: título con más presencia táctica ---- */
+.header-name h1 {
+  font-family: var(--font-tactical);
+  letter-spacing: 0.14em;
+}
+.status-badge {
+  border: 1px solid rgba(249,115,22,0.16);
+  padding: 4px 8px;
+  border-radius: 2px;
+}
+
+/* ---- Cards: glow más intenso en hover (acerca al look de referencia) ---- */
+.game-card:hover {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
+    0 0 36px color-mix(in srgb, var(--accent) 30%, transparent),
+    0 0 70px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 12px 40px rgba(0,0,0,0.55);
+}
+
+/* ---- Panel HUD derecho ---- */
+.hud-panel {
+  width: 232px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  background: linear-gradient(180deg, #0c0500 0%, #050200 100%);
+  border-left: 1px solid rgba(249,115,22,0.22);
+  box-shadow: -4px 0 24px rgba(249,115,22,0.06);
+  z-index: 20;
+}
+.hud-panel::-webkit-scrollbar { display: none; }
+
+@media (max-width: 1360px) {
+  .hud-panel { display: none; }
+}
+
+.hud-panel-inner {
+  padding: 22px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.hud-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-orange);
+  text-shadow: 0 0 8px rgba(249,115,22,0.55);
+  margin-bottom: 10px;
+}
+.hud-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent-orange);
+  box-shadow: 0 0 8px var(--accent-orange), 0 0 16px rgba(249,115,22,0.5);
+  animation: cyberpulse 1.8s ease-in-out infinite;
+}
+
+.hud-activity-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.hud-activity-list li {
+  position: relative;
+  padding-left: 12px;
+  font-size: 10px;
+  line-height: 1.55;
+  color: #7a94a8;
+}
+.hud-activity-list li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 6px;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--u, var(--accent-orange));
+  box-shadow: 0 0 5px var(--u, var(--accent-orange));
+}
+.hud-activity-user {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--u, var(--accent-orange));
+  text-shadow: 0 0 6px var(--u, rgba(249,115,22,0.5));
+}
+.hud-activity-list time {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: #3d5060;
+  margin-top: 2px;
+}
+
+.hud-divider {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(249,115,22,0.25), transparent);
+}
+
+.hud-week-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.hud-week-row span {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  width: 12px;
+  color: #40566a;
+}
+.hud-week-row.is-today span {
+  color: var(--accent-orange);
+  text-shadow: 0 0 8px rgba(249,115,22,0.6);
+}
+.hud-bar {
+  flex: 1;
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.05);
+  overflow: hidden;
+}
+.hud-bar span {
+  display: block;
+  height: 100%;
+  background: rgba(249,115,22,0.32);
+  border-radius: 99px;
+}
+.hud-week-row.is-today .hud-bar span {
+  background: linear-gradient(90deg, #ff9a3c, #f97316);
+  box-shadow: 0 0 10px rgba(249,115,22,0.7);
+}
+.hud-week-row em {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: 9px;
+  width: 28px;
+  text-align: right;
+  color: #40566a;
+}
+
+.hud-rank-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hud-rank-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+}
+.hud-rank-list li.is-you {
+  background: rgba(249,115,22,0.10);
+  border-color: rgba(249,115,22,0.28);
+  box-shadow: 0 0 12px rgba(249,115,22,0.12);
+}
+.hud-rank-pos {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  width: 22px;
+  text-align: right;
+  color: #2a3a50;
+}
+.hud-rank-list li:nth-child(-n+3) .hud-rank-pos {
+  color: #f59e0b;
+  text-shadow: 0 0 6px #f59e0b;
+}
+.hud-rank-name {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: #8899aa;
+}
+.hud-rank-list li.is-you .hud-rank-name {
+  color: var(--accent-orange);
+  text-shadow: 0 0 8px rgba(249,115,22,0.6);
+}
+.hud-rank-xp {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: #40566a;
+}
+
+.hud-sys-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: #40566a;
+  margin-bottom: 9px;
+}
+.hud-sys-row:last-child { margin-bottom: 0; }
+.hud-sys-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.hud-sys-row b {
+  margin-left: auto;
+  font-weight: 700;
+}
+
+/* ======================================================================
+   PASE 3 — cambio de paleta completo a navy oscuro (el de la referencia
+   real: #050810 / #090d18), no el marrón-negro original del proyecto.
+   Esto es lo que más "lee" como cambio de estética a simple vista.
+   ====================================================================== */
+
+:root {
+  --bg: #050810;
+}
+
+body {
+  background: #050810;
+}
+
+/* Grid + viñeta: mismo lenguaje, ahora sobre navy */
+body::before {
+  background-image:
+    linear-gradient(rgba(255,140,60,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,140,60,0.05) 1px, transparent 1px);
+}
+body::after {
+  background-image:
+    linear-gradient(rgba(255,140,60,0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,140,60,0.09) 1px, transparent 1px);
+}
+.vignette {
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(3,5,10,0.82) 100%);
+}
+.diagonal-grid {
+  background-image:
+    repeating-linear-gradient(45deg,
+      rgba(255,140,60,0.025) 0px, rgba(255,140,60,0.025) 1px,
+      transparent 1px, transparent 28px),
+    repeating-linear-gradient(-45deg,
+      rgba(255,140,60,0.015) 0px, rgba(255,140,60,0.015) 1px,
+      transparent 1px, transparent 28px);
+}
+
+/* Header y sidebar/panel: navy con el mismo gradiente que la referencia */
+#site-header {
+  background: rgba(7,10,18,0.94);
+  border-bottom-color: rgba(255,140,60,0.20);
+  box-shadow: 0 1px 0 rgba(255,140,60,0.10), 0 4px 24px rgba(0,0,0,0.5);
+}
+.side-nav {
+  background: linear-gradient(180deg, #090d18 0%, #050810 100%);
+  border-right-color: rgba(255,140,60,0.28);
+  box-shadow: 4px 0 30px rgba(255,140,60,0.08);
+}
+.hud-panel {
+  background: linear-gradient(180deg, #090d18 0%, #050810 100%);
+  border-left-color: rgba(255,140,60,0.20);
+}
+.side-nav-session {
+  background: rgba(255,140,60,0.045);
+  border-color: rgba(255,140,60,0.16);
+}
+.side-nav-link:hover {
+  background: rgba(255,140,60,0.07);
+}
+.side-nav-link--active {
+  background: rgba(255,140,60,0.13);
+  border-color: rgba(255,140,60,0.30);
+}
+
+/* Superficies: cards, stat-cards, buscador, tema oscuro azulado */
+.game-card {
+  background: var(--card);
+  border-color: color-mix(in srgb, var(--accent, #ff8c3c) 32%, transparent);
+}
+.game-card:hover {
+  background: var(--card-hover, linear-gradient(155deg, rgba(16,22,35,1) 0%, rgba(22,28,44,1) 100%));
+}
+.stat-card {
+  background: rgba(9,13,24,0.9);
+  border-color: rgba(255,140,60,0.22);
+}
+.lobby-search {
+  background: rgba(9,13,24,0.92);
+  border-color: rgba(255,140,60,0.22);
+}
+.lobby-toolbar .lobby-filter-bar { border-bottom-color: rgba(255,140,60,0.14); }
+
+/* ----------------------------------------------------------------------
+   Icono en caja HUD (en vez del emoji "flotando" sobre el hero) — cada
+   card tiene su propia caja con borde/fondo/glow en el color --accent.
+   ---------------------------------------------------------------------- */
+.card-icon-lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent, #ff8c3c) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #ff8c3c) 38%, transparent);
+  box-shadow:
+    0 0 16px color-mix(in srgb, var(--accent, #ff8c3c) 30%, transparent),
+    inset 0 0 10px color-mix(in srgb, var(--accent, #ff8c3c) 12%, transparent);
+  font-size: 30px !important;
+}
+.card-icon-lg svg { width: 30px; height: 30px; }
+.game-card:hover .card-icon-lg {
+  background: color-mix(in srgb, var(--accent, #ff8c3c) 22%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #ff8c3c) 65%, transparent);
+  box-shadow:
+    0 0 26px color-mix(in srgb, var(--accent, #ff8c3c) 55%, transparent),
+    inset 0 0 16px color-mix(in srgb, var(--accent, #ff8c3c) 20%, transparent);
+}
+
+/* ----------------------------------------------------------------------
+   Dificultad: de puntitos a barras segmentadas tipo HUD (DiffBar)
+   ---------------------------------------------------------------------- */
+.diff-dots {
+  gap: 3px;
+  flex: 1;
+  max-width: 90px;
+}
+.diff-dot {
+  width: auto;
+  height: 6px;
+  flex: 1;
+  border-radius: 1px;
+}
+.diff-dot--filled {
+  background: var(--accent, #ff8c3c);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--accent, #ff8c3c) 70%, transparent);
+}
+.diff-dot--empty {
+  background: rgba(255,255,255,0.06);
+}
+
+/* ----------------------------------------------------------------------
+   Filtros: de tabs subrayados a chips con fondo/borde/glow (como los
+   FILTERS del dashboard de referencia)
+   ---------------------------------------------------------------------- */
+.lobby-filter-bar {
+  border-bottom: none !important;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.filter-btn {
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: 3px !important;
+  background: rgba(9,13,24,0.8);
+  margin-bottom: 0 !important;
+  padding: 8px 13px;
+}
+.filter-btn:hover {
+  border-color: color-mix(in srgb, var(--accent-orange) 35%, transparent) !important;
+  background: rgba(255,140,60,0.06);
+}
+.filter-btn--active {
+  border-color: color-mix(in srgb, var(--accent-orange) 55%, transparent) !important;
+  background: rgba(255,140,60,0.14);
+  box-shadow: 0 0 12px rgba(255,140,60,0.25), 0 0 24px rgba(255,140,60,0.10);
+}
+
+/* Stat-card value / labels: tono frío para contraste con el naranja */
+.stat-card-label { color: #5a7286; }
+
+/* Scroll-bar de la barra de filtros ya oculta arriba; sin cambios */
+

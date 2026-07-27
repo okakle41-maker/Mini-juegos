@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Minijuegos · Entrenador de Bots</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@400;500;600;700&display=swap">
+  <!-- "Press Start 2P" = fuente pixel monoespaciada para el tema Pixel Lab.
+       Se carga siempre (es liviana) pero solo se usa cuando
+       body[data-theme="pixel"] está activo — ver css/lobby-pixel.css. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+  <link rel="stylesheet" href="css/styles.css?v=3">
+  <link rel="stylesheet" href="css/lobby-tactical.css?v=1">
+  <link rel="stylesheet" href="css/lobby-new.css?v=1">
+  <link rel="stylesheet" href="css/lobby-header-redesign.css?v=1">
+  <link rel="stylesheet" href="css/redesign-extras.css?v=1">
+  <!-- Tema Pixel Lab: ver anotaciones extensas al inicio del archivo
+       sobre convenciones de sprites, escalado y estado (EN CONSTRUCCIÓN). -->
+  <link rel="stylesheet" href="css/lobby-pixel.css?v=1">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="/assets/icon-96.png">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <meta name="theme-color" content="#090400">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!--
+    Los CSS de los minijuegos individuales ya NO se precargan aquí.
+    Cada gameDef declara su propio `css` (ver js/games/*.ts), y
+    viewManager.ts → showView(id) lo inyecta vía GameRegistry.injectCSS()
+    justo al entrar a esa vista — el usuario típicamente solo juega uno
+    o dos minijuegos por sesión, así que precargar los ~20 de golpe era
+    trabajo desperdiciado en el caso común.
+  -->
+</head>
+<body>
+
+  <!-- ── Decorative background layers ── -->
+   
+   <div id="cursorGlow"></div>
+  <div id="cursorRing"></div>
+  <div id="globalLight"></div>
+   <div id="particles"></div>
+   <div id="ambientFog">
+    <div class="fog fog1"></div>
+    <div class="fog fog2"></div>
+    <div class="fog fog3"></div>
+</div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="diagonal-grid" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="beams" aria-hidden="true">
+    <div class="beam beam-1"></div>
+    <div class="beam beam-2"></div>
+    <div class="beam beam-3"></div>
+  </div>
+
+  <!-- ── App shell: sidebar + (header & main) ── -->
+  <div class="app-shell">
+
+  <!-- ── Sidebar ── -->
+  <aside class="side-nav" id="sideNav" aria-label="Barra lateral de navegación">
+    <div class="side-nav-brand">
+      <div class="side-nav-logo">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <path d="M13.2 8.6L9.6 13.4h2.9l-1 3.2 3.7-4.9h-2.9l1-3.1z" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+      <div class="side-nav-title">MINIJUEGOS</div>
+      <div class="side-nav-sub">TRAINING_INTERFACE v2.5</div>
+    </div>
+
+    <nav class="side-nav-section" aria-label="Navegación principal">
+      <div class="side-nav-label">CAMPO DE ENTRENAMIENTO</div>
+      <button class="side-nav-link side-nav-link--active" type="button" data-side-nav="modulos" aria-current="page">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        MÓDULOS
+      </button>
+      <button class="side-nav-link" type="button" data-side-nav="estadisticas">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        ESTADÍSTICAS
+      </button>
+      <button class="side-nav-link" type="button" data-side-nav="progreso">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        PROGRESO
+      </button>
+      <button class="side-nav-link" type="button" data-side-nav="ranking">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M7 6H4a1 1 0 0 0-1 1c0 2.5 2 4 4 4"/><path d="M17 6h3a1 1 0 0 1 1 1c0 2.5-2 4-4 4"/></svg>
+        RANKING
+      </button>
+      <button class="side-nav-link" type="button" data-side-nav="configuracion">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.36.62 1 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.51 0-1.15.38-1.51 1z"/></svg>
+        CONFIGURACIÓN
+      </button>
+      <button class="side-nav-link" type="button" data-side-nav="manual">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        MANUAL
+      </button>
+    </nav>
+
+    <div class="side-nav-session">
+      <div class="side-nav-session-head">
+        <span class="status-dot status-dot--sm"></span>
+        SESIÓN ACTIVA
+      </div>
+      <div class="side-nav-session-row">ACCESO: <span class="side-nav-accent">AUTORIZADO</span></div>
+      <div class="side-nav-session-row">MÓDULOS: <span class="side-nav-accent" id="sideNavModulos">—</span></div>
+      <div class="side-nav-session-row">NIVEL: <span class="side-nav-accent" id="sideNavLevel">INICIANDO</span></div>
+      <div class="side-nav-level-bar"><span id="sideNavLevelBar" style="width:0%"></span></div>
+      <div class="side-nav-session-row" id="sideNavLastRow" style="margin-top:8px;display:none">ÚLTIMO: <span class="side-nav-accent" id="sideNavLastGame">—</span></div>
+    </div>
+
+    <div class="side-nav-boot">
+      <div class="side-nav-boot-line">&gt; <span id="sideNavBootText">INICIANDO PROTOCOLO...</span></div>
+      <div class="side-nav-boot-bar"><span id="sideNavBootFill"></span></div>
+    </div>
+
+    <button class="side-nav-collapse-btn" id="sideNavCollapseBtn" type="button" aria-label="Colapsar barra lateral" aria-expanded="true" title="Colapsar barra lateral">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+  </aside>
+
+  <div class="app-main">
+
+  <!-- ── Header ── -->
+  <header id="site-header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="header-logo">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+          <span class="logo-dot"></span>
+        </div>
+        <div class="header-titles">
+          <div class="header-name">
+            <span class="header-sys">SYS://</span>
+            <h1 class="glitch-text" data-text="MINIJUEGOS">MINIJUEGOS</h1>
+            <span class="header-credit">made by empalsa &middot; <a class="header-credit-link" href="https://pixabay.com/users/moodmode-33139623/" target="_blank" rel="noopener">music by moodmode</a></span>
+          </div>
+          <div class="header-sub">
+            <span class="status-dot"></span>
+            TRAINING_INTERFACE v2.5 &middot; 0x<span id="hexTick">0000</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-meta" aria-hidden="true">
+        <div class="header-meta-item">
+          <span class="header-meta-label">UPTIME</span>
+          <span class="header-meta-value" id="headerUptime">00:00:00</span>
+        </div>
+        <div class="header-meta-item">
+          <span class="header-meta-label">LATENCIA</span>
+          <span class="header-meta-value header-meta-value--accent" id="headerLatency">12ms</span>
+        </div>
+        <div class="header-meta-item">
+          <span class="header-meta-label">SESIÓN</span>
+          <span class="header-meta-value">#<span id="hexTickMeta">0000</span></span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="header-search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="lobbySearch" placeholder="Buscar módulo..." aria-label="Buscar módulo" autocomplete="off">
+          <kbd class="header-search-kbd">⌘K</kbd>
+        </div>
+
+        <button type="button" class="header-icon-btn" id="notifBtn" aria-label="Notificaciones" title="Notificaciones">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="header-icon-dot"></span>
+        </button>
+
+        <div class="header-user" id="headerUserBadge" title="Ir a Cuenta" role="button" tabindex="0" aria-label="Ir a Cuenta">
+          <span class="header-user-avatar">R7</span>
+          <span class="header-user-info">
+            <span class="header-user-name">RANGER_7</span>
+            <span class="header-user-level" id="headerUserLevel">RECLUTA</span>
+          </span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="header-user-caret"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <span id="modsCountHeader" hidden>10</span>
+
+        <div class="theme-wrapper theme-wrapper--compact">
+          <select id="themeSelect" class="theme-select" aria-label="Seleccionar tema visual">
+            <option value="dark" selected>Oscuro</option>
+            <option value="pixel">🕹️ Pixel Lab</option>
+          </select>
+          <label class="accessibility-toggle">
+            <input type="checkbox" id="reducedMotionToggle">
+            <span class="toggle-label">Reducir animaciones</span>
+          </label>
+          <label class="accessibility-toggle">
+            <input type="checkbox" id="highContrastToggle">
+            <span class="toggle-label">Alto contraste</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main id="app">
+
+    <!-- Home: lobby grid -->
+    <section id="home" class="view">
+      <div class="lobby-inner">
+
+        <!-- Ambient glow -->
+        <div class="lobby-ambient" aria-hidden="true"></div>
+
+        <div class="lobby-heading">
+          <div>
+            <div class="lobby-label">
+              <span class="lobby-label-bar"></span>
+              CAMPO DE ENTRENAMIENTO
+            </div>
+            <h2 class="lobby-title">Selecciona un módulo</h2>
+            <p class="lobby-sub">Cada módulo entrena un vector cognitivo distinto. Elige un objetivo y ejecuta el protocolo.</p>
+            <div class="lobby-pills">
+              <span class="lobby-pill lobby-pill--active">
+                <span class="lobby-pill-dot"></span><span id="modsCountPill">10</span> MÓDULOS ACTIVOS
+              </span>
+              <span class="lobby-pill">⚡ SESIÓN EN CURSO</span>
+              <span class="lobby-pill">🎯 DIFICULTAD ADAPTATIVA</span>
+            </div>
+          </div>
+          <div class="stat-card-row" aria-label="Resumen del sistema">
+            <div class="stat-card">
+              <span class="stat-card-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+              <span class="stat-card-label">MÓDULOS</span>
+              <span class="stat-card-value" id="modsCountStats">10</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-card-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+              <span class="stat-card-label">COMPLETADOS</span>
+              <span class="stat-card-value" id="sysCompletedStat">0</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-card-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+              <span class="stat-card-label">SESIONES</span>
+              <span class="stat-card-value" id="sysSessionsStat">1</span>
+            </div>
+            <div class="stat-card stat-card--favorite">
+              <span class="stat-card-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+              <span class="stat-card-label">FAVORITOS</span>
+              <span class="stat-card-value" id="favCountStat">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Módulo del día: se genera dinámicamente en lobbyRenderer.ts a
+             partir de GameRegistry (destaca el último jugado o, si no hay
+             historial aún, el primer módulo visible). -->
+        <div id="moduleOfDay"></div>
+
+        <div class="lobby-toolbar">
+          <div class="lobby-filter-bar" id="filterBar" role="toolbar" aria-label="Filtrar por categoría">
+            <!-- Los botones de filtro se generan automáticamente desde gameBootstrap.ts -->
+            <button class="filter-btn filter-btn--active" data-filter="TODOS">TODOS</button>
+          </div>
+        </div>
+
+        <div class="game-grid" id="gameList">
+          <!-- Las cartas se generan automáticamente desde gameRegistry.ts -->
+        </div>
+        <div class="lobby-footer">
+          <span>© MINIJUEGOS · ENTRENADOR DE BOTS</span>
+          <div class="lobby-footer-stats">
+            <span>CPU: <span style="color:#ff9a3c">12%</span></span>
+            <span>MEM: <span style="color:#f97316">340MB</span></span>
+            <span class="footer-nominal">
+              <span class="status-dot status-dot--sm"></span>
+              SISTEMA NOMINAL
+            </span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── Game sections (keep all existing content, add back nav) ── -->
+
+    <section id="datarecallgrid" class="view hidden" data-lazy="1"></section>
+
+    <section id="neuralfragment" class="view hidden" data-lazy="1"></section>
+
+    
+    <section id="termita" class="view hidden" data-lazy="1"></section>
+
+<section id="memorygrid" class="view hidden" data-lazy="1"></section>
+
+    <section id="simon" class="view hidden" data-lazy="1"></section>
+
+    <section id="arrow" class="view hidden" data-lazy="1"></section>
+
+
+
+    <section id="soup" class="view hidden" data-lazy="1"></section>
+
+
+    <section id="letters" class="view hidden" data-lazy="1"></section>
+
+    <section id="holematch" class="view hidden" data-lazy="1"></section>
+
+    <section id="colorcount" class="view hidden" data-lazy="1"></section>
+
+    <section id="pairs" class="view hidden" data-lazy="1"></section>
+
+    <section id="ring-puzzle" class="view hidden" data-lazy="1"></section>
+
+   <section id="typix" class="view hidden" data-lazy="1"></section>
+
+
+
+
+    <!-- ── (unlocked removed) ── -->
+
+
+<section id="skillchecks" class="view hidden" data-lazy="1"></section>
+<section id="circle-game" class="view hidden" data-lazy="1"></section>
+
+
+
+
+<section id="rapidlines-game" class="view hidden" data-lazy="1"></section>
+ 
+
+
+<section id="maze-game" class="view hidden" data-lazy="1"></section>
+
+
+<section id="keyspam-game" class="view hidden" data-lazy="1"></section>
+
+
+<section id="rhythmclick" class="view hidden" data-lazy="1"></section>
+
+
+
+<!-- ==========================================================
+     PROGRESS TIMING
+========================================================== -->
+
+<div id="progresstiming"
+     class="view hidden gameContainer progressTiming" data-lazy="1"></div>
+
+<!-- ── Multi-Point Progress ─────────────────── -->
+<section id="multipoint" class="view hidden" data-lazy="1"></section>
+
+<!-- ── Bounce Bar ────────────────────────────── -->
+<section id="bouncebar" class="view hidden" data-lazy="1"></section>
+
+
+    <section id="bombdefusal" class="view hidden" data-lazy="1"></section>
+
+<section id="sequence-game" class="view hidden" data-lazy="1"></section>
+
+<!-- ══════════════════════════════════════════
+     REACTOR NUCLEAR  (juego 21)
+══════════════════════════════════════════ -->
+<section id="reactor" class="view hidden" data-lazy="1"></section>
+
+
+  
+<!-- ────── Mech Lock ────── -->
+<section id="mechlock" class="view hidden" data-lazy="1"></section>
+
+<!-- ══════════════════════════════════════════
+     VIRUS OVERLOAD  (juego principal)
+══════════════════════════════════════════ -->
+<section id="virusOverload" class="view hidden" data-lazy="1"></section>
+
+    <!-- ── Estadísticas ── -->
+    <section id="estadisticas" class="view hidden" data-lazy="1"></section>
+
+    <!-- ── Progreso ── -->
+    <section id="progreso" class="view hidden" data-lazy="1"></section>
+
+    <!-- ── Ranking ── -->
+    <section id="ranking" class="view hidden" data-lazy="1"></section>
+
+    <!-- ── Configuración ── -->
+    <section id="configuracion" class="view hidden" data-lazy="1"></section>
+
+    <!-- ── Manual ── -->
+    <section id="manual" class="view hidden" data-lazy="1"></section>
+
+    <!-- ── Cuenta (registro / inicio de sesión) ── -->
+    <section id="cuenta" class="view hidden" data-lazy="1"></section>
+
+</main>
+
+  </div><!-- /.app-main -->
+
+  <!-- ── Panel HUD lateral derecho (decorativo, mismo espíritu que el
+       CPU/MEM del footer: no representa datos reales del usuario) ── -->
+  <aside class="hud-panel" id="hudPanel" aria-hidden="true">
+    <div class="hud-panel-inner">
+
+      <div class="hud-panel-section">
+        <div class="hud-panel-head"><span class="hud-dot"></span>ACTIVIDAD</div>
+        <ul class="hud-activity-list">
+          <li style="--u:#a855f7"><span class="hud-activity-user">SHADOW_9</span> completó Cipher Decode<time>hace 2m</time></li>
+          <li style="--u:#ff9a3c"><span class="hud-activity-user">NEON_K</span> récord en Neural Fragment<time>hace 8m</time></li>
+          <li style="--u:#f59e0b"><span class="hud-activity-user">APEX_21</span> alcanzó nivel 50<time>hace 15m</time></li>
+          <li style="--u:#10b981"><span class="hud-activity-user">VX_NOVA</span> racha de 30 días<time>hace 1h</time></li>
+        </ul>
+      </div>
+
+      <div class="hud-divider"></div>
+
+      <div class="hud-panel-section">
+        <div class="hud-panel-head">SEMANA</div>
+        <div class="hud-week">
+          <div class="hud-week-row"><span>L</span><div class="hud-bar"><span style="width:82%"></span></div><em>82%</em></div>
+          <div class="hud-week-row"><span>M</span><div class="hud-bar"><span style="width:65%"></span></div><em>65%</em></div>
+          <div class="hud-week-row"><span>X</span><div class="hud-bar"><span style="width:90%"></span></div><em>90%</em></div>
+          <div class="hud-week-row is-today"><span>J</span><div class="hud-bar"><span style="width:45%"></span></div><em>45%</em></div>
+          <div class="hud-week-row"><span>V</span><div class="hud-bar"><span style="width:78%"></span></div><em>78%</em></div>
+          <div class="hud-week-row"><span>S</span><div class="hud-bar"><span style="width:100%"></span></div><em>100%</em></div>
+          <div class="hud-week-row"><span>D</span><div class="hud-bar"><span style="width:30%"></span></div><em>30%</em></div>
+        </div>
+      </div>
+
+      <div class="hud-divider"></div>
+
+      <div class="hud-panel-section">
+        <div class="hud-panel-head">TOP GLOBAL</div>
+        <ol class="hud-rank-list">
+          <li><span class="hud-rank-pos">#1</span><span class="hud-rank-name">GHOST_X</span><span class="hud-rank-xp">142k</span></li>
+          <li><span class="hud-rank-pos">#2</span><span class="hud-rank-name">KIRA_00</span><span class="hud-rank-xp">138k</span></li>
+          <li><span class="hud-rank-pos">#3</span><span class="hud-rank-name">AXIS_M</span><span class="hud-rank-xp">126k</span></li>
+          <li class="is-you"><span class="hud-rank-pos">#12</span><span class="hud-rank-name">TÚ</span><span class="hud-rank-xp">87.4k</span></li>
+        </ol>
+      </div>
+
+      <div class="hud-divider"></div>
+
+      <div class="hud-panel-section">
+        <div class="hud-sys-row"><span class="hud-sys-dot" style="background:#39ff14;box-shadow:0 0 6px #39ff14"></span>Conexión<b style="color:#39ff14">Estable</b></div>
+        <div class="hud-sys-row"><span class="hud-sys-dot" style="background:#ff9a3c;box-shadow:0 0 6px #ff9a3c"></span>Energía<b style="color:#ff9a3c">87%</b></div>
+        <div class="hud-sys-row"><span class="hud-sys-dot" style="background:#a855f7;box-shadow:0 0 6px #a855f7"></span>Cifrado<b style="color:#a855f7">AES-256</b></div>
+      </div>
+
+    </div>
+  </aside>
+
+  </div><!-- /.app-shell -->
+
+  <!-- ── Vite bundle (desarrollo: /js/main.ts, producción: dist/assets/*.js) ── -->
+  <!-- sideNavBoot, statsManager y musicPlayer (drag + lógica) ahora se importan
+       desde main.ts (js/sideNavBoot.ts, js/statsManager.ts, js/musicPlayerDrag.ts,
+       js/musicPlayer.ts) en vez de vivir como <script> inline. -->
+  <!-- Iconos de las cards: sprites SVG monolínea propios del catálogo
+       (uno dibujado a mano por juego, ver js/core/gameIcons.ts), en vez
+       de emojis o de la librería Lucide que se usaba antes — ya no hay
+       dependencia externa de iconos, todo vive inline en el bundle. -->
+  <script type="module" src="/js/main.ts"></script>
+
+  <!-- El reloj de uptime/latencia del header ahora vive en js/headerUptime.ts
+       (importado vía main.ts) en vez de <script> inline. -->
+
+  <!-- ── Music Player Widget ── -->
+  <!-- Botón flotante (♪) que reemplaza por completo al panel cuando está
+       colapsado — no es el mismo panel encogido, es un elemento aparte
+       que hereda la posición del panel al colapsar/expandir (ver
+       musicPlayerDrag.ts), para que ambos se puedan arrastrar por
+       separado sin interferirse. -->
+  <button type="button" id="musicPlayerFab" class="music-player-fab" aria-label="Expandir reproductor de música" title="Expandir reproductor" hidden>
+    <span class="mp-fab-note" id="mpFabNote" aria-hidden="true">♪</span>
+  </button>
+
+  <div id="musicPlayer" class="music-player" aria-label="Reproductor de música">
+    <div class="mp-head">
+      <div class="mp-head-left">
+        <span class="mp-label" id="mpNoteIcon" aria-hidden="true">♪</span>
+        <span class="mp-head-title">BGM</span>
+        <span class="mp-eq" id="mpEq" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+      </div>
+      <span class="mp-track-badge" id="mpTrackBadge">1/7</span>
+      <button type="button" class="mp-btn mp-collapse-btn" id="mpCollapseBtn" title="Colapsar reproductor" aria-label="Colapsar reproductor" aria-expanded="true">
+        <svg id="mpCollapseIcon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+      </button>
+    </div>
+
+    <div class="mp-track-picker">
+      <label class="mp-track-picker-label" for="mpTrackSelect">Pista</label>
+      <select id="mpTrackSelect" class="mp-track-select" aria-label="Seleccionar pista de música"></select>
+    </div>
+
+    <div class="mp-bar">
+      <div class="mp-controls">
+        <button class="mp-btn" id="mpPrev" title="Anterior" aria-label="Pista anterior">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button class="mp-btn mp-btn--play" id="mpPlayPause" title="Play / Pause" aria-label="Play/Pause">
+          <svg id="mpIconPlay" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="mpIconPause" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
+        </button>
+        <button class="mp-btn" id="mpNext" title="Siguiente" aria-label="Pista siguiente">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm2-8.14 5.02 3.64L8 17.14V9.86zM16 6h2v12h-2z"/></svg>
+        </button>
+      </div>
+      <div class="mp-volume">
+        <button class="mp-btn mp-btn--mute" id="mpMuteBtn" title="Silenciar" aria-label="Silenciar">
+          <svg id="mpVolIcon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <svg id="mpMuteIcon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+        </button>
+        <input type="range" id="mpVolume" class="mp-volume-slider" min="0" max="1" step="0.02" value="0.5" aria-label="Volumen">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Music Player: drag + lógica ── -->
+  <!-- Migrado a js/musicPlayerDrag.ts y js/musicPlayer.ts (importados vía main.ts) -->
+
+</body>
+</html>
