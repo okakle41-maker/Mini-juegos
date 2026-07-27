@@ -38,8 +38,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://fujpczhsokyhkjfjqqdw.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_xCrvTWBZ78x4ZCFRttgEQw_0tlM8go8';
+const SUPABASE_URL = 'https://yhtanhtuxcowpwbgwupj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_vA1wG_HRGnozElM-brAlfw_ZeFy6PIh';
 
 let clientPromise: Promise<SupabaseClient> | null = null;
 
