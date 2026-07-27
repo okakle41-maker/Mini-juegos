@@ -3,9 +3,10 @@ import { resolve } from 'path';
 import { existsSync, mkdirSync, cpSync } from 'fs';
 
 /**
- * `css/` y `assets/` se referencian desde JS como rutas string planas
- * ("css/bombdefusal.css", "assets/icons/circle.svg" — ver `css` en
- * GameConfig y renderCube() en views/skillchecks.ts), no como
+ * `css/`, `assets/` y `audio/` se referencian desde JS como rutas string
+ * planas ("css/bombdefusal.css", "assets/icons/circle.svg",
+ * "audio/bg_level-iii.mp3" — ver `css` en GameConfig, renderCube() en
+ * views/skillchecks.ts, y TRACKS en musicPlayer.ts), no como
  * `import './foo.css'`. Vite solo copia al build lo que reconoce como
  * asset importado o lo que vive dentro de `publicDir` — con la
  * configuración anterior (sin publicDir explícito, ambas carpetas en la
@@ -34,7 +35,7 @@ function copyStaticAssets() {
       outDir = config.build.outDir;
     },
     closeBundle() {
-      for (const dir of ['css', 'assets']) {
+      for (const dir of ['css', 'assets', 'audio']) {
         const src = resolve(__dirname, dir);
         const dest = resolve(__dirname, outDir, dir);
         if (!existsSync(src)) continue;

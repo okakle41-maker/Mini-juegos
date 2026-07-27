@@ -23,7 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // service worker no puede vivir dentro de un chunk con nombre hasheado.
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js', { type: 'module' }).catch(error => {
+      // import.meta.env.BASE_URL viene de `base` en vite.config.ts — en
+      // GitHub Pages el sitio vive en un subpath (/Mini-juegos/), así que
+      // '/sw.js' a secas apuntaba a la raíz del dominio (donde no existe)
+      // en vez de a /Mini-juegos/sw.js.
+      navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { type: 'module' }).catch(error => {
         console.warn('[App] No se pudo registrar el Service Worker:', error);
       });
     });
