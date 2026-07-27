@@ -1985,6 +1985,12 @@ AMBIENT PARTICLES
     0 0 24px rgba(200,120,30,0.10),
     0 0 0 1px rgba(200,120,30,0.10) inset;
 }
+/* Mismo motivo que .music-player-fab[hidden]: sin esto, display:flex
+   le gana en especificidad al [hidden] nativo del navegador y el panel
+   queda visible aunque musicPlayer.ts le ponga musicPlayerEl.hidden = true. */
+.music-player[hidden] {
+  display: none;
+}
 
 /* Drag handle bar at top */
 .mp-head {
@@ -2360,6 +2366,14 @@ AMBIENT PARTICLES
     0 0 0 1px rgba(200,120,30,0.08) inset,
     0 0 40px rgba(180,90,10,0.08);
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+/* Sin esto, `display: flex` de arriba le gana en especificidad al
+   comportamiento por defecto de [hidden] del navegador (display: none),
+   y el botón queda visible aunque musicPlayer.ts le ponga
+   fabEl.hidden = true — el panel y el FAB terminan superpuestos en vez
+   de mostrarse de a uno por vez. */
+.music-player-fab[hidden] {
+  display: none;
 }
 .music-player-fab:hover {
   border-color: rgba(200,120,30,0.6);
