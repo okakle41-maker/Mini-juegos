@@ -16,7 +16,7 @@ const template = (): string => {
           <div class="holematch-header">
             <div>
               <h2>Hole Match</h2>
-              <p>Presiona ESPACIO cuando el círculo pase sobre las casillas objetivo del recorrido.</p>
+              <p>Presiona ESPACIO cuando el círculo pase sobre las casillas objetivo. Las casillas y el momento del rebote cambian en cada partida.</p>
             </div>
             <div class="holematch-status">
               <span data-ui="holematchProgress">Progreso: 0 / 4</span>
@@ -38,6 +38,24 @@ const template = (): string => {
               <input data-ui="holematchTargetCount" type="number" min="4" max="16" value="8" />
             </label>
             <button data-ui="start">Iniciar</button>
+          </div>
+          <div class="holematch-controls holematch-controls-advanced">
+            <label class="holematch-slider-label">
+              Velocidad <span data-ui="holematchSpeedVal">180</span>°/s
+              <input data-ui="holematchSpeed" type="range" min="60" max="360" step="10" value="180" />
+            </label>
+            <label class="holematch-slider-label">
+              Precisión (ventana) <span data-ui="holematchPrecisionVal">10°</span>
+              <input data-ui="holematchPrecision" type="range" min="3" max="24" step="1" value="10" />
+            </label>
+            <label class="holematch-slider-label">
+              Rebote mín. (s)
+              <input data-ui="holematchFlipMin" type="number" min="0.3" max="10" step="0.1" value="1.2" />
+            </label>
+            <label class="holematch-slider-label">
+              Rebote máx. (s)
+              <input data-ui="holematchFlipMax" type="number" min="0.5" max="15" step="0.1" value="3.2" />
+            </label>
           </div>
           <div class="holematch-guide">Usa ESPACIO para acertar las casillas objetivo en el momento justo.</div>
           <div class="holematch-progress-bar">

@@ -19,6 +19,12 @@ interface HoleMatchUi {
   holematchTimer?: HTMLElement;
   holematchMessage?: HTMLElement;
   holematchProgressBar?: HTMLElement;
+  holematchSpeed?: HTMLInputElement;
+  holematchSpeedVal?: HTMLElement;
+  holematchPrecision?: HTMLInputElement;
+  holematchPrecisionVal?: HTMLElement;
+  holematchFlipMin?: HTMLInputElement;
+  holematchFlipMax?: HTMLInputElement;
 }
 
 interface HoleMatchTarget {
@@ -42,6 +48,13 @@ interface HoleMatchState {
   targets: HoleMatchTarget[];
   currentTargetIndex: number;
   direction: number;
+  // Cambio de dirección: ya no ocurre al acertar, sino en un
+  // intervalo aleatorio independiente del juego (más "pixel perfect"
+  // e impredecible: no se puede aprender el patrón por aciertos).
+  flipTimer: number;
+  nextFlipAt: number;
+  flipMin: number;
+  flipMax: number;
 }
 
 class HoleMatchGame {
@@ -85,7 +98,10 @@ class HoleMatchGame {
       active: false,
       difficulty: 'normal',
       speed: 170,
-      window: 14,
+      // Ventana de acierto más ajustada por defecto (antes 14° en
+      // normal): el pedido es que se sienta más "pixel perfect", así
+      // que se reduce el margen de tolerancia en las tres dificultades.
+      window: 10,
       maxMistakes: 2,
       progress: 0,
       targetCount: 7,
@@ -95,7 +111,11 @@ class HoleMatchGame {
       lastTime: 0,
       targets: [],
       currentTargetIndex: 0,
-      direction: 1
+      direction: 1,
+      flipTimer: 0,
+      nextFlipAt: 0,
+      flipMin: 1.2,
+      flipMax: 3.2
     };
   }
 
@@ -109,36 +129,75 @@ class HoleMatchGame {
     if (this.ui.holematchDifficulty) {
       this.ui.holematchDifficulty.addEventListener('change', () => this.updateDifficulty());
     }
+
+    // Sliders de configuración manual: al tocarlos, el usuario toma
+    // control fino sobre velocidad/precisión por encima del preset de
+    // dificultad (igual que "Modo avanzado" en Progress Timing).
+    if (this.ui.holematchSpeed) {
+      this.ui.holematchSpeed.addEventListener('input', () => {
+        this.state.speed = parseInt(this.ui.holematchSpeed!.value, 10);
+        if (this.ui.holematchSpeedVal) this.ui.holematchSpeedVal.textContent = String(this.state.speed);
+      });
+    }
+    if (this.ui.holematchPrecision) {
+      this.ui.holematchPrecision.addEventListener('input', () => {
+        this.state.window = parseInt(this.ui.holematchPrecision!.value, 10);
+        if (this.ui.holematchPrecisionVal) this.ui.holematchPrecisionVal.textContent = `${this.state.window}°`;
+      });
+    }
+    if (this.ui.holematchFlipMin) {
+      this.ui.holematchFlipMin.addEventListener('input', () => {
+        const v = parseFloat(this.ui.holematchFlipMin!.value);
+        this.state.flipMin = Math.min(v, this.state.flipMax - 0.2);
+      });
+    }
+    if (this.ui.holematchFlipMax) {
+      this.ui.holematchFlipMax.addEventListener('input', () => {
+        const v = parseFloat(this.ui.holematchFlipMax!.value);
+        this.state.flipMax = Math.max(v, this.state.flipMin + 0.2);
+      });
+    }
   }
 
   updateDifficulty(): void {
     const value = this.ui.holematchDifficulty ? this.ui.holematchDifficulty.value : 'normal';
     this.state.difficulty = value;
     if (value === 'easy') {
-      this.state.speed = 120;
-      this.state.window = 22;
+      this.state.speed = 130;
+      this.state.window = 14;
       this.state.maxMistakes = 3;
       this.state.timeRemaining = 24;
     } else if (value === 'hard') {
-      this.state.speed = 240;
-      this.state.window = 8;
+      // Ventana bien angosta: apunta a que el hit tenga que ser
+      // realmente "pixel perfect" en dificultad alta.
+      this.state.speed = 260;
+      this.state.window = 6;
       this.state.maxMistakes = 1;
       this.state.timeRemaining = 16;
     } else {
-      this.state.speed = 170;
-      this.state.window = 14;
+      this.state.speed = 180;
+      this.state.window = 10;
       this.state.maxMistakes = 2;
       this.state.timeRemaining = 20;
     }
+    // Sincroniza los sliders finos con el preset elegido, para que el
+    // usuario vea y pueda seguir ajustando desde ese punto de partida.
+    if (this.ui.holematchSpeed) this.ui.holematchSpeed.value = String(this.state.speed);
+    if (this.ui.holematchSpeedVal) this.ui.holematchSpeedVal.textContent = String(this.state.speed);
+    if (this.ui.holematchPrecision) this.ui.holematchPrecision.value = String(this.state.window);
+    if (this.ui.holematchPrecisionVal) this.ui.holematchPrecisionVal.textContent = `${this.state.window}°`;
     this.updateUI();
   }
 
   start(): void {
     this.state = this.initialState();
     this.state.targetCount = this.getRequestedTargetCount();
+    this.readManualConfig();
     this.updateDifficulty();
     this.state.active = true;
     this.state.direction = Math.random() < 0.5 ? 1 : -1;
+    this.state.flipTimer = 0;
+    this.state.nextFlipAt = this.randomFlipInterval();
     this.state.message = 'Pulsa ESPACIO en el momento exacto.';
     this.state.lastTime = performance.now();
     this.angle = 0;
@@ -146,6 +205,25 @@ class HoleMatchGame {
     this.setNewTarget();
     this.updateUI();
     requestAnimationFrame(this.update.bind(this));
+  }
+
+  /** Lee los sliders de flip (si el usuario los tocó) para que
+   *  persistan entre reinicios; se llama antes de updateDifficulty
+   *  para no perder ninguna config manual al presionar "Iniciar". */
+  readManualConfig(): void {
+    if (this.ui.holematchFlipMin) {
+      const v = parseFloat(this.ui.holematchFlipMin.value);
+      if (!Number.isNaN(v)) this.state.flipMin = v;
+    }
+    if (this.ui.holematchFlipMax) {
+      const v = parseFloat(this.ui.holematchFlipMax.value);
+      if (!Number.isNaN(v)) this.state.flipMax = v;
+    }
+  }
+
+  randomFlipInterval(): number {
+    const { flipMin, flipMax } = this.state;
+    return flipMin + Math.random() * Math.max(0.1, flipMax - flipMin);
   }
 
   getRequestedTargetCount(): number {
@@ -189,9 +267,9 @@ class HoleMatchGame {
 
   buildTargets(): void {
     const count = this.state.targetCount || 4;
-    const step = 360 / count;
-    this.state.targets = Array.from({ length: count }, (_, index): HoleMatchTarget => ({
-      angle: step * index + (step / 2),
+    const angles = this.randomAngles(count);
+    this.state.targets = angles.map((angle): HoleMatchTarget => ({
+      angle,
       completed: false,
       element: null
     }));
@@ -204,6 +282,41 @@ class HoleMatchGame {
       this.stageElement!.appendChild(targetElement);
       target.element = targetElement;
     });
+  }
+
+  /** Genera `count` ángulos aleatorios en el círculo (0–360°), con una
+   *  separación mínima entre casillas consecutivas para que el juego
+   *  siga siendo jugable (evita que dos objetivos queden pegados o
+   *  se pisen visualmente). Antes eran equidistantes fijos (360/count);
+   *  ahora cada partida arma un recorrido distinto e impredecible. */
+  randomAngles(count: number): number[] {
+    const minGap = Math.min(360 / count * 0.6, 28);
+    const maxAttempts = 200;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const angles: number[] = [];
+      let ok = true;
+      for (let i = 0; i < count; i++) {
+        let candidate = Math.random() * 360;
+        let tries = 0;
+        while (tries < 40 && angles.some(a => this.circularDistance(a, candidate) < minGap)) {
+          candidate = Math.random() * 360;
+          tries++;
+        }
+        if (tries >= 40) { ok = false; break; }
+        angles.push(candidate);
+      }
+      if (ok) return angles;
+    }
+    // Fallback improbable: si no se logró separar bien tras varios
+    // intentos (count muy alto), cae al reparto equidistante clásico
+    // para no romper el juego.
+    const step = 360 / count;
+    return Array.from({ length: count }, (_, i) => step * i + step / 2);
+  }
+
+  circularDistance(a: number, b: number): number {
+    const diff = Math.abs(a - b) % 360;
+    return Math.min(diff, 360 - diff);
   }
 
   setNewTarget(): void {
@@ -251,6 +364,16 @@ class HoleMatchGame {
       return;
     }
 
+    // Cambio de dirección en un intervalo aleatorio, desacoplado de
+    // los aciertos: el jugador ya no puede anticipar el rebote por
+    // haber acertado la casilla anterior.
+    this.state.flipTimer += deltaTime;
+    if (this.state.flipTimer >= this.state.nextFlipAt) {
+      this.state.direction *= -1;
+      this.state.flipTimer = 0;
+      this.state.nextFlipAt = this.randomFlipInterval();
+    }
+
     this.angle = (this.angle + this.state.direction * this.state.speed * deltaTime + 360) % 360;
     this.renderPointer();
     this.updateUI();
@@ -285,7 +408,8 @@ class HoleMatchGame {
   registerSuccess(): void {
     this.state.targets[this.state.currentTargetIndex].completed = true;
     this.state.progress += 1;
-    this.state.direction *= -1;
+    // El cambio de dirección ya no depende de acertar: ver update()
+    // (flipTimer / nextFlipAt), que lo dispara en un intervalo random.
     this.state.message = '¡Perfecto!';
     audioManager.play('good');
     this.ui.holematchBoard.classList.add('holematch-success');

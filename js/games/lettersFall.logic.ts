@@ -11,6 +11,10 @@ import GameInstanceRegistry from '../core/gameInstanceRegistry.js';
 import safeStorage from '../core/safeStorage.js';
 import GameHelpers from '../utils/gameHelpers.js';
 import audioManager from '../audioManager.js';
+import { createRoom, joinRoom } from '../core/roomManager.js';
+import type { RoomSession, RoomRole } from '../core/roomManager.js';
+import ErrorLogger from '../core/errorLogger.js';
+
 interface DifficultyConfig {
   minLength: number;
   maxLength: number;
@@ -20,6 +24,14 @@ interface DifficultyConfig {
   spawnAccel: number;
   minVerticalSpacing: number;
 }
+
+/**
+ * Modo coop: 'viewer' ve las palabras caer pero no tiene input activo;
+ * 'typer' tiene el input pero el área de palabras queda vacía/oculta
+ * (ver data-role en css/letters.css). 'solo' es el comportamiento
+ * original de un solo dispositivo, sin sala ni Realtime de por medio.
+ */
+type CoopRole = 'solo' | 'viewer' | 'typer';
 
 interface LettersFallUi {
   start: HTMLElement;
@@ -32,6 +44,25 @@ interface LettersFallUi {
   lettersScore: HTMLElement;
   lettersBest: HTMLElement;
   lettersLives: HTMLElement;
+  lettersCard: HTMLElement;
+  lettersControls: HTMLElement;
+  lettersRoleBadge: HTMLElement;
+  lettersModePanel: HTMLElement;
+  modeSolo: HTMLElement;
+  modeCreate: HTMLElement;
+  modeJoin: HTMLElement;
+  roleChooser: HTMLElement;
+  roleChooserLabel: HTMLElement;
+  roleViewer: HTMLButtonElement;
+  roleTyper: HTMLButtonElement;
+  joinCodeRow: HTMLElement;
+  joinCodeInput: HTMLInputElement;
+  roleConfirm: HTMLButtonElement;
+  roleBack: HTMLElement;
+  roomStatus: HTMLElement;
+  roomStatusText: HTMLElement;
+  roomCodeDisplay: HTMLElement;
+  roomCancel: HTMLElement;
   [key: string]: HTMLElement | null | undefined;
 }
 
@@ -86,8 +117,22 @@ class LettersFallGame {
   chuchuWordPool: string[];
   cleanup: ReturnType<typeof GameHelpers.createCleanupManager>;
 
-  constructor(ui: LettersFallUi) {
+  /**
+   * Modo coop. En 'solo' (default) el juego funciona exactamente
+   * igual que antes de agregar salas — `room` queda null y nada de
+   * la lógica de sincronización se activa. En modo coop, el viewer
+   * es la única instancia que corre `update()`/`spawnWord()` (motor
+   * único de físicas, para que las dos pantallas nunca vean palabras
+   * distintas); ver protocolo de eventos en `connectRoom` más abajo.
+   * El typer nunca instancia `LettersFallGame`, ver `initTyperMode`.
+   */
+  role: CoopRole = 'solo';
+  room: RoomSession | null = null;
+
+  constructor(ui: LettersFallUi, role: CoopRole = 'solo', room: RoomSession | null = null) {
     this.ui = ui;
+    this.role = role;
+    this.room = room;
     this.cleanup = GameHelpers.createCleanupManager();
     this.state = {
       words: [],
@@ -290,6 +335,7 @@ class LettersFallGame {
     this.cleanup.addTimeout(() => this.ui.lettersArea.classList.remove('letters-flash'), 240);
     audioManager?.play('miss');
     this.showMessage('Perdido', 'fail');
+    this.notifyPeer('fail', word.text);
   }
 
   checkInputMatch() {
@@ -297,12 +343,32 @@ class LettersFallGame {
     const typed = this.state.currentInput.toUpperCase();
     const matchIndex = this.state.words.findIndex(word => word.text === typed);
     if (matchIndex >= 0) {
+      const matchedText = this.state.words[matchIndex].text;
       this.removeWord(this.state.words[matchIndex]);
       this.state.currentInput = '';
       this.ui.lettersInput.value = '';
       audioManager?.play('good');
       this.showMessage('Correcto', 'success');
+      this.notifyPeer('success', matchedText);
+    } else if (this.role === 'viewer') {
+      // En coop, el typer no ve las palabras: un intento fallido
+      // también le da feedback ("no es esa"), no solo los aciertos.
+      this.notifyPeer('miss-attempt', typed);
     }
+  }
+
+  /**
+   * Le avisa al typer (si estamos en sala coop y somos el viewer) el
+   * resultado de un intento, para que muestre feedback de
+   * acierto/error en tiempo real aunque no vea las palabras — ver
+   * `initTyperMode` para el lado que consume estos eventos.
+   * No-op en modo 'solo' o si somos el typer (el typer no reenvía).
+   */
+  notifyPeer(type: 'success' | 'fail' | 'miss-attempt', text: string) {
+    if (this.role !== 'viewer' || !this.room) return;
+    this.room.send('viewer:result', { type, text }).catch((error) => {
+      ErrorLogger.log('lettersFall.notifyPeer', error, { type, text });
+    });
   }
 
   removeWord(word: Word) {
@@ -329,6 +395,11 @@ class LettersFallGame {
     this.ui.lettersMessage.textContent = 'GAME OVER';
     this.ui.lettersMessage.classList.add('fail');
     if (window.Leaderboard) window.Leaderboard.save('letters', this.state.score);
+    if (this.role === 'viewer' && this.room) {
+      this.room.send('viewer:gameover', { score: this.state.score }).catch((error) => {
+        ErrorLogger.log('lettersFall.gameOver.notifyPeer', error);
+      });
+    }
   }
 
   showMessage(text: string, type: string) {
@@ -348,19 +419,34 @@ class LettersFallGame {
     this.ui.lettersScore.textContent = `Puntuación: ${this.state.score}`;
     this.ui.lettersBest.textContent = `Mejor: ${this.state.best}`;
     this.ui.lettersLives.innerHTML = Array.from({ length: this.state.lives }, () => '<span>❤️</span>').join('');
+
+    if (this.role === 'viewer' && this.room) {
+      this.room.send('viewer:state', {
+        score: this.state.score,
+        best: this.state.best,
+        lives: this.state.lives
+      }).catch(() => {
+        // Silencioso: updateUI corre en cada frame del loop de
+        // render, un fallo puntual de red acá no debe interrumpir el
+        // juego ni loguear ruido en cada tick — el próximo tick
+        // reintenta con el estado actualizado de todas formas.
+      });
+    }
   }
 }
 
-export function init(rawUi: GameUi) {
-  const ui = rawUi as unknown as LettersFallUi;
-  if (!ui.start) return; // sección no presente
+/**
+ * Instancia guardada en GameInstanceRegistry: en modo 'solo'/'viewer'
+ * es un `LettersFallGame` real; en modo 'typer' es este wrapper
+ * liviano, ya que el typer no corre físicas ni spawnea palabras —
+ * solo necesita `leave()` para cerrar la sala al salir de la vista.
+ */
+interface StoppableInstance {
+  reset?: () => void;
+  leave?: () => void;
+}
 
-  const game = new LettersFallGame(ui);
-
-  // Foco automático al entrar a la vista: el usuario puede empezar a
-  // escribir sin tener que clickear el input primero.
-  ui.lettersInput.focus();
-
+function wireDifficultyAndInput(ui: LettersFallUi, game: LettersFallGame) {
   ui.start.addEventListener('click', () => game.start());
 
   ui.lettersInput.addEventListener('input', (event: Event) => {
@@ -386,13 +472,280 @@ export function init(rawUi: GameUi) {
     game.state.lives = game.getStartingLives();
     game.updateUI();
   });
+}
+
+function showRoleBadge(ui: LettersFallUi, role: CoopRole, code: string) {
+  ui.lettersRoleBadge.textContent = role === 'viewer' ? `👀 Viewer · Sala ${code}` : `⌨️ Typer · Sala ${code}`;
+  ui.lettersRoleBadge.classList.remove('hidden');
+}
+
+/**
+ * Arranca el juego en modo 'solo' (comportamiento original, sin sala)
+ * o 'viewer' (con sala coop activa) — ambos usan la misma clase
+ * `LettersFallGame`, la diferencia es si `room` es null o no.
+ */
+function startGameCard(ui: LettersFallUi, role: CoopRole, room: RoomSession | null) {
+  ui.lettersModePanel.classList.add('hidden');
+  ui.lettersCard.classList.remove('hidden');
+  ui.lettersCard.dataset.role = role;
+
+  const game = new LettersFallGame(ui, role, room);
+  ui.lettersInput.focus();
+  wireDifficultyAndInput(ui, game);
+
+  if (room) {
+    showRoleBadge(ui, role, room.code);
+    // En coop, el arranque lo dispara el viewer (es quien tiene el
+    // botón "Iniciar" visible con sentido — el typer no ve el
+    // tablero); le avisamos al typer para que también entre en
+    // "modo jugando" y su feedback de resultados tenga sentido.
+    ui.start.addEventListener('click', () => {
+      room.send('viewer:start', {}).catch(() => {});
+    });
+  }
 
   GameInstanceRegistry.set('letters', game);
 }
 
-export function stop() {
-  const game = GameInstanceRegistry.get<LettersFallGame>('letters');
-  if (game) game.reset();
-  GameInstanceRegistry.clear('letters');
+/**
+ * Modo typer: no instancia `LettersFallGame` (no hay palabras que
+ * mostrar ni físicas que correr en esta pantalla). Solo envía cada
+ * cambio del input al viewer vía `typer:input`, y pinta el feedback
+ * que el viewer le manda de vuelta (`viewer:result`/`viewer:state`/
+ * `viewer:gameover`) sobre el mismo markup de `lettersMessage`/
+ * `lettersScore`/etc. — así reutiliza el CSS existente sin duplicar
+ * vista.
+ */
+function startTyperMode(ui: LettersFallUi, room: RoomSession) {
+  ui.lettersModePanel.classList.add('hidden');
+  ui.lettersCard.classList.remove('hidden');
+  ui.lettersCard.dataset.role = 'typer';
+  ui.lettersControls.classList.add('hidden'); // el typer no elige dificultad ni ve "Iniciar"
+  showRoleBadge(ui, 'typer', room.code);
+  ui.lettersInput.focus();
+
+  const showMessage = (text: string, type: string) => {
+    ui.lettersMessage.textContent = text;
+    ui.lettersMessage.className = `letters-message ${type}`;
+    setTimeout(() => {
+      ui.lettersMessage.textContent = '';
+      ui.lettersMessage.className = 'letters-message';
+    }, 900);
+  };
+
+  const sendInput = () => {
+    const value = ui.lettersInput.value.trim().toUpperCase();
+    if (!value) return;
+    room.send('typer:input', { value }).catch((error) => {
+      ErrorLogger.log('lettersFall.typer.sendInput', error);
+    });
+  };
+
+  ui.lettersInput.addEventListener('keydown', (event: KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      sendInput();
+      event.preventDefault();
+    }
+  });
+
+  const unsubscribers = [
+    room.on('viewer:result', (payload) => {
+      const { type } = payload as { type: 'success' | 'fail' | 'miss-attempt'; text: string };
+      if (type === 'success') {
+        audioManager?.play('good');
+        showMessage('Correcto', 'success');
+        ui.lettersInput.value = '';
+      } else if (type === 'fail') {
+        audioManager?.play('miss');
+        showMessage('Se te escapó una', 'fail');
+      } else {
+        showMessage('No es esa', 'fail');
+      }
+    }),
+    room.on('viewer:state', (payload) => {
+      const { score, best, lives } = payload as { score: number; best: number; lives: number };
+      ui.lettersScore.textContent = `Puntuación: ${score}`;
+      ui.lettersBest.textContent = `Mejor: ${best}`;
+      ui.lettersLives.innerHTML = Array.from({ length: lives }, () => '<span>❤️</span>').join('');
+    }),
+    room.on('viewer:gameover', (payload) => {
+      const { score } = payload as { score: number };
+      ui.lettersMessage.textContent = 'GAME OVER';
+      ui.lettersMessage.classList.add('fail');
+      ui.lettersInput.disabled = true;
+      void score;
+    }),
+  ];
+
+  GameInstanceRegistry.set('letters', {
+    leave: () => {
+      unsubscribers.forEach((off) => off());
+      room.leave().catch(() => {});
+    },
+  } satisfies StoppableInstance);
 }
 
+/**
+ * En el viewer, cada tecla escrita por el typer llega vía
+ * `typer:input` — se refleja en `game.state.currentInput` y se valida
+ * con el mismo `checkInputMatch()` que usa el modo solo, así toda la
+ * lógica de puntaje/vidas queda en un único lugar.
+ */
+function listenForTyperInput(room: RoomSession, game: LettersFallGame) {
+  room.on('typer:input', (payload) => {
+    const { value } = payload as { value: string };
+    game.state.currentInput = value;
+    game.checkInputMatch();
+  });
+}
+
+/** Texto de estado mostrado mientras se espera al otro jugador. */
+function setRoomStatus(ui: LettersFallUi, text: string, code?: string) {
+  ui.roomStatus.classList.remove('hidden');
+  ui.roomStatusText.textContent = text;
+  if (code) {
+    ui.roomCodeDisplay.textContent = code;
+    ui.roomCodeDisplay.classList.remove('hidden');
+  } else {
+    ui.roomCodeDisplay.classList.add('hidden');
+  }
+}
+
+function hidePanelStep(...steps: HTMLElement[]) {
+  steps.forEach((el) => el.classList.add('hidden'));
+}
+
+/**
+ * Conecta (o crea) la sala y espera a que el otro rol aparezca antes
+ * de arrancar el tablero — `onPeersChange` se dispara con el snapshot
+ * completo de presencia cada vez que alguien entra o sale, así que
+ * basta con revisar si el rol contrario ya está en la lista.
+ */
+async function connectAndWait(
+  ui: LettersFallUi,
+  mode: 'create' | 'join',
+  role: CoopRole,
+  code: string
+): Promise<void> {
+  const otherRole: CoopRole = role === 'viewer' ? 'typer' : 'viewer';
+
+  setRoomStatus(ui, mode === 'create' ? 'Creando sala…' : 'Conectando…');
+
+  let room: RoomSession;
+  try {
+    const connectPromise = mode === 'create' ? createRoom('letters', role) : joinRoom('letters', code, role);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Tiempo de espera agotado conectando a la sala')), 10000);
+    });
+    room = await Promise.race([connectPromise, timeoutPromise]);
+  } catch (error) {
+    ErrorLogger.log('lettersFall.connectAndWait', error, { mode, role, code });
+    setRoomStatus(
+      ui,
+      'No se pudo conectar a la sala. Puede ser tu conexión, o que el proyecto no tenga Realtime habilitado. Probá de nuevo o volvé atrás.'
+    );
+    return;
+  }
+
+  const alreadyThere = room.peers().some((peer) => peer.role === otherRole);
+  if (alreadyThere) {
+    launchCoop(ui, role, room);
+    return;
+  }
+
+  setRoomStatus(
+    ui,
+    `Esperando a que se una el ${otherRole === 'viewer' ? 'viewer' : 'typer'}…`,
+    room.code
+  );
+
+  const off = room.onPeersChange((peers) => {
+    if (peers.some((peer) => peer.role === otherRole)) {
+      off();
+      launchCoop(ui, role, room);
+    }
+  });
+
+  ui.roomCancel.addEventListener(
+    'click',
+    () => {
+      off();
+      room.leave().catch(() => {});
+      hidePanelStep(ui.roomStatus);
+      ui.lettersModePanel.classList.remove('hidden');
+    },
+    { once: true }
+  );
+}
+
+function launchCoop(ui: LettersFallUi, role: CoopRole, room: RoomSession) {
+  hidePanelStep(ui.roomStatus, ui.roleChooser, ui.lettersModePanel);
+  if (role === 'viewer') {
+    startGameCard(ui, 'viewer', room);
+    const game = GameInstanceRegistry.get<LettersFallGame>('letters');
+    if (game) listenForTyperInput(room, game);
+  } else {
+    startTyperMode(ui, room);
+  }
+}
+
+export function init(rawUi: GameUi) {
+  const ui = rawUi as unknown as LettersFallUi;
+  if (!ui.start) return; // sección no presente
+
+  let pendingMode: 'create' | 'join' = 'create';
+
+  const showStep = (step: HTMLElement) => {
+    [ui.lettersModePanel, ui.roleChooser, ui.roomStatus].forEach((el) => {
+      if (el !== step) el.classList.add('hidden');
+    });
+    step.classList.remove('hidden');
+  };
+
+  ui.modeSolo.addEventListener('click', () => startGameCard(ui, 'solo', null));
+
+  ui.modeCreate.addEventListener('click', () => {
+    pendingMode = 'create';
+    ui.joinCodeRow.classList.add('hidden');
+    ui.roleChooserLabel.textContent = 'Elegí tu rol (vas a compartir el código después):';
+    showStep(ui.roleChooser);
+  });
+
+  ui.modeJoin.addEventListener('click', () => {
+    pendingMode = 'join';
+    ui.joinCodeRow.classList.remove('hidden');
+    ui.roleChooserLabel.textContent = 'Ingresá el código y elegí tu rol:';
+    showStep(ui.roleChooser);
+  });
+
+  ui.roleBack.addEventListener('click', () => showStep(ui.lettersModePanel));
+
+  let selectedRole: CoopRole | null = null;
+  const selectRole = (role: CoopRole) => {
+    selectedRole = role;
+    ui.roleViewer.setAttribute('aria-pressed', String(role === 'viewer'));
+    ui.roleTyper.setAttribute('aria-pressed', String(role === 'typer'));
+    const codeOk = pendingMode === 'create' || ui.joinCodeInput.value.trim().length === 4;
+    ui.roleConfirm.disabled = !codeOk;
+  };
+  ui.roleViewer.addEventListener('click', () => selectRole('viewer'));
+  ui.roleTyper.addEventListener('click', () => selectRole('typer'));
+
+  ui.joinCodeInput.addEventListener('input', () => {
+    ui.joinCodeInput.value = ui.joinCodeInput.value.toUpperCase().slice(0, 4);
+    if (selectedRole) ui.roleConfirm.disabled = ui.joinCodeInput.value.trim().length !== 4;
+  });
+
+  ui.roleConfirm.addEventListener('click', () => {
+    if (!selectedRole) return;
+    showStep(ui.roomStatus);
+    connectAndWait(ui, pendingMode, selectedRole, ui.joinCodeInput.value);
+  });
+}
+
+export function stop() {
+  const instance = GameInstanceRegistry.get<StoppableInstance>('letters');
+  if (instance?.reset) instance.reset();
+  if (instance?.leave) instance.leave();
+  GameInstanceRegistry.clear('letters');
+}
