@@ -15,7 +15,7 @@ const template = (): string => {
 
     <div class="card">
       <h2>Typix</h2>
-      <p>Adivina el código de 5 dígitos en un máximo de 6 intentos.</p>
+      <p>Adivina el código de 5 dígitos en un máximo de 6 intentos. Por cada intento verás un resumen: <strong>!</strong> por cada dígito en la posición correcta y <strong>*</strong> por cada dígito que existe pero está en otra posición — sin decirte cuáles son.</p>
 
       <div class="typix-header">
         <div id="typixTimer">60</div>
@@ -26,10 +26,17 @@ const template = (): string => {
 
 
 
-      <label class="typix-option">
-      <input type="checkbox" id="typixUniqueDigits">
-       Modo difícil (sin dígitos repetidos)
-      </label>
+      <div class="typix-options">
+        <label class="typix-option">
+        <input type="checkbox" id="typixUniqueDigits">
+         Sin repeticiones
+        </label>
+
+        <label class="typix-option">
+        <input type="checkbox" id="typixShowDigits">
+         Números
+        </label>
+      </div>
 
       <input
        id="typixInput"

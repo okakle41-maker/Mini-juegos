@@ -139,6 +139,16 @@
   border-radius: 50%;
   background: linear-gradient(135deg, #f97316, #ff9a3c);
 }
+.mp2-cfg-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-top: 2px;
+}
+.mp2-cfg-check input { accent-color: #f97316; width: 15px; height: 15px; cursor: pointer; }
 
 /* ── Track wrapper ── */
 .mp2-track-wrap { padding: 20px 22px 10px; }

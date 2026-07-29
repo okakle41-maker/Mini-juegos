@@ -37,6 +37,25 @@ export function init() {
           <div class="mp2-badge" id="bbBadge" role="status" aria-live="polite">LISTO</div>
         </div>
 
+        <div class="mp2-config" id="bbConfig">
+          <div class="mp2-cfg-row">
+            <label class="mp2-cfg-label" for="bbSpeed">Velocidad base <span id="bbSpeedVal">70</span></label>
+            <input class="mp2-slider" type="range" id="bbSpeed" min="30" max="150" step="5" value="70" aria-valuetext="70">
+          </div>
+          <div class="mp2-cfg-row">
+            <label class="mp2-cfg-label" for="bbZoneSize">Tamaño de zona <span id="bbZoneSizeVal">14%</span></label>
+            <input class="mp2-slider" type="range" id="bbZoneSize" min="6" max="30" step="1" value="14" aria-valuetext="14 por ciento">
+          </div>
+          <div class="mp2-cfg-row">
+            <label class="mp2-cfg-label" for="bbRounds">Rondas <span id="bbRoundsVal">5</span></label>
+            <input class="mp2-slider" type="range" id="bbRounds" min="3" max="12" step="1" value="5" aria-valuetext="5 rondas">
+          </div>
+          <label class="mp2-cfg-check">
+            <input type="checkbox" id="bbRamp" checked>
+            Dificultad creciente por ronda
+          </label>
+        </div>
+
         <div class="mp2-track-wrap">
           <div class="mp2-track bb-track" id="bbTrack">
             <div class="bb-zone" id="bbZone"></div>
@@ -70,8 +89,42 @@ export function init() {
     const badge    = $('bbBadge');
     const startBtn = $('bbStart');
 
-    const TOTAL_ROUNDS = 5;
-    const ZONE_WIDTH   = 14;   // % width of hit zone
+    const speedSlider  = $('bbSpeed')     as HTMLInputElement;
+    const zoneSlider   = $('bbZoneSize')  as HTMLInputElement;
+    const roundsSlider = $('bbRounds')    as HTMLInputElement;
+    const rampCheck    = $('bbRamp')      as HTMLInputElement;
+    const speedVal     = $('bbSpeedVal');
+    const zoneVal      = $('bbZoneSizeVal');
+    const roundsVal    = $('bbRoundsVal');
+
+    // Config del usuario. baseSpeed es más agresiva que el valor
+    // original hardcodeado (era pullSpeed=18, launchSpeed=55 en
+    // difficulty=1): ahora el slider parte en 70 y escala ambas
+    // velocidades, por lo que el juego arranca notablemente más
+    // rápido incluso en ronda 1.
+    let baseSpeed  = +speedSlider.value;
+    let zoneWidth  = +zoneSlider.value;
+    let totalRoundsCfg = +roundsSlider.value;
+    let rampEnabled = rampCheck.checked;
+
+    function updateConfigTexts() {
+      baseSpeed  = +speedSlider.value;
+      zoneWidth  = +zoneSlider.value;
+      totalRoundsCfg = +roundsSlider.value;
+      rampEnabled = rampCheck.checked;
+      speedVal.textContent  = String(baseSpeed);
+      zoneVal.textContent   = zoneWidth + '%';
+      roundsVal.textContent = String(totalRoundsCfg);
+    }
+
+    speedSlider.addEventListener('input', updateConfigTexts);
+    zoneSlider.addEventListener('input', updateConfigTexts);
+    roundsSlider.addEventListener('input', updateConfigTexts);
+    rampCheck.addEventListener('change', updateConfigTexts);
+    updateConfigTexts();
+
+    let TOTAL_ROUNDS = totalRoundsCfg;
+    let ZONE_WIDTH   = zoneWidth;   // % width of hit zone
 
     let running = false, raf: number | null = null;
     let pos = 0;             // 0–100 %
@@ -99,11 +152,17 @@ export function init() {
       hitThisRound = false;
       canHit = false;
 
-      // Difficulty ramps up
-      difficulty = 1 + (totalRounds - 1) * 0.3;
+      // Difficulty ramps up (solo si el usuario habilitó "Dificultad
+      // creciente"; si no, cada ronda usa la misma dificultad base).
+      difficulty = rampEnabled ? 1 + (totalRounds - 1) * 0.3 : 1;
       pullTarget = 5 + Math.random() * 15;       // pull back to 5–20%
-      pullSpeed  = 18 + difficulty * 4;           // px/s in %/s
-      launchSpeed= 55 + difficulty * 10;
+      // baseSpeed (configurable, default 70 — antes era un valor fijo
+      // equivalente a ~50) escala ambas velocidades: pullback y launch
+      // suben juntas, y el múltiplo de difficulty también es mayor
+      // que antes (x6 / x14 en vez de x4 / x10) para que se sienta
+      // notablemente más agresivo incluso en ronda 1.
+      pullSpeed  = baseSpeed * 0.35 + difficulty * 6;
+      launchSpeed= baseSpeed * 1.05 + difficulty * 14;
 
       placeZone();
       pos = 30 + Math.random() * 10;             // start ~30–40%
@@ -233,6 +292,11 @@ export function init() {
     function startGame() {
       running = false;
       if (raf) cancelAnimationFrame(raf);
+
+      // Congela la config elegida para toda la partida (cambiar los
+      // sliders mid-partida no debe alterar rondas/zona ya en curso).
+      TOTAL_ROUNDS = totalRoundsCfg;
+      ZONE_WIDTH   = zoneWidth;
 
       roundHits = 0; totalRounds = 0; score = 0; difficulty = 1;
       stats.style.display = 'none';

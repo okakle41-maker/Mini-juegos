@@ -65,10 +65,10 @@ export function init(ui: GameUi) {
   let matched = 0, moves = 0;
   let timeLeft = 90;
 
-  function setDifficulty(n: number, time: number) {
+  function setDifficulty(n: number, _time: number) {
     pairs = n;
-    totalTime = time;
-    timeLeft = time;
+    totalTime = 90;
+    timeLeft = totalTime;
     pairsDiffBtns.forEach((b: HTMLElement) => {
       const isActive = parseInt(b.dataset.pairs || '0') === n;
       b.classList.toggle('pairs-diff--active', isActive);

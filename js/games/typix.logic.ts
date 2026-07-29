@@ -23,14 +23,16 @@ export function init() {
   const inputEl   = document.getElementById('typixInput') as HTMLInputElement | null;
   const messageEl = document.getElementById('typixMessage');
   const uniqueEl  = document.getElementById('typixUniqueDigits') as HTMLInputElement | null;
+  const showDigitsEl = document.getElementById('typixShowDigits') as HTMLInputElement | null;
   const guessBtn  = document.getElementById('typixGuessBtn');
 
-  if (!timerEl || !inputEl || !messageEl || !uniqueEl || !guessBtn) return;
+  if (!timerEl || !inputEl || !messageEl || !uniqueEl || !showDigitsEl || !guessBtn) return;
 
   let secretWord = '';
   let currentRow = 0;
   let timer: ReturnType<typeof setInterval> | null = null;
   let timeLeft = 60;
+  let gameOver = false;
 
   function generateRepeated(): string {
     let r = '';
@@ -54,11 +56,6 @@ export function init() {
     for (let r = 0; r < 6; r++) {
       const row = document.createElement('div');
       row.className = 'typix-row';
-      for (let c = 0; c < 5; c++) {
-        const cell = document.createElement('div');
-        cell.className = 'typix-cell';
-        row.appendChild(cell);
-      }
       board!.appendChild(row);
     }
   }
@@ -68,9 +65,12 @@ export function init() {
     secretWord = uniqueEl!.checked ? generateUnique() : generateRepeated();
     currentRow = 0;
     timeLeft = 60;
+    gameOver = false;
     timerEl!.textContent = String(timeLeft);
     inputEl!.value = '';
+    inputEl!.disabled = false;
     messageEl!.textContent = '';
+    guessBtn!.textContent = 'Intentar';
     createBoard();
     timer = setInterval(() => {
       timeLeft--;
@@ -79,18 +79,57 @@ export function init() {
     }, 1000);
   }
 
+  function renderGuess(guess: string): string {
+    return showDigitsEl!.checked ? guess : guess.replace(/\d/g, '•');
+  }
+
+  function refreshGuessDisplay() {
+    board!.querySelectorAll<HTMLElement>('.typix-row').forEach(row => {
+      const guessEl = row.querySelector('.typix-guess');
+      const guess = row.dataset.guess;
+      if (guessEl && guess) guessEl.textContent = renderGuess(guess);
+    });
+  }
+
   function evaluateGuess(guess: string) {
     const row = board!.querySelectorAll('.typix-row')[currentRow];
     if (!row) return;
-    let correct = 0, present = 0;
+
+    // Clasificación por dígito: correct (posición exacta), present
+    // (existe en el código pero en otra posición) o absent. Se hace
+    // en dos pasadas para no marcar como "present" un dígito que ya
+    // fue consumido por un match "correct" en otra celda.
+    const secretRemaining = secretWord.split('');
+    const statuses: ('correct' | 'present' | 'absent')[] = new Array(5).fill('absent');
+
     for (let i = 0; i < 5; i++) {
-      if (guess[i] === secretWord[i]) correct++;
-      else if (secretWord.includes(guess[i])) present++;
+      if (guess[i] === secretWord[i]) {
+        statuses[i] = 'correct';
+        secretRemaining[i] = '';
+      }
     }
+    for (let i = 0; i < 5; i++) {
+      if (statuses[i] === 'correct') continue;
+      const idx = secretRemaining.indexOf(guess[i]);
+      if (idx !== -1) {
+        statuses[i] = 'present';
+        secretRemaining[idx] = '';
+      }
+    }
+
+    const correct = statuses.filter(s => s === 'correct').length;
+    const present = statuses.filter(s => s === 'present').length;
     const absent = 5 - correct - present;
-    row.innerHTML = `
-      <span class="typix-guess">${guess}</span>
-      <span class="typix-result">[${'!'.repeat(correct)}${'*'.repeat(present)}]</span>`;
+
+    // Resumen agregado, sin indicar a qué posición corresponde cada
+    // símbolo: '!' por cada dígito correcto y bien ubicado, '*' por
+    // cada dígito presente en otra posición. No se generan celdas por
+    // dígito para no filtrar qué posición acertaste, solo la cuenta.
+    const summary = '!'.repeat(correct) + '*'.repeat(present);
+
+    row.dataset.guess = guess;
+    row.innerHTML = `<div class="typix-guess">${renderGuess(guess)}</div>` +
+      `<div class="typix-summary">${summary || '—'}</div>`;
     row.setAttribute(
       'aria-label',
       `Intento ${guess}: ${correct} dígito${correct === 1 ? '' : 's'} correcto${correct === 1 ? '' : 's'}, ` +
@@ -98,6 +137,9 @@ export function init() {
     );
     if (guess === secretWord) {
       if (timer) clearInterval(timer);
+      gameOver = true;
+      inputEl!.disabled = true;
+      guessBtn!.textContent = 'Reiniciar';
       audioManager?.play('perfect');
       messageEl!.textContent = '¡Ganaste!';
       return;
@@ -109,11 +151,18 @@ export function init() {
 
   function loseGame() {
     if (timer) clearInterval(timer);
+    gameOver = true;
+    inputEl!.disabled = true;
+    guessBtn!.textContent = 'Reiniciar';
     audioManager?.play('gameover');
     messageEl!.textContent = `❌ Perdiste. El código era ${secretWord}`;
   }
 
   function onGuess() {
+    if (gameOver) {
+      startGame();
+      return;
+    }
     const guess = inputEl!.value.trim();
     if (!/^\d{5}$/.test(guess)) return;
     evaluateGuess(guess);
@@ -121,7 +170,8 @@ export function init() {
   }
 
   guessBtn.addEventListener('click', onGuess);
-  inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') onGuess(); });
+  inputEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !inputEl!.disabled) onGuess(); });
+  showDigitsEl.addEventListener('change', refreshGuessDisplay);
 
   // start immediately on first load
   startGame();
