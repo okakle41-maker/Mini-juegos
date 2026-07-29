@@ -25,19 +25,20 @@ const template = (): string => {
               <span data-ui="lettersBest">Mejor: 0</span>
             </div>
           </div>
-          <div data-ui="lettersArea" class="letters-area">
-            <div class="letters-lives" data-ui="lettersLives"></div>
-            <div data-ui="lettersDanger" class="letters-danger"></div>
-          </div>
           <div class="letters-controls">
             <label>Dificultad:
               <select data-ui="lettersDifficultySelect">
                 <option value="easy">Easy</option>
                 <option value="normal" selected>Normal</option>
                 <option value="hard">Hard</option>
+                <option value="chuchu">Chuchu</option>
               </select>
             </label>
             <button data-ui="start" class="letters-start-btn">Iniciar</button>
+          </div>
+          <div data-ui="lettersArea" class="letters-area">
+            <div class="letters-lives" data-ui="lettersLives"></div>
+            <div data-ui="lettersDanger" class="letters-danger"></div>
           </div>
           <div class="letters-input-row">
             <input data-ui="lettersInput" type="text" autocomplete="off" placeholder="Escribe aquí..." aria-label="Escribe la palabra que está cayendo" />

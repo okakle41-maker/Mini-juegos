@@ -134,6 +134,26 @@ body.high-contrast .diff-dot--empty {
   }
 }
 
+/* ── Deshabilitar interacciones nativas del navegador con el mouse:
+   arrastrar para seleccionar texto y doble click para seleccionar
+   palabra. El menú contextual (click derecho) se bloquea aparte en
+   JS (ver interactionLock.ts), porque CSS no puede evitarlo.
+   Los campos de entrada (input/textarea/[contenteditable]) quedan
+   excluidos: ahí el usuario sí necesita poder seleccionar y copiar
+   lo que escribe. ── */
+html, body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+input, textarea, [contenteditable="true"], [contenteditable=""] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--bg);

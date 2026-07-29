@@ -18,8 +18,8 @@ const template = (): string => {
 
           <div class="pairs-diff-row">
             <button class="pairs-diff-btn pairs-diff--active" data-ui-all="pairsDiffBtns" data-pairs="12" data-time="90" aria-pressed="true">FÁCIL · 12 pares · 90s</button>
-            <button class="pairs-diff-btn" data-ui-all="pairsDiffBtns" data-pairs="16" data-time="120" aria-pressed="false">MEDIO · 16 pares · 120s</button>
-            <button class="pairs-diff-btn" data-ui-all="pairsDiffBtns" data-pairs="20" data-time="150" aria-pressed="false">DIFÍCIL · 20 pares · 150s</button>
+            <button class="pairs-diff-btn" data-ui-all="pairsDiffBtns" data-pairs="16" data-time="90" aria-pressed="false">MEDIO · 16 pares · 90</button>
+            <button class="pairs-diff-btn" data-ui-all="pairsDiffBtns" data-pairs="20" data-time="90" aria-pressed="false">DIFÍCIL · 20 pares · 90s</button>
           </div>
 
           <div class="pairs-timerbar-wrap">

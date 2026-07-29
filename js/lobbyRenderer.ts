@@ -64,7 +64,7 @@ class LobbyRenderer {
 
   private themeListenerBound = false;
 
-  /** Reacciona a cambios de tema (p. ej. cambiar a "pixel" desde
+  /** Reacciona a cambios de tema (p. ej. cambiar a "neon" u "ocean" desde
    *  Configuración) volviendo a pintar el lobby con los nombres/tags/
    *  iconos correctos. Se registra una sola vez. */
   private bindThemeChangeOnce(): void {

@@ -21,7 +21,7 @@ describe('configPanel — selectores de tema', () => {
     document.body.innerHTML = `
       <select id="themeSelect" class="theme-select">
         <option value="dark" selected>Oscuro</option>
-        <option value="pixel">🕹️ Pixel Lab</option>
+        <option value="neon">💠 Neón</option>
       </select>
       <section id="configuracion"></section>
     `;
@@ -46,13 +46,13 @@ describe('configPanel — selectores de tema', () => {
       const select = document.getElementById('themeSelect') as HTMLSelectElement;
       expect(select).toBeTruthy();
 
-      select.value = 'pixel';
+      select.value = 'neon';
       select.dispatchEvent(new Event('change', { bubbles: true }));
 
       // A pesar de que localStorage está bloqueado, el tema debe aplicarse
       // al DOM (persistencia entre sesiones es best-effort, pero la
       // sesión actual siempre debe reflejar el cambio).
-      expect(document.body.getAttribute('data-theme')).toBe('pixel');
+      expect(document.body.getAttribute('data-theme')).toBe('neon');
     } finally {
       Storage.prototype.getItem = originalGetItem;
       Storage.prototype.setItem = originalSetItem;
@@ -70,10 +70,10 @@ describe('configPanel — selectores de tema', () => {
     const headerSelect = document.getElementById('themeSelect') as HTMLSelectElement;
     const configSelect = document.getElementById('configThemeSelect') as HTMLSelectElement;
 
-    headerSelect.value = 'pixel';
+    headerSelect.value = 'neon';
     headerSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
-    expect(document.body.getAttribute('data-theme')).toBe('pixel');
-    expect(configSelect.value).toBe('pixel');
+    expect(document.body.getAttribute('data-theme')).toBe('neon');
+    expect(configSelect.value).toBe('neon');
   });
 });

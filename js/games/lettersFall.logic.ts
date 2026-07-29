@@ -83,6 +83,7 @@ class LettersFallGame {
     wordSpeed: number;
   };
   wordPool: string[];
+  chuchuWordPool: string[];
   cleanup: ReturnType<typeof GameHelpers.createCleanupManager>;
 
   constructor(ui: LettersFallUi) {
@@ -106,6 +107,12 @@ class LettersFallGame {
       'AGUA', 'ROCA', 'LUNA', 'NUBE', 'MALTA', 'MONTAÑA', 'RAPIDO', 'SERPIENTE', 'ESPACIO', 'DRAGON',
       'CASCADA', 'MANANTIAL', 'RESISTIR', 'COMPUTADORA', 'ALGORITMO', 'FANTASMA', 'PLANETA', 'CRISTAL',
       'TORBELLINO', 'SINTAXIS', 'CONECTOR', 'CIRCUITO', 'TECLADO', 'VELOCIDAD'
+    ];
+    this.chuchuWordPool = [
+      'DESCIFRADO', 'REVOLVER', 'ENCUBRIMIENTO', 'ESCALAMIENTO', 'BALA', 'ARMA', 'PERSECUCION',
+      'PROYECTILES', 'INTERCEPTACION', 'DETECCION', 'COMUNICACIONES', 'PLANCHABRAGUIS', 'PLANCHABRAGAS',
+      'ENCAPUCHADO', 'FALSIFICACION', 'SABOTAJE', 'CAMUFLAJE', 'LANZAGRANADAS', 'INFILTRACION',
+      'EXTORSION', 'MUNICIONES', 'DESENCRIPTAR', 'EXTRACCION', 'VULNERABILIDAD'
     ];
     this.loadBest();
     this.updateUI();
@@ -153,6 +160,7 @@ class LettersFallGame {
     const difficulty = this.ui.lettersDifficultySelect.value;
     if (difficulty === 'easy') return 5;
     if (difficulty === 'hard') return 2;
+    if (difficulty === 'chuchu') return 3;
     return 3;
   }
 
@@ -180,6 +188,22 @@ class LettersFallGame {
         minVerticalSpacing: 120
       };
     }
+    if (difficulty === 'chuchu') {
+      // Palabras más largas (tema táctico/encubierto), moderadamente
+      // espaciadas entre sí y con velocidad calibrada para que cada
+      // una tarde ~5s en llegar desde y=20 hasta la zona de peligro
+      // (90% del alto del área de 560px): distancia ≈ 484px,
+      // wordSpeed = speed*4 (ver spawnWord/update), 484 / 5 / 4 ≈ 24.2.
+      return {
+        minLength: 4,
+        maxLength: 14,
+        speed: 24.2,
+        spawnStart: 2600,
+        spawnMin: 1800,
+        spawnAccel: 20,
+        minVerticalSpacing: 170
+      };
+    }
     return {
       minLength: 4,
       maxLength: 7,
@@ -203,7 +227,9 @@ class LettersFallGame {
   }
 
   getRandomWord(minLength: number, maxLength: number): string {
-    const candidates = this.wordPool.filter(word => word.length >= minLength && word.length <= maxLength);
+    const difficulty = this.ui.lettersDifficultySelect.value;
+    const pool = difficulty === 'chuchu' ? this.chuchuWordPool : this.wordPool;
+    const candidates = pool.filter(word => word.length >= minLength && word.length <= maxLength);
     return candidates[Math.floor(Math.random() * candidates.length)] || 'PALABRA';
   }
 
@@ -330,6 +356,10 @@ export function init(rawUi: GameUi) {
   if (!ui.start) return; // sección no presente
 
   const game = new LettersFallGame(ui);
+
+  // Foco automático al entrar a la vista: el usuario puede empezar a
+  // escribir sin tener que clickear el input primero.
+  ui.lettersInput.focus();
 
   ui.start.addEventListener('click', () => game.start());
 

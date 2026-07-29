@@ -21,6 +21,7 @@ import './configReset';
 import './customCursor';
 import './statsManager';
 import './authManager';
+import './interactionLock';
 
 // Games (todos migrados a GameRegistry.register(), centralizados en el barrel)
 import './games/index';

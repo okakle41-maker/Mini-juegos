@@ -1,0 +1,298 @@
+/* ══════════════════════════════════════════════════════════════
+   lobby-themes.css — Temas visuales adicionales (Neón / Océano)
+
+   Ambos son variantes OSCURAS pero con identidad propia y MARCADA:
+   paleta, tipografía (var(--font-*), usada en >200 reglas de todo
+   el sitio, así que basta con sobreescribirla aquí para que todo
+   el lobby, sidebar y cards cambien de letra automáticamente),
+   forma de las tarjetas (bordes/radio) y animaciones de fondo
+   propias (glitch para Neón, drift/olas para Océano).
+
+   RENDIMIENTO: todas las animaciones de este archivo tocan
+   ÚNICAMENTE `transform` y `opacity` (propiedades compositables por
+   GPU, no disparan layout/paint). Se evita a propósito animar
+   background-position, filter/blur, clip-path o box-shadow en
+   capas grandes de pantalla completa: eso obliga al navegador a
+   repintar toda la capa en cada frame y es la causa típica de
+   "lag"/pocos FPS en fondos animados.
+
+   Se activan con body[data-theme="neon"] / body[data-theme="ocean"],
+   escrito por backgroundManager.ts / configPanel.ts. El tema "dark"
+   (por defecto) sigue viviendo en :root de css/styles.css.
+   ────────────────────────────────────────────────────────────── */
+
+/* ═══════════════════════ TEMA "NEÓN" ═══════════════════════════
+   Cyberpunk / synthwave: negro puro, cian + magenta, tipografía
+   Orbitron (geométrica, muy "HUD"), cards angulares (bisel recto
+   en la esquina vía borde, sin clip-path) y glitch periódico en
+   títulos. Sin animar fondos de pantalla completa: solo un halo
+   fijo y un parpadeo de opacidad muy liviano en las scanlines. */
+
+body[data-theme="neon"] {
+  --bg: #030105;
+  --surface: rgba(0, 234, 255, 0.06);
+  --border: rgba(255, 0, 200, 0.28);
+  --border-hover: rgba(0, 234, 255, 0.55);
+  --text: #eafcff;
+  --text-muted: rgba(180, 245, 255, 0.68);
+  --text-dim: rgba(150, 215, 230, 0.5);
+  --accent-cyan: #00eaff;
+  --accent-orange: #ff00c8;
+  --accent-orange-2: #ff5be0;
+  --bg-1: #030105;
+  --bg-2: #0b0414;
+  --card: rgba(10, 4, 18, 0.96);
+  --card-hover: linear-gradient(155deg, rgba(20,6,32,1) 0%, rgba(38,8,55,1) 100%);
+  --panel-gradient: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+  --glow-orange: rgba(255, 0, 200, 0.6);
+  --glow-orange-strong: rgba(255, 0, 200, 0.95);
+  --glow-orange-soft: rgba(0, 234, 255, 0.14);
+
+  /* Tipografía propia: se propaga a TODO el sitio (headers, sidebar,
+     cards, botones, HUD) porque todas esas reglas usan var(--font-*). */
+  --font-sans: 'Orbitron', 'Rajdhani', system-ui, sans-serif;
+  --font-mono: 'Orbitron', ui-monospace, 'Share Tech Mono', monospace;
+  --font-tactical: 'Orbitron', var(--font-sans);
+  --font-mono-tactical: 'Orbitron', var(--font-mono);
+}
+
+body[data-theme="neon"] {
+  background: var(--bg);
+  letter-spacing: 0.02em;
+}
+
+/* Fondo: rejilla neón ESTÁTICA (solo cambia de color, no se anima:
+   una rejilla en movimiento de pantalla completa es cara de pintar
+   y es la causa más común de bajos FPS). */
+body[data-theme="neon"] .diagonal-grid {
+  background-image:
+    repeating-linear-gradient(45deg,
+      rgba(0,234,255,0.06) 0px, rgba(0,234,255,0.06) 1px,
+      transparent 1px, transparent 24px),
+    repeating-linear-gradient(-45deg,
+      rgba(255,0,200,0.045) 0px, rgba(255,0,200,0.045) 1px,
+      transparent 1px, transparent 24px);
+}
+
+body[data-theme="neon"] .vignette {
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(3,1,8,0.85) 100%);
+}
+
+body[data-theme="neon"] .beam-1 { background: linear-gradient(to bottom, transparent, rgba(0,234,255,0.5), transparent); }
+body[data-theme="neon"] .beam-2 { background: linear-gradient(to bottom, transparent, rgba(255,0,200,0.42), transparent); }
+body[data-theme="neon"] .beam-3 { background: linear-gradient(to bottom, transparent, rgba(180,0,255,0.36), transparent); }
+
+/* Halo ambiental: tamaño/blur fijos (el blur NO se anima), solo
+   respira en opacidad — barato para el navegador. */
+body[data-theme="neon"] .lobby-ambient {
+  background: radial-gradient(ellipse at center, rgba(0,234,255,0.18) 0%, rgba(255,0,200,0.10) 45%, transparent 72%);
+  animation: neon-ambient-pulse 5s ease-in-out infinite;
+  will-change: opacity;
+}
+@keyframes neon-ambient-pulse {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 1; }
+}
+
+/* Scanlines: nada de animación (una capa fixed a pantalla completa
+   parpadeando fuerza repaint global en cada frame). El "flicker"
+   se mueve al título, que es un elemento chico y barato de animar. */
+body[data-theme="neon"] .scanlines {
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px, transparent 2px,
+    rgba(0,234,255,0.045) 2px, rgba(0,234,255,0.045) 3px
+  );
+}
+
+/* Cards: bisel recto vía borde/gradiente en vez de clip-path
+   (clip-path recalcula la máscara de recorte en cada composición y
+   es notablemente más caro que un borde/sombra normales). */
+body[data-theme="neon"] .game-card {
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  border-top-width: 2px;
+  box-shadow:
+    0 2px 24px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(0,234,255,0.06),
+    0 0 calc(var(--proximity, 0) * 46px) rgba(0,234,255,calc(var(--proximity, 0) * 0.4));
+}
+body[data-theme="neon"] .game-card:hover {
+  border-color: var(--accent-cyan);
+  box-shadow:
+    0 4px 32px rgba(255,0,200,0.28),
+    0 0 0 1px rgba(0,234,255,0.4),
+    0 0 40px rgba(0,234,255,0.35);
+}
+body[data-theme="neon"] .game-card::before {
+  background: linear-gradient(
+    110deg,
+    transparent,
+    rgba(0,234,255,0.16),
+    rgba(255,0,200,0.4),
+    rgba(0,234,255,0.16),
+    transparent
+  );
+}
+
+/* Glitch del título: elemento pequeño, solo transform + text-shadow
+   (el text-shadow no se anima en tamaño, solo se alterna entre dos
+   valores fijos, así que no genera trabajo continuo de pintado). */
+body[data-theme="neon"] .lobby-title,
+body[data-theme="neon"] .side-nav-title {
+  text-shadow: 0 0 10px rgba(0,234,255,0.65), 0 0 22px rgba(255,0,200,0.35);
+  animation: neon-title-glitch 7s infinite;
+  will-change: transform;
+}
+@keyframes neon-title-glitch {
+  0%, 96%, 100% { transform: translate3d(0, 0, 0); text-shadow: 0 0 10px rgba(0,234,255,0.65), 0 0 22px rgba(255,0,200,0.35); }
+  96.5%         { transform: translate3d(-2px, 1px, 0); text-shadow: 2px 0 rgba(255,0,200,0.8), -2px 0 rgba(0,234,255,0.8); }
+  97%           { transform: translate3d(2px, -1px, 0); text-shadow: -2px 0 rgba(255,0,200,0.8), 2px 0 rgba(0,234,255,0.8); }
+  97.5%         { transform: translate3d(0, 0, 0); }
+}
+
+body[data-theme="neon"] .side-nav-link--active {
+  box-shadow: inset 3px 0 0 var(--accent-cyan), 0 0 18px rgba(255,0,200,0.2);
+}
+
+body[data-theme="neon"] .card-cta,
+body[data-theme="neon"] .mod-cta {
+  border-radius: 2px;
+}
+
+body[data-theme="neon"] .diff-dot {
+  border-radius: 0;
+}
+
+
+/* ═══════════════════════ TEMA "OCÉANO" ══════════════════════════
+   Calmo / orgánico: azul-verde profundo, tipografía redondeada
+   Comfortaa, cards con esquinas muy curvas y una flotación lenta
+   por tarjeta (solo transform, cada card la anima independiente
+   así el navegador la compone en su propia capa sin repintar el
+   resto). Sin scanlines duras ni glitch: opuesto de energía a Neón. */
+
+body[data-theme="ocean"] {
+  --bg: #03080d;
+  --surface: rgba(45, 212, 191, 0.06);
+  --border: rgba(56, 189, 248, 0.2);
+  --border-hover: rgba(45, 212, 191, 0.45);
+  --text: #e3fbf6;
+  --text-muted: rgba(170, 232, 220, 0.68);
+  --text-dim: rgba(130, 195, 185, 0.5);
+  --accent-cyan: #38bdf8;
+  --accent-orange: #2dd4bf;
+  --accent-orange-2: #5eead4;
+  --bg-1: #03080d;
+  --bg-2: #06141c;
+  --card: rgba(5, 16, 22, 0.96);
+  --card-hover: linear-gradient(155deg, rgba(7,24,32,1) 0%, rgba(10,40,50,1) 100%);
+  --panel-gradient: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+  --glow-orange: rgba(45, 212, 191, 0.5);
+  --glow-orange-strong: rgba(45, 212, 191, 0.85);
+  --glow-orange-soft: rgba(56, 189, 248, 0.14);
+
+  --font-sans: 'Comfortaa', 'Quicksand', system-ui, sans-serif;
+  --font-mono: 'Comfortaa', ui-monospace, monospace;
+  --font-tactical: 'Comfortaa', var(--font-sans);
+  --font-mono-tactical: 'Comfortaa', var(--font-mono);
+}
+
+body[data-theme="ocean"] {
+  background: var(--bg);
+  letter-spacing: 0.01em;
+}
+
+/* Fondo: caustics ESTÁTICOS (sin animación de background-position en
+   una capa a pantalla completa; ver nota de rendimiento arriba). */
+body[data-theme="ocean"] .diagonal-grid {
+  background-image:
+    repeating-linear-gradient(70deg,
+      rgba(56,189,248,0.05) 0px, rgba(56,189,248,0.05) 2px,
+      transparent 2px, transparent 34px),
+    repeating-linear-gradient(-70deg,
+      rgba(45,212,191,0.04) 0px, rgba(45,212,191,0.04) 2px,
+      transparent 2px, transparent 34px);
+}
+
+body[data-theme="ocean"] .vignette {
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(3,8,13,0.8) 100%);
+}
+
+body[data-theme="ocean"] .beam-1 { background: linear-gradient(to bottom, transparent, rgba(56,189,248,0.32), transparent); animation-duration: 13s; }
+body[data-theme="ocean"] .beam-2 { background: linear-gradient(to bottom, transparent, rgba(45,212,191,0.28), transparent); animation-duration: 15s; }
+body[data-theme="ocean"] .beam-3 { background: linear-gradient(to bottom, transparent, rgba(94,234,212,0.22), transparent); animation-duration: 17s; }
+
+/* Halo ambiental: se mueve con transform (translate), no con
+   background-position/left/top — mucho más barato. */
+body[data-theme="ocean"] .lobby-ambient {
+  background: radial-gradient(ellipse at center, rgba(56,189,248,0.16) 0%, rgba(45,212,191,0.08) 45%, transparent 72%);
+  animation: ocean-sway 8s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes ocean-sway {
+  0%, 100% { transform: translate3d(-50%, 0, 0); }
+  50%      { transform: translate3d(-50%, 10px, 0); }
+}
+
+body[data-theme="ocean"] .scanlines {
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px, transparent 5px,
+    rgba(56,189,248,0.02) 5px, rgba(56,189,248,0.02) 6px
+  );
+}
+
+/* Cards muy redondeadas. La flotación se aplica solo cuando el
+   grid ya terminó su entrada (evita animar 10 cards a la vez desde
+   el primer frame) y usa translate3d para forzar su propia capa de
+   composición por tarjeta. */
+body[data-theme="ocean"] .game-card {
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  box-shadow:
+    0 6px 28px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(94,234,212,0.06),
+    0 0 calc(var(--proximity, 0) * 44px) rgba(56,189,248,calc(var(--proximity, 0) * 0.34));
+}
+body[data-theme="ocean"] .game-card:hover {
+  border-color: var(--accent-cyan);
+  box-shadow:
+    0 10px 36px rgba(45,212,191,0.24),
+    0 0 0 1px rgba(56,189,248,0.35),
+    0 0 42px rgba(45,212,191,0.3);
+}
+body[data-theme="ocean"] .game-card::before {
+  background: linear-gradient(
+    110deg,
+    transparent,
+    rgba(56,189,248,0.14),
+    rgba(45,212,191,0.32),
+    rgba(56,189,248,0.14),
+    transparent
+  );
+}
+
+body[data-theme="ocean"] .side-nav-link--active {
+  box-shadow: inset 3px 0 0 var(--accent-orange), 0 0 16px rgba(45,212,191,0.18);
+  border-radius: 12px;
+}
+
+body[data-theme="ocean"] .card-cta,
+body[data-theme="ocean"] .mod-cta {
+  border-radius: 999px;
+}
+
+body[data-theme="ocean"] .diff-dot {
+  border-radius: 50%;
+}
+
+body[data-theme="ocean"] .lobby-title {
+  text-shadow: 0 0 14px rgba(56,189,248,0.4);
+}
+
+/* Respeta preferencia de reducir animaciones / clase manual del sitio */
+body.reduced-motion[data-theme="neon"] *,
+body.reduced-motion[data-theme="ocean"] * {
+  animation: none !important;
+}
