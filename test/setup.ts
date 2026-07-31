@@ -5,6 +5,27 @@
 
 import { vi } from 'vitest';
 
+// Red de seguridad para un bug conocido de undici (nodejs/undici#2663):
+// cuando una respuesta WebSocket llega de forma asíncrona después de
+// que su test terminó, Node despacha el evento contra una clase Event
+// de un "realm" distinto a la que definió jsdom, y la comprobación
+// estricta de identidad de Node revienta con "The 'event' argument
+// must be an instance of Event. Received an instance of Event".
+// Vitest reporta esto como error "unhandled" contra cualquier test
+// que esté corriendo en ese momento (no contra el que lo originó),
+// haciendo pasar un false positive por una falla real. La causa raíz
+// (un WebSocket real de Supabase que sigue vivo tras un test) ya se
+// mockea en los tests que la disparan; esto es una barrera adicional
+// para que, si algún WebSocket real se escapa igual, no tumbe una
+// corrida entera con un error que no tiene nada que ver con el código
+// bajo test.
+process.on('uncaughtException', (err: unknown) => {
+  const isUndiciEventBug =
+    err instanceof TypeError &&
+    err.message.includes('must be an instance of Event');
+  if (!isUndiciEventBug) throw err;
+});
+
 // Mock localStorage
 const localStorageMock = {
   getItem: vi.fn(),
