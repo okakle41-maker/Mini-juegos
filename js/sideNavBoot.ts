@@ -7,7 +7,6 @@
 import safeStorage from './core/safeStorage.js';
 import ViewManager from './core/viewManager.js';
 import GameRegistry from './core/gameRegistry.js';
-import Auth from './authManager.js';
 
 interface LeaderboardEntry {
   value: number;
@@ -188,58 +187,12 @@ function initSideNavLinks(): void {
     const viewId = e.detail?.id;
     if (!viewId) return;
     // Toda vista que no sea una de las páginas propias del sidebar
-    // (estadisticas/progreso/ranking/configuracion/manual) es un
+    // (estadisticas/progreso/ranking/configuracion/manual/logros/personalizacion/estadisticas-avanzadas/multiplayer/social/torneos) es un
     // minijuego individual, y esos viven bajo "MÓDULOS" en la nav.
-    const knownPages = ['estadisticas', 'progreso', 'ranking', 'configuracion', 'manual'];
+    const knownPages = ['estadisticas', 'progreso', 'ranking', 'configuracion', 'manual', 'logros', 'personalizacion', 'estadisticas-avanzadas', 'multiplayer', 'social', 'torneos'];
     const sideNavKey = knownPages.includes(viewId) ? viewId : 'modulos';
     setActiveLink(sideNavKey);
   }) as EventListener);
-}
-
-/**
- * Sincroniza el botón de usuario del header (#headerUserBadge) con el
- * estado real de sesión de Auth (authManager.ts), en vez del "RANGER_7"
- * hardcodeado que traía el markup original. Sin sesión iniciada muestra
- * "DESCONOCIDO" — no un placeholder que aparente ser una cuenta real.
- *
- * El clic navega a la vista "cuenta" (ver views/cuenta.ts), que ya
- * resuelve tanto el formulario de login/registro como el panel de
- * cuenta logueada — este badge no duplica esa lógica, solo redirige.
- */
-function initHeaderUserBadge(): void {
-  const badge = document.getElementById('headerUserBadge');
-  const nameEl = badge?.querySelector<HTMLElement>('.header-user-name');
-  const avatarEl = badge?.querySelector<HTMLElement>('.header-user-avatar');
-  if (!badge || !nameEl || !avatarEl) return;
-
-  const render = (): void => {
-    const user = Auth.getUser();
-    if (user) {
-      nameEl.textContent = user.username.toUpperCase();
-      // Iniciales del username para el avatar (p.ej. "ana_99" → "AN"),
-      // igual que "R7" era una abreviación de "RANGER_7" en el diseño
-      // original — no las dos primeras letras crudas si el username
-      // empieza con guion bajo, para no mostrar "__".
-      const letters = user.username.replace(/^_+/, '').slice(0, 2).toUpperCase();
-      avatarEl.textContent = letters || '??';
-    } else {
-      nameEl.textContent = 'DESCONOCIDO';
-      avatarEl.textContent = '??';
-    }
-  };
-
-  // Estado inicial: puede que Auth todavía esté restaurando la sesión
-  // (ready() es async), así que se pinta "DESCONOCIDO" de entrada y se
-  // corrige apenas resuelva — evita mostrar "RANGER_7" ni nada fijo
-  // mientras tanto.
-  render();
-  void Auth.ready().then(render);
-  window.addEventListener('auth:changed', render);
-
-  badge.addEventListener('click', () => {
-    ViewManager.showView('cuenta');
-  });
-  badge.style.cursor = 'pointer';
 }
 
 function init(): void {
@@ -255,7 +208,6 @@ function init(): void {
   window.addEventListener('leaderboard:updated', updateSidebarSession);
 
   initSideNavLinks();
-  initHeaderUserBadge();
 }
 
 init();

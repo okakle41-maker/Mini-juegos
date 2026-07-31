@@ -89,27 +89,27 @@ export function template(): string {
         <h3 class="section-title">🎨 Creador de Temas</h3>
         <div class="theme-creator-form">
           <div class="form-group">
-            <label>Nombre del Tema</label>
+            <label for="theme-name">Nombre del Tema</label>
             <input type="text" id="theme-name" placeholder="Mi Tema Personalizado">
           </div>
           <div class="form-group">
-            <label>Color Primario</label>
+            <label for="theme-primary">Color Primario</label>
             <input type="color" id="theme-primary" value="#ff9a3c">
           </div>
           <div class="form-group">
-            <label>Color Secundario</label>
+            <label for="theme-secondary">Color Secundario</label>
             <input type="color" id="theme-secondary" value="#f97316">
           </div>
           <div class="form-group">
-            <label>Color de Acento</label>
+            <label for="theme-accent">Color de Acento</label>
             <input type="color" id="theme-accent" value="#ea580c">
           </div>
           <div class="form-group">
-            <label>Color de Fondo</label>
+            <label for="theme-background">Color de Fondo</label>
             <input type="color" id="theme-background" value="#090400">
           </div>
           <div class="form-group">
-            <label>Color de Texto</label>
+            <label for="theme-text">Color de Texto</label>
             <input type="color" id="theme-text" value="#ffffff">
           </div>
           <div class="form-actions">
@@ -121,3 +121,5 @@ export function template(): string {
     </div>
   `;
 }
+
+export default template satisfies ViewTemplate;

@@ -2,6 +2,7 @@
  * Multiplayer View Template
  * Vista para el sistema de multiplayer en tiempo real
  */
+import type { ViewTemplate } from '../types/game';
 
 export function template(): string {
   return `
@@ -22,7 +23,7 @@ export function template(): string {
         </div>
         <div class="matchmaking-form">
           <div class="form-group">
-            <label>Juego</label>
+            <label for="match-game-select">Juego</label>
             <select id="match-game-select">
               <option value="simon">Simon Dice</option>
               <option value="arrow">Desafío Flechas</option>
@@ -31,7 +32,7 @@ export function template(): string {
             </select>
           </div>
           <div class="form-group">
-            <label>Nivel de Habilidad</label>
+            <label for="match-skill-select">Nivel de Habilidad</label>
             <select id="match-skill-select">
               <option value="1">Principiante</option>
               <option value="2">Intermedio</option>
@@ -111,7 +112,7 @@ export function template(): string {
             <!-- Los mensajes se generan dinámicamente -->
           </div>
           <div class="chat-input-container">
-            <input type="text" class="chat-input" id="chat-input" placeholder="Escribe un mensaje...">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Escribe un mensaje..." aria-label="Mensaje de chat">
             <button class="chat-send-btn" id="chat-send-btn">Enviar</button>
           </div>
         </div>
@@ -125,7 +126,7 @@ export function template(): string {
         </div>
         <div class="spectator-form">
           <div class="form-group">
-            <label>ID de Partida</label>
+            <label for="spectator-match-id">ID de Partida</label>
             <input type="text" id="spectator-match-id" placeholder="Ingresa el ID de la partida">
           </div>
           <button class="spectator-btn" id="spectate-btn">👁️ Ver Partida</button>
@@ -140,3 +141,5 @@ export function template(): string {
     </div>
   `;
 }
+
+export default template satisfies ViewTemplate;

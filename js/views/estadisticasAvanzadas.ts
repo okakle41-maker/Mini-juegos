@@ -2,6 +2,7 @@
  * Estadísticas Avanzadas View Template
  * Vista para el sistema de estadísticas avanzadas
  */
+import type { ViewTemplate } from '../types/game';
 
 export function template(): string {
   return `
@@ -157,3 +158,5 @@ export function template(): string {
     </div>
   `;
 }
+
+export default template satisfies ViewTemplate;

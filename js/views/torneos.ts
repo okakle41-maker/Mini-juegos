@@ -2,6 +2,7 @@
  * Torneos View Template
  * Vista para el sistema de torneos y eventos
  */
+import type { ViewTemplate } from '../types/game';
 
 export function template(): string {
   return `
@@ -96,3 +97,5 @@ export function template(): string {
     </div>
   `;
 }
+
+export default template satisfies ViewTemplate;

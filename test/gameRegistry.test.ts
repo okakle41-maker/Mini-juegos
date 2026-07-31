@@ -37,7 +37,7 @@ const MAX_DIFFICULTY = 5;
  * real (un juego que debería estar y no está) se note por comparación
  * con esta lista conocida, en vez de perderse entre "siempre fue así".
  */
-const VIEWS_WITHOUT_GAME = ['configuracion', 'cuenta', 'estadisticas', 'manual', 'progreso', 'ranking'];
+const VIEWS_WITHOUT_GAME = ['configuracion', 'cuenta', 'estadisticas', 'estadisticas-avanzadas', 'logros', 'manual', 'multiplayer', 'personalizacion', 'progreso', 'ranking', 'social', 'torneos'];
 
 /**
  * IDs de juegos registrados en GameRegistry que intencionalmente NO

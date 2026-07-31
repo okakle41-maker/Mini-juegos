@@ -94,7 +94,7 @@ export function template(): string {
               <!-- Los mensajes se generan dinámicamente -->
             </div>
             <div class="chat-input-container">
-              <input type="text" class="chat-input" id="social-chat-input" placeholder="Escribe un mensaje...">
+              <input type="text" class="chat-input" id="social-chat-input" placeholder="Escribe un mensaje..." aria-label="Mensaje de chat">
               <button class="chat-send-btn" id="social-chat-send-btn">Enviar</button>
             </div>
           </div>
@@ -109,9 +109,9 @@ export function template(): string {
             <span>📝</span><span>📸</span><span>❤️</span>
           </div>
           <div class="create-post">
-            <textarea class="post-input" id="post-input" placeholder="¿Qué quieres compartir?"></textarea>
+            <textarea class="post-input" id="post-input" placeholder="¿Qué quieres compartir?" aria-label="Contenido de la publicación"></textarea>
             <div class="post-options">
-              <select class="post-type" id="post-type">
+              <select class="post-type" id="post-type" aria-label="Tipo de publicación">
                 <option value="status">Estado</option>
                 <option value="achievement">Logro</option>
                 <option value="score">Puntuación</option>
@@ -133,3 +133,5 @@ export function template(): string {
     </div>
   `;
 }
+
+export default template satisfies ViewTemplate;
