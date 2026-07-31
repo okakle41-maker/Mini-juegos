@@ -46,6 +46,7 @@ const VIEW_TO_LOGIC_FILE: Record<string, string> = {
   'sequence-game': 'sequence.logic.ts',
   'ring-puzzle': 'ringpuzzle.logic.ts',
   'skillchecks': 'skillchecksHub.logic.ts',
+  'snippet-race': 'snippetRace.logic.ts',
 };
 
 function findLogicFile(viewId: string): string | null {

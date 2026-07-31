@@ -11,9 +11,105 @@ import GameInstanceRegistry from '../core/gameInstanceRegistry.js';
 import safeStorage from '../core/safeStorage.js';
 import GameHelpers from '../utils/gameHelpers.js';
 import audioManager from '../audioManager.js';
-import { createRoom, joinRoom } from '../core/roomManager.js';
-import type { RoomSession, RoomRole } from '../core/roomManager.js';
+import { multiplayerSystem } from '../multiplayerSystem.js';
 import ErrorLogger from '../core/errorLogger.js';
+
+/**
+ * Sesión de sala activa para este juego, envuelta sobre
+ * multiplayerSystem (ver createRoomMatch/joinRoomMatch/sendGameEvent/
+ * onRoomUpdate en multiplayerSystem.ts). Se arma acá en vez de exponer
+ * el singleton crudo a startGameCard/startTyperMode para que el resto
+ * de este archivo no necesite conocer la forma exacta de sus eventos
+ * custom (`multiplayer:game_event`, etc.) — mismo rol que cumplía
+ * RoomSession en la versión anterior basada en roomManager.ts/Realtime
+ * Broadcast, ahora sobre postgres_changes.
+ */
+interface RoomSession {
+  code: string;
+  role: CoopRole;
+  send: (event: string, payload?: unknown) => Promise<void>;
+  on: (event: string, handler: (payload: unknown) => void) => () => void;
+  onPeersChange: (handler: (peers: { role: CoopRole }[]) => void) => () => void;
+  peers: () => { role: CoopRole }[];
+  leave: () => Promise<void>;
+}
+
+function wrapMatchAsRoom(role: CoopRole, matchId: string, roomCode: string, initialPeers: { role: CoopRole }[]): RoomSession {
+  const gameEventHandlers = new Map<string, Set<(payload: unknown) => void>>();
+  const peersChangeHandlers = new Set<(peers: { role: CoopRole }[]) => void>();
+  let currentPeers = initialPeers;
+  let stopRoomUpdate: (() => void) | null = null;
+
+  const onGameEvent = (evt: Event) => {
+    const detail = (evt as CustomEvent).detail as { type: string; payload: unknown };
+    const handlers = gameEventHandlers.get(detail.type);
+    handlers?.forEach((handler) => {
+      try {
+        handler(detail.payload);
+      } catch (error) {
+        ErrorLogger.log('lettersFall.roomSession.gameEvent', error, { type: detail.type });
+      }
+    });
+  };
+  window.addEventListener('multiplayer:game_event', onGameEvent);
+
+  // Mientras se espera al segundo jugador, onRoomUpdate ya cubre el
+  // cambio de `players`; se re-suscribe cada vez por si el match se
+  // recrea (no debería pasar dentro de una misma sesión, pero evita
+  // quedar escuchando un matchId obsoleto si algún día se permite
+  // "reintentar" sin recargar la vista).
+  stopRoomUpdate = multiplayerSystem.onRoomUpdate(matchId, (match) => {
+    currentPeers = match.players.map((p) => ({ role: (p.role || 'viewer') as CoopRole }));
+    peersChangeHandlers.forEach((handler) => {
+      try {
+        handler(currentPeers);
+      } catch (error) {
+        ErrorLogger.log('lettersFall.roomSession.peersChange', error);
+      }
+    });
+  });
+
+  return {
+    code: roomCode,
+    role,
+    async send(event, payload) {
+      await multiplayerSystem.sendGameEvent(event, payload);
+    },
+    on(event, handler) {
+      if (!gameEventHandlers.has(event)) gameEventHandlers.set(event, new Set());
+      gameEventHandlers.get(event)!.add(handler);
+      return () => {
+        gameEventHandlers.get(event)?.delete(handler);
+      };
+    },
+    peers: () => currentPeers,
+    onPeersChange(handler) {
+      peersChangeHandlers.add(handler);
+      return () => {
+        peersChangeHandlers.delete(handler);
+      };
+    },
+    async leave() {
+      window.removeEventListener('multiplayer:game_event', onGameEvent);
+      stopRoomUpdate?.();
+      gameEventHandlers.clear();
+      peersChangeHandlers.clear();
+      await multiplayerSystem.leaveRoomMatch();
+    }
+  };
+}
+
+async function createRoom(gameId: string, role: CoopRole): Promise<RoomSession> {
+  const match = await multiplayerSystem.createRoomMatch(gameId, role);
+  return wrapMatchAsRoom(role, match.id, match.roomCode!, []);
+}
+
+async function joinRoom(gameId: string, code: string, role: CoopRole): Promise<RoomSession> {
+  const match = await multiplayerSystem.joinRoomMatch(gameId, code, role);
+  const peers = match.players.map((p) => ({ role: (p.role || 'viewer') as CoopRole }));
+  return wrapMatchAsRoom(role, match.id, match.roomCode!, peers);
+}
+
 
 interface DifficultyConfig {
   minLength: number;

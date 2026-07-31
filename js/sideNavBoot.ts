@@ -187,9 +187,9 @@ function initSideNavLinks(): void {
     const viewId = e.detail?.id;
     if (!viewId) return;
     // Toda vista que no sea una de las páginas propias del sidebar
-    // (estadisticas/progreso/ranking/configuracion/manual) es un
+    // (estadisticas/progreso/ranking/configuracion/manual/logros/personalizacion/estadisticas-avanzadas/multiplayer/social/torneos) es un
     // minijuego individual, y esos viven bajo "MÓDULOS" en la nav.
-    const knownPages = ['estadisticas', 'progreso', 'ranking', 'configuracion', 'manual'];
+    const knownPages = ['estadisticas', 'progreso', 'ranking', 'configuracion', 'manual', 'logros', 'personalizacion', 'estadisticas-avanzadas', 'multiplayer', 'social', 'torneos'];
     const sideNavKey = knownPages.includes(viewId) ? viewId : 'modulos';
     setActiveLink(sideNavKey);
   }) as EventListener);

@@ -95,6 +95,8 @@ export function init() {
     const row = board!.querySelectorAll('.typix-row')[currentRow];
     if (!row) return;
 
+    const rowElement = row as HTMLElement;
+
     // Clasificación por dígito: correct (posición exacta), present
     // (existe en el código pero en otra posición) o absent. Se hace
     // en dos pasadas para no marcar como "present" un dígito que ya
@@ -127,10 +129,10 @@ export function init() {
     // dígito para no filtrar qué posición acertaste, solo la cuenta.
     const summary = '!'.repeat(correct) + '*'.repeat(present);
 
-    row.dataset.guess = guess;
-    row.innerHTML = `<div class="typix-guess">${renderGuess(guess)}</div>` +
+    rowElement.dataset.guess = guess;
+    rowElement.innerHTML = `<div class="typix-guess">${renderGuess(guess)}</div>` +
       `<div class="typix-summary">${summary || '—'}</div>`;
-    row.setAttribute(
+    rowElement.setAttribute(
       'aria-label',
       `Intento ${guess}: ${correct} dígito${correct === 1 ? '' : 's'} correcto${correct === 1 ? '' : 's'}, ` +
       `${present} presente${present === 1 ? '' : 's'} en otra posición, ${absent} ausente${absent === 1 ? '' : 's'}`

@@ -44,7 +44,7 @@ vi.mock('../js/toast', () => ({
   showToast: (...args: unknown[]) => showToastMock(...args),
 }));
 
-const errorLoggerMock = { log: vi.fn(), setSink: vi.fn(), recent: () => [], clear: vi.fn() };
+const errorLoggerMock = { log: vi.fn(), setSink: vi.fn(), recent: (): any[] => [], clear: vi.fn() };
 vi.mock('../js/core/errorLogger', () => ({
   default: errorLoggerMock,
 }));

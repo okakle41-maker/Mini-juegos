@@ -23,3 +23,103 @@ export type { GameUi } from './global';
  */
 export type ViewTemplate = () => string;
 
+/**
+ * Tipos comunes para CustomEvent handlers
+ */
+export interface CustomEventDetail {
+  [key: string]: unknown;
+}
+
+export interface AchievementEventDetail extends CustomEventDetail {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+}
+
+export interface MatchEventDetail extends CustomEventDetail {
+  match: {
+    id: string;
+    players: Array<{ name: string; avatar: string }>;
+  };
+}
+
+export interface ScoreEventDetail extends CustomEventDetail {
+  playerId: string;
+  score: number;
+}
+
+/**
+ * Tipos para Supabase payloads
+ */
+export interface SupabasePayload {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new: Record<string, unknown>;
+  old: Record<string, unknown>;
+}
+
+/**
+ * Tipos para sistemas de ventana global
+ */
+export interface WindowSystems {
+  progressionSystem?: {
+    getCurrentLevel(): string;
+    addXP(amount: number, source: string): void;
+  };
+  notificationSystem?: {
+    success(title: string, message: string): void;
+  };
+  themeManager?: unknown;
+  socialSystem?: unknown;
+  tournamentSystem?: unknown;
+  skeletonSystem?: unknown;
+  soundSystem?: unknown;
+  playerStats?: unknown;
+  productionMonitoring?: unknown;
+  pwaSystem?: unknown;
+  deferredPrompt?: Event;
+}
+
+/**
+ * Tipos para datos de eventos y torneos
+ */
+export interface EventChallenge {
+  id: string;
+  name: string;
+  description: string;
+  progress: number;
+  target: number;
+  completed: boolean;
+}
+
+export interface TournamentEvent {
+  id: string;
+  name: string;
+  description: string;
+  challenges: EventChallenge[];
+  rewards: {
+    completion: {
+      xp: number;
+      cosmetics: string[];
+    };
+  };
+}
+
+/**
+ * Tipos para logros y recompensas
+ */
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  progress?: number;
+  target?: number;
+}
+
+export interface Reward {
+  type: 'xp' | 'title' | 'cosmetic' | 'badge' | 'theme' | 'effect';
+  value: string | number;
+}
+

@@ -50,6 +50,10 @@ export interface GameRegistryInterface {
   injectCSS: (href: string | null | undefined) => void;
   ensureInit: (id: string) => Promise<void>;
   prefetch: (id: string) => void;
+  /** Solo para tests: limpia todo el estado interno (juegos registrados,
+   *  inicializados, stopFns, promesas de logic en vuelo) para que un test
+   *  no contamine al siguiente. Ver nota en la implementación. */
+  reset: () => void;
 }
 
 class GameRegistry implements GameRegistryInterface {
@@ -95,6 +99,29 @@ class GameRegistry implements GameRegistryInterface {
 
   allStopFns(): Array<{ id: string; stop: () => void }> {
     return Array.from(this.stopFns.entries()).map(([id, stop]) => ({ id, stop }));
+  }
+
+  /**
+   * Limpia por completo el estado interno del singleton.
+   *
+   * Pensado para usarse en `afterEach`/`beforeEach` de tests: sin esto,
+   * dos archivos de test que registran un juego con el mismo id (p.ej.
+   * 'test-game') chocaban en silencio porque el singleton persistía
+   * entre test files dentro del mismo proceso de Vitest — el bug real
+   * que motivó agregar este método (ver test/gameRegistry.test.ts y
+   * test/gameRegistryIntegration.test.ts, que hasta ahora evitaban la
+   * colisión solo por usar ids distintos por casualidad, no por
+   * limpiar el estado).
+   *
+   * No se llama desde ningún flujo de producción — un GameRegistry que
+   * se resetea a mitad de sesión real dejaría a la UI con vistas
+   * apuntando a juegos ya no registrados.
+   */
+  reset(): void {
+    this.games.clear();
+    this.initialized.clear();
+    this.stopFns.clear();
+    this.logicPromises.clear();
   }
 
   /**

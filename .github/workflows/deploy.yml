@@ -1,5 +1,14 @@
 name: Deploy to GitHub Pages
 
+# GitHub Pages es el único destino de deploy de este proyecto.
+# (Anteriormente el repo tenía referencias en paralelo a Cloudflare
+# Pages — docs/CLOUDFLARE_DEPLOY.md, public/_headers — que se
+# eliminaron para no tener dos rutas de deploy documentadas al mismo
+# tiempo sin que ninguna fuera la real. El CSP y demás cabeceras de
+# seguridad que antes vivían en public/_headers ahora están como
+# <meta http-equiv="Content-Security-Policy"> en index.html, con las
+# limitaciones que eso implica frente a una cabecera HTTP real — ver
+# el comentario junto a esa etiqueta.)
 on:
   push:
     branches: [main, master]
@@ -31,7 +40,17 @@ jobs:
         run: npm ci
 
       - name: Build
+        # vite.config.ts usa VITE_BASE (default: '/Mini-juegos/') como
+        # subpath de todos los assets — necesario porque GitHub Pages
+        # sirve el proyecto en usuario.github.io/<nombre-del-repo>/,
+        # no en la raíz del dominio. Si el repo en GitHub NO se llama
+        # exactamente "Mini-juegos", hay que fijar VITE_BASE acá con
+        # el nombre real (ej: VITE_BASE: '/mi-repo-real/'), o todo el
+        # CSS/JS/audio dará 404 en producción aunque el build local
+        # funcione perfecto.
         run: npm run build
+        env:
+          VITE_BASE: /Mini-juegos/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

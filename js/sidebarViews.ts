@@ -23,9 +23,12 @@
 
 import GameRegistry, { type GameConfig } from './core/gameRegistry.js';
 import Favorites from './favoritesManager.js';
-import Leaderboard, { getEntryTotal } from './leaderboardManager.js';
+import Leaderboard, { getEntryTotal, type LeaderboardEntry } from './leaderboardManager.js';
 import ViewManager from './core/viewManager.js';
 import { fetchGlobalTop } from './globalScores.js';
+import { categorySlug } from './utils/categorySlug.js';
+import GameIcons from './core/gameIcons.js';
+import { escapeHtml } from './security.js';
 
 function renderStatistics(): void {
   const grid = document.getElementById('statsGrid');
@@ -98,19 +101,21 @@ function renderProgress(): void {
   const games = GameRegistry.visible();
   if (games.length === 0) {
     list.innerHTML = '<p class="progress-empty">No hay módulos disponibles todavía.</p>';
+    renderSelfCompare([]);
     return;
   }
 
   list.innerHTML = games
     .map(game => {
-      const best = Leaderboard.get(game.id)[0];
+      const best = Leaderboard.getBest(game.id);
       const done = !!best;
       const total = done ? getEntryTotal(best) : null;
       const record = done ? (total !== null ? `${best.value}/${total}` : best.value.toString()) : 'Sin jugar';
       const date = done ? new Date(best.timestamp).toLocaleDateString() : '';
+      const icon = GameIcons.get(game.id) ?? game.icon;
       return `
-        <div class="progress-item${done ? ' progress-item--done' : ''}">
-          <div class="progress-item-icon">${game.icon}</div>
+        <div class="progress-item${done ? ' progress-item--done' : ''}" data-category="${categorySlug(game.tag)}">
+          <div class="progress-item-icon">${icon}</div>
           <div class="progress-item-body">
             <div class="progress-item-top">
               <span class="progress-item-name">${game.name}</span>
@@ -125,6 +130,152 @@ function renderProgress(): void {
       `;
     })
     .join('');
+
+  renderSelfCompare(games);
+}
+
+let selfCompareBound = false;
+
+function formatScore(entry: LeaderboardEntry): string {
+  const total = getEntryTotal(entry);
+  return total !== null ? `${entry.value}/${total}` : String(entry.value);
+}
+
+function buildSparklineSVG(history: LeaderboardEntry[], catSlug: string): string {
+  const w = 320;
+  const h = 88;
+  const padX = 8;
+  const padY = 12;
+  const values = history.map(e => e.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = Math.max(1, max - min);
+
+  const points = history.map((entry, i) => {
+    const x = history.length === 1
+      ? w / 2
+      : padX + (i / (history.length - 1)) * (w - padX * 2);
+    const y = h - padY - ((entry.value - min) / range) * (h - padY * 2);
+    return { x, y };
+  });
+
+  const polyline = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const areaPath = points.length > 1
+    ? `M ${points[0].x.toFixed(1)} ${(h - padY).toFixed(1)} L ${points.map(p => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ')} L ${points[points.length - 1].x.toFixed(1)} ${(h - padY).toFixed(1)} Z`
+    : '';
+
+  const dots = points.map((p, i) => {
+    const isLast = i === points.length - 1;
+    return `<circle class="self-compare-dot${isLast ? ' self-compare-dot--last' : ''}" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${isLast ? 4 : 3}" />`;
+  }).join('');
+
+  return `
+    <svg class="self-compare-svg" data-category="${catSlug}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" aria-hidden="true">
+      ${areaPath ? `<path class="self-compare-area" d="${areaPath}" />` : ''}
+      <polyline class="self-compare-line" points="${polyline}" fill="none" />
+      ${dots}
+    </svg>
+  `;
+}
+
+function renderSelfComparePanel(gameId: string): void {
+  const statsEl = document.getElementById('selfCompareStats');
+  const chartEl = document.getElementById('selfCompareChart');
+  if (!statsEl || !chartEl) return;
+
+  const game = GameRegistry.get(gameId);
+  const history = Leaderboard.getHistory(gameId);
+  const best = Leaderboard.getBest(gameId);
+  const cat = game ? categorySlug(game.tag) : '';
+
+  if (history.length === 0 || !best) {
+    statsEl.innerHTML = `
+      <div class="self-compare-stat">
+        <span class="self-compare-stat-label">Estado</span>
+        <span class="self-compare-stat-value">Sin partidas</span>
+      </div>
+    `;
+    chartEl.innerHTML = '<p class="self-compare-empty">Jugá este módulo para ver tu evolución.</p>';
+    chartEl.removeAttribute('data-category');
+    return;
+  }
+
+  const latest = history[history.length - 1];
+  const previous = history.length > 1 ? history[history.length - 2] : null;
+  let trendLabel = '—';
+  let trendClass = '';
+  if (previous) {
+    const delta = latest.value - previous.value;
+    if (delta > 0) {
+      trendLabel = `↑ +${delta}`;
+      trendClass = 'self-compare-trend--up';
+    } else if (delta < 0) {
+      trendLabel = `↓ ${delta}`;
+      trendClass = 'self-compare-trend--down';
+    } else {
+      trendLabel = '= igual';
+    }
+  }
+
+  const first = history[0];
+  const vsFirst = latest.value - first.value;
+  const vsFirstLabel = history.length > 1
+    ? (vsFirst > 0 ? `+${vsFirst} vs 1ª` : vsFirst < 0 ? `${vsFirst} vs 1ª` : '= vs 1ª')
+    : '1 partida';
+
+  statsEl.innerHTML = `
+    <div class="self-compare-stat">
+      <span class="self-compare-stat-label">Mejor</span>
+      <span class="self-compare-stat-value">${formatScore(best)}</span>
+    </div>
+    <div class="self-compare-stat">
+      <span class="self-compare-stat-label">Última</span>
+      <span class="self-compare-stat-value">${formatScore(latest)}</span>
+    </div>
+    <div class="self-compare-stat">
+      <span class="self-compare-stat-label">Tendencia</span>
+      <span class="self-compare-stat-value ${trendClass}">${trendLabel}</span>
+    </div>
+    <div class="self-compare-stat">
+      <span class="self-compare-stat-label">Partidas</span>
+      <span class="self-compare-stat-value">${history.length} · ${vsFirstLabel}</span>
+    </div>
+  `;
+
+  chartEl.setAttribute('data-category', cat);
+  chartEl.innerHTML = buildSparklineSVG(history, cat);
+  chartEl.setAttribute(
+    'aria-label',
+    `Evolución de ${game?.name ?? gameId}: ${history.length} partidas, mejor ${best.value}, última ${latest.value}`
+  );
+}
+
+function renderSelfCompare(games: GameConfig[]): void {
+  const select = document.getElementById('selfCompareSelect') as HTMLSelectElement | null;
+  if (!select) return;
+
+  const withHistory = games.filter(g => Leaderboard.get(g.id).length > 0);
+  const optionsSource = withHistory.length > 0 ? withHistory : games;
+
+  const previous = select.value;
+  select.innerHTML = optionsSource
+    .map(g => `<option value="${g.id}">${g.name}</option>`)
+    .join('');
+
+  if (previous && optionsSource.some(g => g.id === previous)) {
+    select.value = previous;
+  } else if (withHistory[0]) {
+    select.value = withHistory[0].id;
+  }
+
+  if (!selfCompareBound) {
+    select.addEventListener('change', () => {
+      if (select.value) renderSelfComparePanel(select.value);
+    });
+    selfCompareBound = true;
+  }
+
+  if (select.value) renderSelfComparePanel(select.value);
 }
 
 function renderRanking(): void {
@@ -132,7 +283,7 @@ function renderRanking(): void {
   if (!list) return;
 
   const ranked = GameRegistry.visible()
-    .map(game => ({ game, best: Leaderboard.get(game.id)[0] }))
+    .map(game => ({ game, best: Leaderboard.getBest(game.id) }))
     .filter((entry): entry is { game: GameConfig; best: NonNullable<typeof entry.best> } => !!entry.best)
     .sort((a, b) => b.best.value - a.best.value);
 
@@ -226,7 +377,7 @@ async function renderGlobalScoresFor(gameId: string): Promise<void> {
       <div class="ranking-item${index === 0 ? ' ranking-item--top' : ''}">
         <span class="ranking-rank">#${index + 1}</span>
         <div class="ranking-info">
-          <span class="ranking-name">${row.username}</span>
+          <span class="ranking-name">${escapeHtml(row.username)}</span>
         </div>
         <span class="ranking-value">${value}</span>
       </div>

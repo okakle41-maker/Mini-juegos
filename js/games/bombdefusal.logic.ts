@@ -2031,7 +2031,7 @@ export function init(rawUi: GameUi) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'bd-color-btn';
-      b.style.background = COLOR_CSS[color];
+      b.style.background = COLOR_CSS[color as keyof typeof COLOR_CSS];
       b.setAttribute('aria-label', `Color ${color}`);
       b.addEventListener('click', () => {
         if (mod.solved) return;
@@ -2409,7 +2409,7 @@ export function init(rawUi: GameUi) {
       if (mod.solved) return;
       const sol = mod.getSolution(state).positions;
       const current = mod.data.positions;
-      const match = sol.every((pos, i) => KNOB_POSITIONS[pos] === KNOB_POSITIONS[current[i]]);
+      const match = sol.every((pos, i) => (KNOB_POSITIONS as any)[pos] === (KNOB_POSITIONS as any)[current[i]]);
       if (match) onModuleSolved(mod, modEl);
       else onModuleStrike(modEl);
       renderModules();

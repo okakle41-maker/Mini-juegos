@@ -12,6 +12,7 @@ import ViewManager from './core/viewManager.js';
 import Favorites from './favoritesManager.js';
 import Leaderboard from './leaderboardManager.js';
 import GameIcons, { UiIcons } from './core/gameIcons.js';
+import { categorySlug } from './utils/categorySlug.js';
 
 /** Ícono de respaldo (gamepad monolínea, mismo estilo que el resto del
  *  set) para cualquier gameId que en el futuro no tenga un ícono propio
@@ -133,6 +134,7 @@ class LobbyRenderer {
       btn.className = 'filter-btn';
       btn.type = 'button';
       btn.dataset.filter = tag;
+      btn.dataset.category = categorySlug(tag);
       btn.textContent = tag;
       this.filterBarEl!.appendChild(btn);
     });
@@ -209,6 +211,7 @@ class LobbyRenderer {
         class="game-card${isFavorite ? ' game-card--favorite' : ''}"
         data-game-id="${game.id}"
         data-tag="${display.tag}"
+        data-category="${categorySlug(display.tag)}"
         style="--accent:${game.accent}"
         tabindex="0"
         role="button"
@@ -312,7 +315,7 @@ class LobbyRenderer {
     const eyebrowLabel = featuredTimestamp ? 'Continuar entrenamiento' : 'Módulo del Día';
 
     this.moduleOfDayEl.innerHTML = `
-      <div class="module-of-day" style="--accent:${featured.accent}">
+      <div class="module-of-day" data-category="${categorySlug(display.tag)}" style="--accent:${featured.accent}">
         <span class="mod-brackets" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
         <div class="mod-inner">
           <div class="mod-eyebrow">

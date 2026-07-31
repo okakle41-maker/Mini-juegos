@@ -1,8 +1,14 @@
 # Minijuegos — Entrenador de Bots
 
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-8.1-646cff)](https://vitejs.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20.19.0-green)](https://nodejs.org/)
+[![PWA](https://img.shields.io/badge/PWA-Ready-orange)](https://www.pwabuilder.com/)
+
 Plataforma PWA de minijuegos de entrenamiento cognitivo: reflejos, memoria, lógica, percepción, cifrado, tipeo y análisis bajo presión. 26 módulos jugables, en español, pensados para sesiones cortas y repetibles con seguimiento de récords personales.
 
-- **Versión:** 2.5.0
+- **Versión:** 3.0.0
 - **Stack:** TypeScript + Vite, sin framework de UI (DOM nativo, HTML generado como strings)
 - **Persistencia:** `localStorage` (offline-first, sin backend)
 - **Distribución:** PWA instalable con Service Worker
@@ -11,8 +17,9 @@ Plataforma PWA de minijuegos de entrenamiento cognitivo: reflejos, memoria, lóg
 
 ## Tabla de contenidos
 
-1. [Inicio rápido](#inicio-rápido)
-2. [Scripts disponibles](#scripts-disponibles)
+1. [Instalación para Desarrolladores](#instalación-para-desarrolladores)
+2. [Inicio rápido](#inicio-rápido)
+3. [Scripts disponibles](#scripts-disponibles)
 3. [Arquitectura](#arquitectura)
    - [Filosofía general](#filosofía-general)
    - [Ciclo de vida de un juego](#ciclo-de-vida-de-un-juego)
@@ -33,6 +40,74 @@ Plataforma PWA de minijuegos de entrenamiento cognitivo: reflejos, memoria, lóg
 15. [Deuda técnica conocida](#deuda-técnica-conocida)
 16. [Cómo agregar un minijuego nuevo](#cómo-agregar-un-minijuego-nuevo)
 17. [Troubleshooting](#troubleshooting)
+
+---
+
+## Instalación para Desarrolladores
+
+### Requisitos Previos
+
+- **Node.js**: ≥ 20.19.0 (ver `engines` en `package.json`)
+- **npm**: ≥ 9.0.0
+- **Git**: para clonar el repositorio
+
+### Pasos de Instalación
+
+1. **Clonar el repositorio**
+   ```bash
+   git clone <repository-url>
+   cd Main/1
+   ```
+
+2. **Instalar dependencias**
+   ```bash
+   npm install
+   ```
+
+   Esto instalará todas las dependencias de desarrollo necesarias:
+   - TypeScript y Vite para el build
+   - Vitest para testing unitario
+   - Playwright para testing E2E
+   - axe-core para testing de accesibilidad
+   - k6 para testing de carga
+
+3. **Verificar la instalación**
+   ```bash
+   npm run type-check  # Verificar tipos TypeScript
+   npm run test        # Ejecutar tests
+   ```
+
+### Scripts de Desarrollo
+
+```bash
+npm run dev          # Servidor de desarrollo con HMR
+npm run build        # Build para producción
+npm run preview      # Preview del build de producción
+npm run type-check   # Verificación de tipos TypeScript
+```
+
+### Scripts de Testing
+
+```bash
+npm run test         # Tests unitarios (modo watch)
+npm run test:run     # Tests unitarios (single run)
+npm run test:ui      # Tests unitarios con UI
+npm run test:e2e     # Tests E2E con Playwright
+npm run test:load    # Tests de carga con k6
+```
+
+### Troubleshooting de Instalación
+
+**Error: "Cannot find module '@playwright/test'"**
+- Ejecuta `npm install` para instalar las dependencias faltantes
+
+**Error: "Module not found"**
+- Verifica que estás en el directorio correcto del proyecto
+- Ejecuta `npm install` nuevamente
+
+**Error de permisos en Windows**
+- Ejecuta PowerShell como Administrador
+- O usa Git Bash en lugar de PowerShell
 
 ---
 
@@ -283,7 +358,7 @@ El leaderboard emite `window.dispatchEvent(new CustomEvent('leaderboard:updated'
 
 ## Catálogo de minijuegos
 
-26 módulos jugables (22 archivos de metadata — algunos definen más de un juego, como los sub-juegos de Skill Check). `num` es el identificador visible en la card del lobby; `tag` determina el filtro por categoría (generado dinámicamente, no hardcodeado — ver `lobbyRenderer.ts`).
+26 módulos jugables en el lobby (+ sub-juegos ocultos de Skill Check). `num` es el identificador visible en la card del lobby; `tag` determina el filtro por categoría (generado dinámicamente, no hardcodeado — ver `lobbyRenderer.ts`).
 
 | # | Nombre | Categoría | Dificultad | Descripción |
 |---|---|:---:|:---:|---|
@@ -294,7 +369,7 @@ El leaderboard emite `window.dispatchEvent(new CustomEvent('leaderboard:updated'
 | 05 | Caída de letras | TIPEO | ★★★ | Escribe las letras que caen en tiempo real antes de que lleguen al suelo |
 | 06 | Hole Match | PERCEPCIÓN | ★★ | Empareja la forma con el hueco correcto al instante, margen de error cero |
 | 07 | Color Count | ANÁLISIS | ★★★ | Cuenta los elementos del color indicado antes de que se agote el tiempo |
-| 08 | Skill Check | REFLEJOS | ★★★ | Colección de sub-minijuegos de habilidad (incluye Circle, Multi-Point, Bounce Bar y otros) |
+| 08 | Skill Check | REFLEJOS | ★★★ | Colección de sub-minijuegos de habilidad (timing, reflejos, teclado y puzzles cortos) |
 | 09 | Typix | TIPEO | ★★ | Adivina el código de 5 dígitos en un máximo de 6 intentos |
 | 10 | Rapid Lines | REFLEJOS | ★★★★ | Presiona la tecla correcta cuando la flecha llega al centro; la velocidad aumenta |
 | 11 | Sequence | MEMORIA | ★★★ | Observa y repite la secuencia; cada nivel añade un paso |
@@ -310,7 +385,7 @@ El leaderboard emite `window.dispatchEvent(new CustomEvent('leaderboard:updated'
 | 23 | Pairs | ESTRATEGIA | ★★ | Encuentra todos los pares iguales con el menor número de movimientos |
 | 24 | Cerradura Mecánica | LÓGICA | ★★★★ | Mecanismo procedural de engranajes, pestillos, imanes y contrapesos |
 
-Sub-juegos ocultos del lobby principal (`hidden: true` en su `GameConfig`, solo accesibles desde Skill Check u otra vista contenedora): **Circle**, **Multi-Point**, **Bounce Bar**.
+Sub-juegos ocultos del lobby principal (`hidden: true` en su `GameConfig`, solo accesibles desde Skill Check u otra vista contenedora): **Circle**, **Multi-Point**, **Bounce Bar**, **Hold & Release**, **Target Pop**, **Chord Keys**, **Orbit Catch**, **Lane Dodge**, **Pipe Align** (además de Rapid Lines, Maze, Key Spam, Sequence, Rhythm Click y Progress Timing, que también se abren desde el hub).
 
 Cada entrada de la tabla corresponde a un par `js/games/<archivo>.ts` (metadata) + `js/games/<archivo>.logic.ts` (lógica pesada) + `js/views/<id>.ts` (HTML) + `css/<juego>.css` (estilos propios, cargado bajo demanda vía `GameRegistry.injectCSS`).
 
@@ -327,6 +402,657 @@ No hay preprocesador (Sass/Less) ni sistema de design tokens formal: los colores
 
 ---
 
+## Mejoras de UX/UI (v2.6.0)
+
+### Sistema de Notificaciones Toast
+- Contenedor de notificaciones en `index.html` con soporte para lectores de pantalla (`aria-live="polite"`)
+- 4 variantes: success, error, warning, info con iconos y colores distintivos
+- Animaciones de entrada/salida (slide-in/slide-out)
+- Botón de cierre en cada notificación
+- Responsive: bottom en móvil, top-right en desktop
+
+### Atajos de Teclado Globales
+- Sistema en `keyboardShortcuts.ts` con registro dinámico de atajos
+- Atajos predeterminados:
+  - `Ctrl/Cmd + K`: Foco en búsqueda
+  - `Escape`: Cerrar vista actual / volver al lobby
+  - `Ctrl/Cmd + /`: Mostrar ayuda de atajos
+  - `Ctrl/Cmd + N/P`: Navegar entre secciones
+- Ignora inputs/textareas para no interferir con escritura
+
+### Persistencia de Preferencias
+- Sistema en `preferencesManager.ts` que guarda automáticamente:
+  - Tema (dark/neon/ocean)
+  - Reducción de movimiento
+  - Alto contraste
+  - Volumen de música
+  - Estado del sidebar
+  - Juegos favoritos
+  - Último juego jugado
+- Sincronización automática con toggles del header
+
+### Error Boundary Global
+- Sistema en `errorBoundary.ts` que captura errores globales y promesas rechazadas
+- Modal de error con información detallada (stack trace, source, línea/columna)
+- Opciones para recargar página o cerrar
+- Funciones helpers `withErrorHandling` y `withAsyncErrorHandling`
+
+### Optimización de Rendimiento
+- Lazy loading para imágenes con fade-in
+- Placeholder shimmer para imágenes cargando
+- Propiedad `contain` para optimizar layout de elementos interactivos
+- Clases `will-change-transform` y `will-change-opacity` para animaciones
+- GPU acceleration con `transform: translateZ(0)`
+
+### Búsqueda Mejorada
+- Filtrado en tiempo real con debounce (150ms)
+- Búsqueda por nombre/categoría/descripción
+- Animaciones de entrada para resultados
+- Mensaje de "no resultados" cuando no hay coincidencias
+- Soporte para Ctrl/Cmd+K y Escape
+
+### Badges de Filtros
+- Estilos mejorados con hover effects
+- Estado activo con glow y línea inferior
+- Animaciones suaves de transición
+
+### Menú de Acciones Rápidas
+- Botón de acciones en tarjetas (aparece en hover)
+- Dropdown con opciones
+- Animaciones de entrada/salida
+
+### Efectos de Sonido UI
+- Sistema Web Audio API en `uiSoundEffects.ts`
+- Efectos para: click, hover, success, error, notification, filter, typing
+- Control de volumen y enable/disable
+- Inicialización automática en primera interacción del usuario
+
+### Efectos de Partículas
+- Gradiente radial que sigue la posición del mouse en hover de tarjetas
+- Partículas con animación de flotación
+
+### Dropdown de Perfil de Usuario
+- Menú de usuario con header, items con iconos
+- Divider y footer con logout
+- Animaciones fluidas de entrada/salida
+
+### Estadísticas en Tarjetas
+- Preview de stats con colores según rendimiento (high/medium/low)
+- Contador de partidas jugadas
+
+### Toggle de Tema
+- Switch animado con iconos de sol/luna
+- Transiciones suaves entre temas
+- Overlay de transición
+
+### Efecto Confetti
+- Sistema canvas-based para celebraciones
+- Explosiones múltiples con física (gravedad, rotación)
+- Colores variados
+
+### Loading Skeleton
+- Skeleton loading específico para tarjetas de juego
+- Shimmer animation para mejor UX durante carga
+
+### Sub Lobby de Skillcheck Unificado
+- Diseño unificado con el lobby principal
+- Logos reemplazados por emojis Unicode
+- Grid responsive con `repeat(auto-fit, minmax(200px, 1fr))`
+- Altura de tarjetas reducida para diseño más compacto
+- Animaciones de entrada escalonadas
+
+---
+
+## Mejoras de Calidad y Mantenibilidad (v2.7.0)
+
+### Corrección de Error en Snippet Race
+- Corregido error de tipo en `snippetRace.logic.ts` línea 333
+- `filterPool` ahora acepta `number` con validación interna
+- Mejor robustez en manejo de dificultades
+
+### Testing E2E con Playwright
+- Configuración completa de Playwright para testing end-to-end
+- Tests críticos del lobby: carga, filtrado, búsqueda, favoritos, navegación
+- Soporte multi-navegador: Chrome, Firefox, Safari
+- Tests móviles: Pixel 5, iPhone 12
+- Scripts: `npm run test:e2e`, `npm run test:e2e:ui`, `npm run test:e2e:headed`
+
+### Modo Alto Contraste Completo
+- Soporte automático para `@media (prefers-contrast: high)`
+- Toggle manual con clase `.high-contrast`
+- Paleta de colores optimizada: negro/blanco/amarillo
+- Bordes gruesos (2-3px) para mejor visibilidad
+- Colores semánticos en notificaciones (verde/rojo/amarillo/cian)
+- Mejor contraste en todos los elementos interactivos
+
+### Monitoreo de Core Web Vitals
+- Sistema en `performanceMonitor.ts` con PerformanceObserver
+- Métricas monitoreadas:
+  - LCP (Largest Contentful Paint)
+  - FID (First Input Delay)
+  - CLS (Cumulative Layout Shift)
+  - FCP (First Contentful Paint)
+  - TTFB (Time to First Byte)
+  - DOM Content Loaded
+  - Load Complete
+- Ratings automáticos (good/needs-improvement/poor)
+- API expuesta en window: `getWebVitals()`, `exportPerformanceReport()`
+- Logging automático con emojis para identificación rápida
+
+### Guía de Contribución Formal
+- Documentación completa en `docs/CONTRIBUTING.md`
+- Código de conducta y estándares de comportamiento
+- Flujo de trabajo detallado para contribuciones
+- Estándares de código y convenciones de nombres
+- Guía de testing (unit, integration, E2E)
+- Plantillas para Pull Requests, Bug Reports y Feature Requests
+- Checklist de revisión antes de enviar PRs
+
+---
+
+## Mejoras de Calidad y Mantenibilidad (v2.8.0)
+
+### Tests de Integración Adicionales
+- Suite de tests de integración para GameRegistry (`test/gameRegistryIntegration.test.ts`)
+- Tests con DOM real usando JSDOM
+- Verificación de registro, resolución de UI, inicialización y cacheo
+- Tests de filtrado por categoría y validación de tipos
+
+### Documentación de API para Desarrolladores
+- Documentación completa en `docs/API.md`
+- APIs públicas documentadas: GameRegistry, ViewManager, SafeStorage, LeaderboardManager, FavoritesManager
+- APIs de utilidades: PerformanceMonitor, UISoundEffects, ConfettiEffect, KeyboardShortcuts, PreferencesManager
+- Ejemplos de uso y definiciones de tipos
+- Guía de mejores prácticas
+
+### Validaciones de Seguridad y Sanitización
+- Sistema completo en `security.ts`
+- Funciones de escape: `escapeHtml()`, `escapeJs()`, `sanitizeInput()`
+- Validaciones: `isValidId()`, `isValidUrl()`, `isValidEmail()`, `isSafeString()`
+- Sanitización de nombres de archivo y JSON seguro
+- Validación de esquemas de configuración
+- Rate limiter para prevenir abuso
+- Generación de nonces CSP
+
+### Mejoras de Accesibilidad con ARIA
+- Sistema completo en `accessibility.ts`
+- Utilidades ARIA: `setAriaLabel()`, `setAriaExpanded()`, `setAriaPressed()`, etc.
+- Anunciador ARIA dinámico para lectores de pantalla
+- Skip links para navegación por teclado
+- Trap focus para modales y dropdowns
+- Detección de preferencias: `prefersReducedMotion()`, `prefersHighContrast()`, `prefersDarkMode()`
+- Manejo de foco visible (teclado vs mouse)
+
+### Optimizaciones de Rendimiento
+- Sistema completo en `performance.ts`
+- Memoización: `memoize()`, `memoizeAsync()`
+- Debounce/Throttle: `debounce()`, `throttle()`, `rafThrottle()`
+- Lazy loading con cache
+- Virtual scrolling para listas largas (`VirtualScroller`)
+- Cache LRU (`LRUCache`)
+- Batch DOM updates (`DOMBatcher`)
+- Lazy loading de imágenes
+- Preload/prefetch de recursos
+- Detección de dispositivos de baja potencia
+- State batching (`StateBatcher`)
+
+### Tracking de Errores y Monitoreo
+- Sistema completo en `errorTracking.ts`
+- Captura automática de errores globales, promesas rechazadas y errores de recursos
+- Contexto enriquecido: sesión, URL, vista, juego, acción
+- Clasificación por severidad (low/medium/high/critical)
+- Deduplicación de errores por ID
+- Estadísticas y reportes exportables
+- Wrappers para funciones con tracking: `withErrorTracking()`, `withSyncErrorTracking()`
+- API expuesta en window: `getErrorStats()`, `getErrorReport()`, `clearErrors()`
+
+### Testing Automatizado de Accesibilidad
+- Integración con axe-core/Playwright
+- Suite de tests en `e2e/accessibility.spec.ts`
+- Verificaciones: violaciones de accesibilidad, contraste de color, etiquetas ARIA, jerarquía de headings
+- Tests de manejo de foco, alt text en imágenes, labels de formularios
+- Tests de landmarks, navegación por teclado, regiones ARIA live
+- Scripts: `npm run test:e2e` incluye tests de accesibilidad
+
+### Herramientas de Desarrollo y Debugging
+- Consola de DevTools interactiva en `devTools.ts`
+- Activación con Ctrl+Shift+D
+- Comandos disponibles: `help`, `clear`, `games`, `game <id>`, `vitals`, `perf`, `errors`, `storage`, `theme`, `view`, `confetti`, `sound`, etc.
+- Historial de comandos
+- Logging en consola con colores
+- API expuesta en window: `dev`, `devTools`
+
+---
+
+## Mejoras de Calidad y Mantenibilidad (v2.9.0)
+
+### Unit Tests por Juego
+- Suite de tests de estructura para 10 juegos representativos
+- Tests de validación de funciones `init` y `stop`
+- Verificación de exportaciones requeridas
+- Tests de integración para GameRegistry
+- Scripts: `npm run test`, `npm run test:run`, `npm run test:ui`
+
+### Testing con Lectores de Pantalla Reales
+- Guía completa en `docs/ACCESSIBILITY_TESTING.md`
+- Procedimientos para NVDA (Windows), JAWS (Windows), VoiceOver (macOS/iOS)
+- Comandos de navegación específicos por lector
+- Escenarios de testing: lobby, selección de juego, controles, navegación por teclado
+- Plantilla de reporte de resultados
+- Mejores prácticas y recursos
+
+### Optimizaciones Específicas por Juego
+- Sistema completo en `gameOptimizations.ts`
+- `AnimationOptimizer`: control de animaciones según preferencias y calidad
+- `CalculationOptimizer`: memoización y cache de cálculos
+- `RenderOptimizer`: batch de actualizaciones DOM
+- `EventOptimizer`: event delegation para reducir listeners
+
+---
+
+## Sistemas v3.0.0 - Gamificación y UX Avanzada
+
+### Sistema de Notificaciones Toast Completo
+- **Archivo**: `js/notificationSystem.ts`
+- **Características**:
+  - 5 tipos de notificaciones: success, error, warning, info, achievement
+  - Stack de notificaciones con máximo 5 visibles simultáneamente
+  - Auto-dismiss configurable con duración personalizable
+  - Acciones personalizadas en cada notificación
+  - Animaciones slideIn/slideOut suaves
+  - Colores distintivos por tipo
+  - Integración automática con eventos del sistema (logros, cambios de tema)
+- **Uso**: `window.Minijuegos.notificationSystem.success('Título', 'Mensaje')`
+
+### Sistema de Transiciones Mejorado
+- **Archivo**: `js/transitionSystem.ts`
+- **Características**:
+  - 5 tipos de transiciones: fade, slide, scale, flip, none
+  - 4 direcciones para slide: left, right, up, down
+  - Duración y easing configurables
+  - Transiciones asíncronas con Promise
+  - Cleanup automático de estilos
+  - Soporte para navegación entre vistas del sidebar
+- **Uso**: `window.Minijuegos.transitionSystem.transition(fromView, toView, config)`
+
+### Sistema de Badges/Insignias
+- **Archivo**: `js/badgesSystem.ts`
+- **Características**:
+  - 4 rarezas: common, rare, epic, legendary
+  - 5 categorías: achievement, social, skill, event, special
+  - Sistema de showcase (hasta 5 badges en perfil)
+  - Badges temporales con expiración automática
+  - Sistema de progreso para badges
+  - Estadísticas completas de colección
+  - 15 badges predefinidos con requisitos específicos
+- **Uso**: `window.Minijuegos.badgeSystem.unlockBadge('badge_id')`
+
+### Sistema de Achievements Secuenciales
+- **Archivo**: `js/achievements.ts` (extendido)
+- **Características**:
+  - Cadenas de logros con dependencias (prerequisiteId)
+  - Método `trackSequentialProgress()` para progreso en cadenas
+  - Método `getAvailableAchievements()` para logros desbloqueables
+  - Soporte para logros ocultos
+  - Recompensas especiales por completar cadenas completas
+  - Integración con sistema de badges
+- **Uso**: `window.Minijuegos.achievementManager.trackSequentialProgress('chain_id', step)`
+
+### Sistema de Sound Effects
+- **Archivo**: `js/soundSystem.ts`
+- **Características**:
+  - Sonidos sintéticos generados con Web Audio API (sin dependencias de archivos)
+  - 6 categorías de volumen: master, ui, achievement, game, notification, ambient
+  - 9 tipos de sonidos: click, hover, success, error, achievement, level_up, notification, game_start, game_end
+  - Control de volumen por categoría
+  - 3 temas: default, retro, modern, minimal
+  - Generación en tiempo real sin archivos externos
+- **Uso**: `window.Minijuegos.soundSystem.playSound('click', 'ui')`
+
+### Sistema de Accessibility Mejorado
+- **Archivo**: `js/accessibilitySystem.ts`
+- **Características**:
+  - Navegación por teclado completa con atajos
+  - Skip links para contenido principal
+  - Indicadores de focus mejorados y visibles
+  - 3 modos de contraste: normal, high, increased
+  - 4 tamaños de texto: small, normal, large, extra-large
+  - 5 modos de daltonismo: none, protanopia, deuteranopia, tritanopia, achromatopsia
+  - Reduced motion support
+  - ARIA live regions para screen readers
+  - Focus trap para modales y diálogos
+  - 3 presets: High Contrast, Low Vision, Motor Impairment
+- **Uso**: `window.Minijuegos.accessibilitySystem.setContrastMode('high')`
+
+### Sistema de PWA Features
+- **Archivo**: `js/pwaSystem.ts`
+- **Características**:
+  - Push Notifications con VAPID
+  - Background Sync para datos offline
+  - Offline Mode con monitoreo de conexión
+  - App Shortcuts para acceso rápido
+  - Install Prompt para PWA
+  - Cache management y precarga de assets
+  - Sincronización automática al recuperar conexión
+- **Uso**: `window.Minijuegos.pwaSystem.promptInstall()`
+
+### Sistema de Gamification Avanzado
+- **Archivo**: `js/gamificationSystem.ts`
+- **Características**:
+  - Puntos globales acumulativos
+  - 10 niveles de usuario con títulos y perks
+  - Misiones semanales que se regeneran automáticamente
+  - Eventos temporales con multiplicadores y recompensas exclusivas
+  - XP Multiplier durante eventos especiales
+  - Event listeners automáticos para juegos y progreso
+  - Sistema de recompensas (XP, puntos, cosméticos)
+- **Uso**: `window.Minijuegos.gamificationSystem.addGlobalPoints(100)`
+
+### Sistema de Skeleton Loading
+- **Archivo**: `js/skeletonSystem.ts`
+- **Características**:
+  - 8 tipos de skeletons: card, list, text, avatar, button, badge, stat, chart
+  - Shimmer animation para mejor percepción de carga
+  - Skeletons predefinidos para logros, progresión, leaderboard, perfil
+  - API simple: `showSkeleton()`, `hideSkeleton()`, `withSkeleton()`
+  - CSS inyectado automáticamente con tema oscuro
+  - Fade transitions suaves al cargar contenido
+  - Soporte para contenido asíncrono con Promises
+- **Uso**: `window.Minijuegos.skeletonSystem.showSkeleton('container-id', { type: 'card', count: 6 })`
+
+### Integración de Sistemas
+Todos los sistemas v3.0.0 están completamente integrados en `js/app.ts`:
+- Auto-inicialización en constructores
+- Exposición global en `window.Minijuegos` para debugging
+- Event listeners automáticos para integración entre sistemas
+- Persistencia en localStorage cuando aplica
+- Console logging de inicialización
+
+---
+
+## Mejoras de Calidad y Mantenibilidad (v2.9.0)
+
+### Unit Tests por Juego
+- Suite de tests de estructura para 10 juegos representativos
+- Tests de validación de funciones `init` y `stop`
+- Verificación de exportaciones requeridas
+- Tests de integración para GameRegistry
+- Scripts: `npm run test`, `npm run test:run`, `npm run test:ui`
+
+### Testing con Lectores de Pantalla Reales
+- Guía completa en `docs/ACCESSIBILITY_TESTING.md`
+- Procedimientos para NVDA (Windows), JAWS (Windows), VoiceOver (macOS/iOS)
+- Comandos de navegación específicos por lector
+- Escenarios de testing: lobby, selección de juego, controles, navegación por teclado
+- Plantilla de reporte de resultados
+- Mejores prácticas y recursos
+
+### Optimizaciones Específicas por Juego
+- Sistema completo en `gameOptimizations.ts`
+- `AnimationOptimizer`: control de animaciones según preferencias y calidad
+- `CalculationOptimizer`: memoización y cache de cálculos
+- `RenderOptimizer`: batch de actualizaciones DOM
+- `EventOptimizer`: event delegation para reducir listeners
+- `MemoryOptimizer`: object pooling para reutilizar objetos
+- `SequenceOptimizer`: cache de secuencias generadas
+- `TimingOptimizer`: temporizadores optimizados con preferencias
+
+### Monitoreo de Performance en Producción
+- Sistema en `productionMonitoring.ts` para integración con Sentry/DataDog
+- Soporte para múltiples proveedores: Sentry, Datadog, Custom
+- Captura de excepciones con contexto
+- Tracking de mensajes con niveles (info/warning/error)
+- Gestión de usuarios y tags
+- Transacciones para performance tracing
+- Breadcrumbs para seguimiento de eventos
+
+### Load y Stress Testing
+- Suite de tests de carga con k6 en `load-test/load-test.js`
+- Escenarios de ramp-up: 10 → 50 → 100 usuarios concurrentes
+- Tests de carga de página, navegación a juegos, simulación de interacción
+- Métricas: tiempo de respuesta, tasa de error, percentiles
+- Script: `npm run test:load`
+- Configuración de thresholds para CI/CD
+
+### Escaneo de Seguridad Automatizado
+- Workflow de GitHub Actions en `.github/workflows/security-scan.yml`
+- SAST con CodeQL (JavaScript/TypeScript)
+- Dependency scanning con Snyk
+- NPM audit para vulnerabilidades
+- Bandit security scan
+- Semgrep para análisis de seguridad
+- Ejecución automática en push, PR y schedule semanal
+
+### Documentación de Arquitectura con Diagramas
+- Documentación completa en `docs/ARCHITECTURE.md`
+- Diagramas de arquitectura en capas
+- Estructura de directorios y módulos
+- Diagramas de flujo de datos
+- Diagramas de secuencia (game launch, score saving)
+- Diagramas de componentes (GameRegistry, ViewManager)
+- Arquitectura de despliegue PWA
+- Patrones de diseño implementados
+- Consideraciones de performance, seguridad y accesibilidad
+
+### Internacionalización (i18n)
+- Sistema completo en `i18n.ts` con soporte para 8 idiomas
+- Idiomas: Español, Inglés, Portugués, Francés, Alemán, Japonés, Chino, Árabe
+- Detección automática de idioma del navegador
+- Persistencia de preferencia de idioma
+- Soporte para RTL (árabe)
+- API simple: `t('key')`, `i18n.setLocale('en')`
+- Eventos para actualización de_ui
+- 80+ traducciones para UI común
+
+---
+
+## Mejoras de Calidad y Mantenibilidad (v3.0.0)
+
+### Sistema de Logros y Trofeos Expandido
+- Sistema completo en `achievements.ts` con 20+ logros
+- **Logros por juego** con condiciones específicas (perfect game, rondas, tiempo de reacción)
+- **Cadenas secuenciales** que requieren logros previos para desbloquear
+- **Logros temporales** por temporada con eventos especiales
+- **Sistema de recompensas**: XP, títulos, cosméticos con rarezas (common, rare, epic, legendary)
+- **Eventos personalizados**: `achievement:unlocked`, `xp:gained`, `title:unlocked`, `cosmetic:unlocked`
+- **Progreso visual** por logro con porcentaje completado
+- **Filtrado** por categoría, rareza y estado
+- API expuesta: `achievementManager`, `trackGamePlayed()`, `trackGameCompleted()`, `getUnlockedTitles()`
+
+### Sistema de Progresión y RPG
+- Sistema completo en `progressionSystem.ts` con 100 niveles
+- **Sistema de niveles** con títulos desbloqueables (Recluta → Gran Mariscal)
+- **Skill tree** con 8 habilidades mejorables:
+  - Tiempo Extra I/II (+5/+10 segundos)
+  - Puntuación Extra I/II (+10%/+25%)
+  - Aprendizaje Rápido I/II (+15%/+30% XP)
+  - Vidas Extra (+1 vida)
+  - Sistema de Pistas
+- **Daily quests** con 5 misiones diarias rotativas
+- **Season pass** de 50 niveles con recompensas free y premium
+- **Sistema de rachas** con seguimiento de días consecutivos
+- **Bonus activos** aplicados automáticamente según habilidades desbloqueadas
+- Eventos: `progression:xp_gained`, `progression:level_up`, `progression:skill_unlocked`, `progression:quest_completed`
+- API expuesta: `progressionSystem`, `addXP()`, `unlockSkill()`, `getDailyQuests()`
+
+### Sistema de Personalización Avanzada
+- Sistema completo en `customizationSystem.ts` con múltiples opciones
+- **8 avatares** desbloqueables con diferentes rarezas (Robot, Alien, Ninja, Mago, Dragón, etc.)
+- **Skins** para juegos, interfaz y cursor (neón, retro, cyber, glass, rainbow, fire)
+- **4 packs de sonido** (default, retro 8-bit, orquestal épico, naturaleza relajante)
+- **6 marcos de perfil** con efectos visuales (dorado, plateado, diamante, arcoíris, neón)
+- **4 animaciones de victoria** (confeti clásico, fuegos artificiales, partículas mágicas, victoria épica)
+- **5 temas personalizados** (default, midnight, forest, ocean, sunset)
+- **Creador de temas custom** con colores y fuentes personalizables
+- **Sincronización** con sistema de logros para desbloqueos
+- Eventos: `customization:avatar_changed`, `customization:theme_changed`, `customization:reward_claimed`
+- API expuesta: `customizationSystem`, `setActiveAvatar()`, `createCustomTheme()`, `playVictoryAnimation()`
+
+### Sistema de Estadísticas Avanzadas
+- Sistema completo en `advancedStats.ts` con análisis profundo
+- **8 categorías cognitivas**: Memoria, Reflejos, Lógica, Percepción, Tipeo, Análisis, Cifrado, Estrategia
+- **Análisis de fortalezas/debilidades** con recomendaciones personalizadas
+- **Heatmap de actividad** por hora y día de la semana
+- **Gráficos de tiempo de juego** (semanal y mensual)
+- **Predicciones de nivel** y juegos sugeridos
+- **Comparación con promedios globales** y percentiles
+- **Métricas de rendimiento**: accuracy, speed, consistency, improvement
+- **Perfil cognitivo** con categorías dominantes y balance
+- **Exportación/importación** de datos en JSON
+- API expuesta: `advancedStatsSystem`, `recordGamePerformance()`, `getWeaknessAnalysis()`, `getCognitiveProfile()`
+
+### Sistema de Multiplayer en Tiempo Real
+- Sistema completo en `multiplayerSystem.ts` usando Supabase Realtime
+- **Matchmaking** por nivel de habilidad con cola automática
+- **Partidas 1v1** en tiempo real con sincronización de scores
+- **Leaderboards en vivo** por juego con actualizaciones realtime
+- **Sistema de chat** durante partidas con diferentes tipos de mensajes
+- **Modo espectador** para ver partidas de otros jugadores
+- **Estado de jugador** (online, playing, away) con tracking
+- **Sistema de brackets** para torneos
+- **Fallback offline** para jugar sin conexión
+- Eventos: `multiplayer:match_found`, `multiplayer:match_started`, `multiplayer:score_updated`, `multiplayer:leaderboard_updated`
+- API expuesta: `multiplayerSystem`, `joinMatchmaking()`, `sendMatchMessage()`, `spectateMatch()`
+
+### Sistema Social Completo
+- Sistema completo en `socialSystem.ts` con features sociales completas
+- **Sistema de amigos** con solicitudes, favoritos y estado online
+- **Clanes** con roles (leader, officer, member) y XP grupal
+- **Chat global y privado** con diferentes tipos de mensajes (text, system, achievement, challenge)
+- **Muro de perfil** con posts, likes y comentarios
+- **Sistema de kudos** para reconocer a otros jugadores
+- **Estadísticas sociales**: amigos, miembros de clan, kudos dados/recibidos, posts
+- **Subscripciones realtime** con Supabase para actualizaciones en vivo
+- Eventos: `social:friend_updated`, `social:clan_joined`, `social:chat_message`, `social:kudos_sent`
+- API expuesta: `socialSystem`, `sendFriendRequest()`, `createClan()`, `sendChatMessage()`, `createProfilePost()`
+
+### Sistema de Torneos y Eventos
+- Sistema completo en `tournamentSystem.ts` con eventos regulares
+- **Torneos semanales** automáticos con brackets de eliminación directa
+- **Eventos temáticos** (Halloween, Navidad, Cyber Week, Retro Week)
+- **Sistema de desafíos** por evento con milestones y recompensas
+- **Temas visuales especiales** por evento con efectos únicos
+- **Recompensas exclusivas** para ganadores (XP, cosméticos, títulos)
+- **Historial de torneos** con resultados pasados
+- **Generación automática de brackets** (single elimination, double elimination, round robin)
+- **Registro de participantes** con límite de cupo
+- Eventos: `tournament:registered`, `tournament:match_started`, `event:challenge_completed`, `event:theme_applied`
+- API expuesta: `tournamentSystem`, `registerForTournament()`, `getActiveTournaments()`, `updateEventChallengeProgress()`
+
+### Service Worker Avanzado
+- Versión actualizada a v3.0.0
+- Estrategias de caching avanzadas:
+  - Cache First con Stale-While-Revalidate para assets estáticos
+  - Network First con timeout para HTML y JS crítico
+  - Cache First para CSS
+  - Cache First con expiración larga para imágenes
+  - Network First con cache corto para API de Supabase
+- Background sync para leaderboard y favoritos
+- Push notifications con click handler
+- Message handler para skipWaiting y clearCache
+- Limpieza automática de caches antiguos
+
+### Analytics con Gestión de Consentimiento
+- Sistema completo en `analytics.ts` respetuoso de la privacidad
+- Gestión de consentimiento granular (analytics, performance, errors, preferences)
+- Opt-in por defecto (GDPR compliant)
+- Banner de consentimiento
+- Tracking de eventos: page views, game start/complete/abort, feature use, errors, performance, preferences
+- Exportación de datos del usuario
+- Derecho al olvido (deleteData)
+- API expuesta en window: `analytics`
+
+---
+
+## Mejoras de Experiencia de Usuario (v3.0.0)
+
+### Dark Mode / Tema Claro
+- Sistema completo en `themeManager.ts` con soporte para light/dark/auto
+- Detección automática de tema del sistema
+- Persistencia de preferencia de tema
+- Transiciones suaves entre temas
+- Actualización de meta theme-color para móviles
+- Eventos para actualización de UI
+- API simple: `themeManager.setTheme('dark')`, `themeManager.toggleTheme()`
+
+### Sistema de Logros
+- Sistema completo en `achievements.ts` con 16 logros desbloqueables
+- Categorías: juegos, rachas, puntuaciones, tiempo, especiales
+- Tracking automático de progreso
+- Notificaciones de logros desbloqueados
+- Progreso de logros en porcentaje
+- Exportación/importación de datos de logros
+- API expuesta en window: `achievementManager`
+
+### Estadísticas de Jugador Mejoradas
+- Sistema completo en `playerStats.ts` con estadísticas detalladas
+- Estadísticas por juego: jugados, completados, mejor puntuación, tiempo promedio
+- Estadísticas globales: total jugados, favorito, más jugado, rachas
+- Top juegos por puntuación, jugados, completados
+- Juegos recientes
+- Estadísticas de tiempo de juego
+- Tasa de completación
+- Exportación/importación de estadísticas
+
+### Modo de Práctica
+- Sistema en `practiceMode.ts` para practicar sin afectar estadísticas
+- Modos: normal, práctica, tutorial
+- Opciones: pistas, tiempo ilimitado, cámara lenta, saltar tutorial
+- Ajuste automático de tiempo y dificultad
+- Sistema de pistas contextuales por juego
+- Estadísticas separadas para práctica
+
+### Sistema de Confetti Mejorado
+- Sistema en `confettiEffect.ts` con múltiples patrones y formas
+- Formas: cuadrado, círculo, estrella, corazón, diamante
+- Patrones: celebración, lluvia, cañón, espiral
+- Configuración personalizable: colores, formas, gravedad, fricción
+- Funciones helper: `triggerConfetti()`, `triggerConfettiRain()`, etc.
+
+### Efectos de Sonido Mejorados
+- Sistema en `enhancedAudio.ts` con más de 20 efectos de sonido
+- Tipos de onda: sine, square, sawtooth, triangle
+- Envelope ADSR para control de sonido
+- Secuencias y acordes
+- Sonidos especiales: logros, errores, victoria
+- Control de volumen y mute
+
+### Sistema de Notificaciones
+- Sistema en `notificationSystem.ts` con notificaciones toast
+- Tipos: success, error, warning, info, achievement
+- Animaciones suaves de entrada/salida
+- Acciones personalizables en notificaciones
+- Auto-dismiss con duración configurable
+- Integración con logros y cambios de tema
+
+### Presets de Dificultad
+- Sistema en `difficultyPresets.ts` con 4 niveles de dificultad
+- Niveles: fácil, normal, difícil, experto
+- Ajustes: tiempo, puntuación, pistas, errores permitidos, velocidad, complejidad
+- Configuración personalizada por juego
+- Ajuste automático de tiempo y puntuación
+- Navegación entre niveles de dificultad
+
+### Sistema de Replay de Partidas
+- Sistema en `gameReplay.ts` para grabar y reproducir partidas
+- Grabación de eventos: input, estado, puntuación, completado, error
+- Reproducción con sincronización temporal
+- Exportación/importación de replays
+- Compartir replays vía URL
+- Estadísticas de replays
+- Mejores replays por juego
+
+### Compartir en Redes Sociales
+- Sistema en `socialSharing.ts` para compartir contenido
+- Plataformas: Twitter, Facebook, LinkedIn, WhatsApp, Telegram, Reddit, Email
+- Compartir puntuaciones, logros, juegos, leaderboard
+- Soporte para Web Share API nativo
+- Fallback a portapapeles
+- Generación de imágenes para compartir
+- Copiar enlace de compartir
+
+---
+
 ## Cuentas de usuario y scoreboard global
 
 A diferencia del resto de la app (100% cliente, sin red), el sistema de cuentas necesita un backend real: **un nombre de usuario único + contraseña no se puede validar de forma segura solo con `localStorage`** — cualquiera con acceso al navegador puede leer o editar esos datos. Por eso esta parte del proyecto usa [Supabase](https://supabase.com) (Postgres + autenticación + API, alojado por Supabase, gratis en el tier usado acá) como backend.
@@ -337,7 +1063,7 @@ El esquema de base de datos **no se aplica solo** — hay que correrlo una vez a
 
 1. Entrá al [dashboard de tu proyecto Supabase](https://supabase.com/dashboard) → **SQL Editor** → **New query**.
 2. Pegá el contenido completo de **`supabase/schema.sql`** y ejecutalo. (Si ya lo corriste antes de la fecha en que se agregó `security_invoker` / `(select auth.uid())` a este archivo, corré también `supabase/migration_001_fix_advisors.sql` — corrige las advertencias de Database → Advisors sin tocar datos existentes.)
-3. Corré también **`supabase/migration_002_rate_limit_scores.sql`** — agrega un trigger que rechaza más de 10 inserts de `scores` por usuario en 60 segundos. Sin esto, nada impide que una cuenta logueada llame a la API de Supabase en bucle para inflar el ranking global (ver [`SUPABASE_RATE_LIMITING.md`](./SUPABASE_RATE_LIMITING.md) para el resto de los límites de Auth, que se configuran desde el dashboard y no requieren SQL).
+3. Corré también **`supabase/migration_002_rate_limit_scores.sql`** — agrega un trigger que rechaza más de 10 inserts de `scores` por usuario en 60 segundos. Sin esto, nada impide que una cuenta logueada llame a la API de Supabase en bucle para inflar el ranking global (ver [`docs/SUPABASE_RATE_LIMITING.md`](./docs/SUPABASE_RATE_LIMITING.md) para el resto de los límites de Auth, que se configuran desde el dashboard y no requieren SQL).
 4. Verificá en **Table Editor** que aparecieron las tablas `profiles` y `scores`, y la vista `best_scores`.
 5. **Desactivá "Confirm email"**: Dashboard → **Authentication** → **Providers** → **Email** → apagá "Confirm email". Está activado por defecto en todo proyecto nuevo. El registro de este juego usa un email sintético interno (`usuario@minijuegos.local`, ver `authManager.ts`) que Supabase nunca podrá entregar de verdad — con la confirmación activada, cualquier registro queda atascado sin sesión. `authManager.ts` detecta este caso y devuelve un mensaje de error explicando qué hacer, en vez de fallar en silencio.
 
@@ -481,13 +1207,15 @@ En **Settings → Branches → Add rule** para `main`:
 
 Esto convierte a `ci.yml` en un gate real: nadie puede mergear a `main` con tests rotos, sin importar quién sea. No se puede versionar esta configuración dentro del repo — es un ajuste del repositorio en GitHub, se configura una sola vez.
 
-### Deploy: Cloudflare Pages
+### Deploy: GitHub Pages
 
-El frontend se despliega en **Cloudflare Pages** — gratis para este volumen, CDN global (buen fit para una PWA con Service Worker), y se conecta directo al repo: cada push a `main` despliega solo, cada PR genera una preview URL automática.
+El frontend se despliega en **GitHub Pages** vía `.github/workflows/deploy.yml`: cada push a `main`/`master` construye el proyecto (`npm run build`) y publica `dist/` automáticamente. No requiere ninguna cuenta ni configuración externa — solo que **GitHub Pages esté habilitado** en el repo (Settings → Pages → Source: "GitHub Actions").
 
-Guía paso a paso, incluyendo cómo estructurar el repo y por qué `public/_headers` es crítico para que las actualizaciones de la PWA lleguen a los usuarios: **[`CLOUDFLARE_DEPLOY.md`](./CLOUDFLARE_DEPLOY.md)**.
+**`base` de Vite y el nombre del repo.** GitHub Pages sirve el sitio en `https://usuario.github.io/<nombre-del-repo>/`, no en la raíz del dominio — por eso `vite.config.ts` fija `base: process.env.VITE_BASE || '/Mini-juegos/'`. Si el repo en GitHub **no se llama exactamente `Mini-juegos`**, hay que actualizar el valor de `VITE_BASE` en el step "Build" de `deploy.yml` con el nombre real; de lo contrario todo el CSS/JS/audio da 404 en producción aunque el build local funcione perfecto.
 
-Hoy el deploy de Cloudflare corre en paralelo a `ci.yml`, sin estar encadenados — ver esa guía para las dos formas de conectarlos si en algún momento se quiere que un fallo en CI bloquee el deploy.
+**Content-Security-Policy.** GitHub Pages no permite fijar cabeceras HTTP custom (no hay equivalente al `_headers` de Cloudflare Pages), así que la política de seguridad vive como `<meta http-equiv="Content-Security-Policy">` en `index.html` — con las limitaciones que eso implica: no soporta `frame-ancestors`, `report-uri` ni cabeceras puras como `X-Frame-Options`/`Permissions-Policy`. Ver el comentario junto a esa etiqueta en `index.html` para el detalle completo de qué cubre y qué no.
+
+**Cache del Service Worker.** GitHub Pages sirve todos los archivos con las mismas cabeceras de caché por defecto — no hay forma de forzar `Cache-Control: no-cache` solo para `sw.js` como sí permitía `public/_headers` en Cloudflare. `sw.ts` ya incluye su propia estrategia de invalidación por versión (`CACHE_NAME`) para no depender de esto, pero conviene tenerlo presente si en el futuro los usuarios reportan quedarse "atascados" en una versión vieja de la PWA.
 
 ---
 

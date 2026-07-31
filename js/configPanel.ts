@@ -18,10 +18,10 @@ import BackgroundManager from './backgroundManager.js';
 const THEME_STORAGE_KEY = 'st_theme';
 const THEME_SELECT_IDS = ['themeSelect', 'configThemeSelect'];
 
-type ThemeValue = 'dark' | 'neon' | 'ocean';
+type ThemeValue = 'dark' | 'neon' | 'ocean' | 'orange';
 
 function isThemeValue(value: string): value is ThemeValue {
-  return value === 'dark' || value === 'neon' || value === 'ocean';
+  return value === 'dark' || value === 'neon' || value === 'ocean' || value === 'orange';
 }
 
 function safeGetStoredTheme(): string | null {

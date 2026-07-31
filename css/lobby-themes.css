@@ -29,24 +29,24 @@
    fijo y un parpadeo de opacidad muy liviano en las scanlines. */
 
 body[data-theme="neon"] {
-  --bg: #030105;
-  --surface: rgba(0, 234, 255, 0.06);
-  --border: rgba(255, 0, 200, 0.28);
-  --border-hover: rgba(0, 234, 255, 0.55);
-  --text: #eafcff;
-  --text-muted: rgba(180, 245, 255, 0.68);
-  --text-dim: rgba(150, 215, 230, 0.5);
-  --accent-cyan: #00eaff;
-  --accent-orange: #ff00c8;
-  --accent-orange-2: #ff5be0;
-  --bg-1: #030105;
-  --bg-2: #0b0414;
-  --card: rgba(10, 4, 18, 0.96);
-  --card-hover: linear-gradient(155deg, rgba(20,6,32,1) 0%, rgba(38,8,55,1) 100%);
+  --bg: #010003;
+  --surface: rgba(0, 255, 255, 0.12);
+  --border: rgba(255, 0, 255, 0.45);
+  --border-hover: rgba(0, 255, 255, 0.75);
+  --text: #eaffff;
+  --text-muted: rgba(200, 255, 255, 0.85);
+  --text-dim: rgba(180, 245, 255, 0.7);
+  --accent-cyan: #00ffff;
+  --accent-orange: #ff00ff;
+  --accent-orange-2: #ff66ff;
+  --bg-1: #010003;
+  --bg-2: #0a0020;
+  --card: rgba(15, 0, 30, 0.98);
+  --card-hover: linear-gradient(155deg, rgba(30,0,50,1) 0%, rgba(50,0,80,1) 100%);
   --panel-gradient: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
-  --glow-orange: rgba(255, 0, 200, 0.6);
-  --glow-orange-strong: rgba(255, 0, 200, 0.95);
-  --glow-orange-soft: rgba(0, 234, 255, 0.14);
+  --glow-orange: rgba(255, 0, 255, 0.8);
+  --glow-orange-strong: rgba(255, 0, 255, 1);
+  --glow-orange-soft: rgba(0, 255, 255, 0.25);
 
   /* Tipografía propia: se propaga a TODO el sitio (headers, sidebar,
      cards, botones, HUD) porque todas esas reglas usan var(--font-*). */
@@ -173,24 +173,24 @@ body[data-theme="neon"] .diff-dot {
    resto). Sin scanlines duras ni glitch: opuesto de energía a Neón. */
 
 body[data-theme="ocean"] {
-  --bg: #03080d;
-  --surface: rgba(45, 212, 191, 0.06);
-  --border: rgba(56, 189, 248, 0.2);
-  --border-hover: rgba(45, 212, 191, 0.45);
-  --text: #e3fbf6;
-  --text-muted: rgba(170, 232, 220, 0.68);
-  --text-dim: rgba(130, 195, 185, 0.5);
-  --accent-cyan: #38bdf8;
-  --accent-orange: #2dd4bf;
-  --accent-orange-2: #5eead4;
-  --bg-1: #03080d;
-  --bg-2: #06141c;
-  --card: rgba(5, 16, 22, 0.96);
-  --card-hover: linear-gradient(155deg, rgba(7,24,32,1) 0%, rgba(10,40,50,1) 100%);
+  --bg: #000508;
+  --surface: rgba(0, 255, 200, 0.12);
+  --border: rgba(0, 200, 255, 0.5);
+  --border-hover: rgba(0, 255, 200, 0.8);
+  --text: #e0ffff;
+  --text-muted: rgba(180, 255, 240, 0.85);
+  --text-dim: rgba(150, 230, 220, 0.7);
+  --accent-cyan: #00d4ff;
+  --accent-orange: #00ffaa;
+  --accent-orange-2: #00ffcc;
+  --bg-1: #000508;
+  --bg-2: #001018;
+  --card: rgba(0, 20, 30, 0.98);
+  --card-hover: linear-gradient(155deg, rgba(0,30,45,1) 0%, rgba(0,50,70,1) 100%);
   --panel-gradient: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
-  --glow-orange: rgba(45, 212, 191, 0.5);
-  --glow-orange-strong: rgba(45, 212, 191, 0.85);
-  --glow-orange-soft: rgba(56, 189, 248, 0.14);
+  --glow-orange: rgba(0, 255, 170, 0.7);
+  --glow-orange-strong: rgba(0, 255, 170, 0.95);
+  --glow-orange-soft: rgba(0, 200, 255, 0.25);
 
   --font-sans: 'Comfortaa', 'Quicksand', system-ui, sans-serif;
   --font-mono: 'Comfortaa', ui-monospace, monospace;

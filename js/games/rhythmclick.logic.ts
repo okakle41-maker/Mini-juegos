@@ -1,4 +1,6 @@
 import audioManager from '../audioManager.js';
+import difficultyPresets from '../difficultyPresets.js';
+import { AnimationOptimizer } from '../gameOptimizations.js';
 /**
  * js/games/rhythmclick.logic.ts
  *
@@ -8,6 +10,14 @@ import audioManager from '../audioManager.js';
  *
  * Reescrito del patrón `this._stop` implícito a un closure
  * module-level (ver misma nota en Maze/maze.logic.ts).
+ *
+ * Usa DifficultyPresetsManager (js/difficultyPresets.ts) para escalar
+ * el tiempo base (30s) según el preset GLOBAL elegido en Configuración
+ * → DIFICULTAD GLOBAL (js/difficultySettings.ts), y AnimationOptimizer
+ * (js/gameOptimizations.ts) para limitar cuántos "cores" pueden
+ * animarse a la vez si el usuario tiene prefers-reduced-motion o
+ * calidad de animación baja — antes ambos módulos se cargaban en
+ * main.ts pero ningún juego los consultaba.
  */
 
 let cleanup: (() => void) | null = null;
@@ -24,15 +34,26 @@ export function init() {
 
     if (!arena || !levelEl || !scoreEl || !timeEl || !resultEl) return;
 
+    const animationOptimizer = new AnimationOptimizer();
+
     let running = false;
     let level = 1, score = 0;
     let time = 30, timer: ReturnType<typeof setInterval> | null = null;
     let spawnInterval: ReturnType<typeof setInterval> | null = null, spawnDelay = 1000;
     let activeCores = 0, maxCores = 1;
+    let nextAnimId = 0;
+
+    function getBaseTime(): number {
+      // Todavía no hay selector de dificultad propio para este juego, así
+      // que usamos el preset GLOBAL elegido en Configuración (ver
+      // js/difficultySettings.ts) en vez de GAME_ID, que caería siempre
+      // a 'normal' por no tener ajuste guardado.
+      return Math.round(30 * difficultyPresets.getGameSettings('global').timeMultiplier);
+    }
 
     function startTimer() {
       if (timer) clearInterval(timer);
-      time = 30;
+      time = getBaseTime();
       timeEl.textContent = String(time);
       timeEl.classList.remove('danger');
       timer = setInterval(() => {
@@ -60,6 +81,7 @@ export function init() {
     }
 
     function spawnCore() {
+      if (!animationOptimizer.shouldAnimate()) return;
       const core = document.createElement('div');
       core.className = 'rhythm-core';
       core.innerHTML = '<div class="core-ring"></div><div class="core-center"></div>';
@@ -68,12 +90,15 @@ export function init() {
       core.style.top  = Math.random() * (arena.clientHeight - size) + 'px';
       arena.appendChild(core);
       activeCores++;
+      const coreAnimId = nextAnimId++;
+      animationOptimizer.registerAnimation(coreAnimId);
 
       const ring = core.querySelector('.core-ring') as HTMLElement | null;
       const center = core.querySelector('.core-center') as HTMLElement | null;
       if (!ring || !center) {
         core.remove();
         activeCores = Math.max(0, activeCores - 1);
+        animationOptimizer.unregisterAnimation(coreAnimId);
         return;
       }
       let scale = 3, clicked = false;
@@ -97,10 +122,16 @@ export function init() {
         }
         core.remove();
         activeCores = Math.max(0, activeCores - 1);
+        animationOptimizer.unregisterAnimation(coreAnimId);
       });
 
       function animate() {
-        if (!running) { core.remove(); activeCores = Math.max(0, activeCores - 1); return; }
+        if (!running) {
+          core.remove();
+          activeCores = Math.max(0, activeCores - 1);
+          animationOptimizer.unregisterAnimation(coreAnimId);
+          return;
+        }
         scale -= shrinkSpeed;
         ring.style.transform = `scale(${scale})`;
         if (scale >= 0.97 && scale <= 1.03) ring.classList.add('perfect');
@@ -109,6 +140,7 @@ export function init() {
           if (!clicked) { audioManager.play('gameover'); resultEl.textContent = 'MISS'; }
           core.remove();
           activeCores = Math.max(0, activeCores - 1);
+          animationOptimizer.unregisterAnimation(coreAnimId);
           return;
         }
         requestAnimationFrame(animate);

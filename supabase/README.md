@@ -481,13 +481,11 @@ En **Settings → Branches → Add rule** para `main`:
 
 Esto convierte a `ci.yml` en un gate real: nadie puede mergear a `main` con tests rotos, sin importar quién sea. No se puede versionar esta configuración dentro del repo — es un ajuste del repositorio en GitHub, se configura una sola vez.
 
-### Deploy: Cloudflare Pages
+### Deploy: GitHub Pages
 
-El frontend se despliega en **Cloudflare Pages** — gratis para este volumen, CDN global (buen fit para una PWA con Service Worker), y se conecta directo al repo: cada push a `main` despliega solo, cada PR genera una preview URL automática.
+El frontend se despliega en **GitHub Pages** vía `.github/workflows/deploy.yml`: cada push a `main`/`master` construye el proyecto y publica `dist/` automáticamente, sin cuenta ni configuración externa más allá de habilitar Pages en el repo (Settings → Pages → Source: "GitHub Actions").
 
-Guía paso a paso, incluyendo cómo estructurar el repo y por qué `public/_headers` es crítico para que las actualizaciones de la PWA lleguen a los usuarios: **[`CLOUDFLARE_DEPLOY.md`](./CLOUDFLARE_DEPLOY.md)**.
-
-Hoy el deploy de Cloudflare corre en paralelo a `ci.yml`, sin estar encadenados — ver esa guía para las dos formas de conectarlos si en algún momento se quiere que un fallo en CI bloquee el deploy.
+Ver la sección "Deploy: GitHub Pages" del README raíz del proyecto para el detalle de `base` de Vite, CSP vía `<meta>`, y las limitaciones de caché del Service Worker en este destino.
 
 ---
 

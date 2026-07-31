@@ -29,8 +29,17 @@ export { default as colorcount } from './colorcount.js';
 export { default as pairs } from './pairs.js';
 export { default as ringpuzzle } from './ringpuzzle.js';
 export { default as typix } from './typix.js';
+export { default as snippetRace } from './snippetRace.js';
 export { default as skillchecks, circleGame } from './Skillcheck.js';
 export { default as multipoint, bouncebarGame } from './multipoint.js';
+export {
+  holdrelease,
+  targetpop,
+  chordkeys,
+  orbitcatch,
+  lanedodge,
+  pipealign,
+} from './skillcheckExtras.js';
 export { default as rapidlines } from './rapidlines.js';
 
 // Maze: los helpers primero, maze.ts (que los importa) después.

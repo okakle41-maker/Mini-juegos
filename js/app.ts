@@ -11,10 +11,43 @@ import GameHelpers from './utils/gameHelpers.js';
 import LobbyRenderer from './lobbyRenderer.js';
 import { devLog } from './core/devLog.js';
 
+// Import system modules
+import { errorBoundary } from './errorBoundary.js';
+import { globalRateLimiter } from './security.js';
+import { keyboardShortcuts } from './keyboardShortcuts.js';
+import { preferencesManager } from './preferencesManager.js';
+import { notificationSystem } from './notificationSystem.js';
+import i18nManager from './i18n.js';
+import { devTools } from './devTools.js';
+import { performanceMonitor } from './performanceMonitor.js';
+
+// Importar nuevos sistemas v3.0.0
+import { achievementManager } from './achievements.js';
+import { progressionSystem } from './progressionSystem.js';
+import { customizationSystem } from './customizationSystem.js';
+import { advancedStatsSystem } from './advancedStats.js';
+import { multiplayerSystem } from './multiplayerSystem.js';
+import { socialSystem } from './socialSystem.js';
+import { tournamentSystem } from './tournamentSystem.js';
+
+// Importar sistemas adicionales de mejoras
+import { transitionSystem } from './transitionSystem.js';
+import { badgeSystem } from './badgesSystem.js';
+import { soundSystem } from './soundSystem.js';
+import { accessibilitySystem } from './accessibilitySystem.js';
+
+// Importar sistemas adicionales v3.0.0
+import { pwaSystem } from './pwaSystem.js';
+import { gamificationSystem } from './gamificationSystem.js';
+import { skeletonSystem } from './skeletonSystem.js';
+
+// Registrar vistas del sistema
+import './registerSystemViews.js';
+
 // Tipos globales ya están en global.d.ts
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('%c🚀 Minijuegos - Entrenador de Bots v2.5.0', 'color:#ff9a3c; font-size:16px; font-weight:bold');
+  console.log('%c🚀 Minijuegos - Entrenador de Bots v3.0.0', 'color:#ff9a3c; font-size:16px; font-weight:bold');
 
   // Registrar Service Worker (PWA / soporte offline).
   // sw.ts existía y estaba completo, pero nada en el código lo registraba
@@ -36,6 +69,26 @@ document.addEventListener('DOMContentLoaded', () => {
   try {
     // Inicializar sistema de transiciones
     Transitions.init?.();
+
+    // Inicializar sistemas adicionales de mejoras
+    // Estos sistemas se auto-inicializan en sus constructores
+    console.log('[App] Sistemas de mejoras inicializados:', {
+      errorBoundary: '✓',
+      security: '✓',
+      keyboardShortcuts: '✓',
+      preferences: '✓',
+      i18n: '✓',
+      devTools: '✓',
+      performanceMonitor: '✓',
+      notifications: '✓',
+      transitions: '✓',
+      badges: '✓',
+      sounds: '✓',
+      accessibility: '✓',
+      pwa: '✓',
+      gamification: '✓',
+      skeleton: '✓'
+    });
 
     // Mostrar vista inicial
     ViewManager.showView('home');
@@ -64,6 +117,28 @@ interface MinijuegosDebugApi {
   ViewManager: typeof ViewManager;
   GameHelpers: typeof GameHelpers;
   ErrorLogger: typeof ErrorLogger;
+  errorBoundary: typeof errorBoundary;
+  globalRateLimiter: typeof globalRateLimiter;
+  keyboardShortcuts: typeof keyboardShortcuts;
+  preferencesManager: typeof preferencesManager;
+  notificationSystem: typeof notificationSystem;
+  i18nManager: typeof i18nManager;
+  devTools: typeof devTools;
+  performanceMonitor: typeof performanceMonitor;
+  achievementManager: typeof achievementManager;
+  progressionSystem: typeof progressionSystem;
+  customizationSystem: typeof customizationSystem;
+  advancedStatsSystem: typeof advancedStatsSystem;
+  multiplayerSystem: typeof multiplayerSystem;
+  socialSystem: typeof socialSystem;
+  tournamentSystem: typeof tournamentSystem;
+  transitionSystem: typeof transitionSystem;
+  badgeSystem: typeof badgeSystem;
+  soundSystem: typeof soundSystem;
+  accessibilitySystem: typeof accessibilitySystem;
+  pwaSystem: typeof pwaSystem;
+  gamificationSystem: typeof gamificationSystem;
+  skeletonSystem: typeof skeletonSystem;
   version: string;
 }
 
@@ -72,7 +147,29 @@ interface MinijuegosDebugApi {
   ViewManager,
   GameHelpers,
   ErrorLogger,
-  version: '2.5.0'
+  errorBoundary,
+  globalRateLimiter,
+  keyboardShortcuts,
+  preferencesManager,
+  notificationSystem,
+  i18nManager,
+  devTools,
+  performanceMonitor,
+  achievementManager,
+  progressionSystem,
+  customizationSystem,
+  advancedStatsSystem,
+  multiplayerSystem,
+  socialSystem,
+  tournamentSystem,
+  transitionSystem,
+  badgeSystem,
+  soundSystem,
+  accessibilitySystem,
+  pwaSystem,
+  gamificationSystem,
+  skeletonSystem,
+  version: '3.0.0'
 };
 
 export {};

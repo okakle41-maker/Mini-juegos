@@ -43,7 +43,7 @@ vi.mock('../js/core/supabaseClient', () => ({
   getSupabaseClient: () => getSupabaseClientImpl(),
 }));
 
-const errorLoggerMock = { log: vi.fn(), setSink: vi.fn(), recent: () => [], clear: vi.fn() };
+const errorLoggerMock = { log: vi.fn(), setSink: vi.fn(), recent: (): any[] => [], clear: vi.fn() };
 vi.mock('../js/core/errorLogger', () => ({
   default: errorLoggerMock,
 }));

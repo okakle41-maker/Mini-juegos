@@ -22,6 +22,7 @@ const template = (): string => {
                 <option value="dark">Oscuro</option>
                 <option value="neon">💠 Neón</option>
                 <option value="ocean">🌊 Océano</option>
+                <option value="orange">🔥 Naranja</option>
               </select>
             </div>
             <div class="config-row">
@@ -51,6 +52,15 @@ const template = (): string => {
                 <input type="checkbox" id="configVfxToggle" checked aria-labelledby="configVfxLabel">
                 <span class="config-toggle-slider"></span>
               </label>
+            </div>
+            <div class="config-row">
+              <span class="config-label" id="configDifficultyLabel">DIFICULTAD GLOBAL</span>
+              <select id="configDifficultySelect" class="config-select" aria-labelledby="configDifficultyLabel">
+                <option value="easy">🌱 Fácil</option>
+                <option value="normal">⚖️ Normal</option>
+                <option value="hard">🔥 Difícil</option>
+                <option value="expert">💀 Experto</option>
+              </select>
             </div>
           </div>
           <div class="config-danger">

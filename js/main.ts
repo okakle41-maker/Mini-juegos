@@ -10,6 +10,23 @@ import './core/supabaseClient';
 import './core/gameRegistry';
 import './core/gameInstanceRegistry';
 import './core/viewManager';
+import './errorBoundary';
+import './security';
+import './accessibility';
+import './performance';
+import './devTools';
+import './gameOptimizations';
+import './productionMonitoring';
+import './i18n';
+import './analytics';
+import './themeManager';
+import './achievements';
+import './playerStats';
+import './practiceMode';
+import './notificationSystem';
+import './difficultyPresets';
+import './difficultySettings';
+import './socialSharing';
 
 // Managers (migrados a TypeScript)
 import './leaderboardManager';
@@ -22,6 +39,11 @@ import './customCursor';
 import './statsManager';
 import './authManager';
 import './interactionLock';
+import './keyboardShortcuts';
+import './preferencesManager';
+import './uiSoundEffects';
+import './confettiEffect';
+import './performanceMonitor';
 
 // Games (todos migrados a GameRegistry.register(), centralizados en el barrel)
 import './games/index';
@@ -39,6 +61,5 @@ import './musicPlayerDrag';
 import './musicPlayer';
 import './lobbySidebarUI';
 import './headerUptime';
-import './accountView';
 import './hudPanel';
 

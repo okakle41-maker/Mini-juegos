@@ -68,7 +68,10 @@ export class LeaderboardManager {
     if (!this.data[gameKey]) this.data[gameKey] = [];
 
     const entries = this.data[gameKey];
-    const isNewRecord = entries.length === 0 || value > entries[0].value;
+    const previousBest = entries.length === 0
+      ? null
+      : entries.reduce((best, entry) => (entry.value >= best.value ? entry : best));
+    const isNewRecord = previousBest === null || value > previousBest.value;
 
     const entryMeta = typeof total === 'number' ? { ...meta, total } : meta;
 
@@ -109,6 +112,27 @@ export class LeaderboardManager {
   }
 
   /**
+   * Mejor puntuación de un juego (por value), o null si no hay partidas.
+   * `get()[0]` es la partida más reciente (unshift al guardar), no el
+   * máximo — usar este helper cuando se necesita el récord real.
+   */
+  getBest(gameKey: string): LeaderboardEntry | null {
+    const entries = this.get(gameKey);
+    if (entries.length === 0) return null;
+    return entries.reduce((best, entry) => (entry.value >= best.value ? entry : best));
+  }
+
+  /**
+   * Historial cronológico (más antigua → más reciente) para gráficos
+   * de evolución personal. Copia el array; no muta el store.
+   */
+  getHistory(gameKey: string): LeaderboardEntry[] {
+    return [...this.get(gameKey)].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+  }
+
+  /**
    * Aplana todas las entradas de todos los juegos en un único array,
    * ignorando a qué juego pertenece cada una. Usado por el HUD lateral
    * (panel "SEMANA") para contar partidas jugadas por día, sin importar
@@ -127,7 +151,7 @@ export class LeaderboardManager {
       const gameId = card.getAttribute('data-game-id');
       if (!gameId) return;
 
-      const best = this.get(gameId)[0];
+      const best = this.getBest(gameId);
       const badgeEl = card.querySelector<HTMLElement>('.card-record-badge');
       if (!badgeEl) return;
 

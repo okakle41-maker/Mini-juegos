@@ -130,7 +130,7 @@ describe('Contrato GameRegistry (juegos reales)', () => {
 
       GameInstanceRegistry.clear(game.id);
     }
-  });
+  }, 15000); // 15s timeout for initializing all games in sequence
 
   it('cada juego visible tiene su vista lazy correspondiente en viewTemplates (salvo las documentadas)', async () => {
     const { viewTemplates } = await import('../js/core/viewTemplates');

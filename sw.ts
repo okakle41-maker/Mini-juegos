@@ -17,7 +17,7 @@ declare global {
   }
 }
 
-const CACHE_NAME = 'minijuegos-v2.5.0';
+const CACHE_NAME = 'minijuegos-v3.0.0';
 const STATIC_CACHE = 'minijuegos-static-v2';
 const DYNAMIC_CACHE = 'minijuegos-dynamic-v2';
 

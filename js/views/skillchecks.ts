@@ -10,7 +10,7 @@
  * palabra por palabra: ahora se generan desde SKILL_CUBES. De paso se
  * agregó role="button"/tabindex/aria-label a cada uno — antes eran
  * <div data-game="..."> con un click listener en skillchecksHub.logic.ts
- * y nada más, así que todo este menú (la puerta de entrada a los 9
+ * y nada más, así que todo este menú (la puerta de entrada a los
  * juegos de skillcheck) era invisible para navegación por teclado.
  */
 import type { ViewTemplate } from '../types/game.js';
@@ -25,25 +25,29 @@ interface SkillCube {
 }
 
 const SKILL_CUBES: SkillCube[] = [
-  { game: 'rapidlines', icon: 'rapid-lines.svg', title: 'Rapid Lines', alt: 'Rapid Lines' },
-  { game: 'circle', icon: 'circle.svg', title: 'Circle', alt: 'circle' },
-  { game: 'maze', icon: 'maze.svg', title: 'Maze', alt: 'Maze' },
-  { game: 'keyspam', icon: 'key-spam.svg', title: 'Key Spam', alt: 'keys pam' },
-  { game: 'sequence', icon: 'sequence.svg', title: 'Sequence', alt: 'sequence' },
-  { game: 'rhythmclick', icon: 'rhythm-click.svg', title: 'Rhythm Click', alt: 'Rhythm Click' },
-  { game: 'progresstiming', icon: 'progress-timing.svg', title: 'Progress timing', alt: 'Progress timing' },
-  { game: 'multipoint', icon: 'progress-timing.svg', title: 'Multi-Point', alt: 'Multi-Point' },
-  { game: 'bouncebar', icon: 'rapid-lines.svg', title: 'Bounce Bar', alt: 'Bounce Bar' },
+  { game: 'rapidlines', icon: '⚡', title: 'Rapid Lines', alt: '⚡ Rapid Lines' },
+  { game: 'circle', icon: '🎯', title: 'Circle', alt: '🎯 Circle' },
+  { game: 'maze', icon: '🧩', title: 'Maze', alt: '🧩 Maze' },
+  { game: 'keyspam', icon: '⌨️', title: 'Key Spam', alt: '⌨️ Key Spam' },
+  { game: 'sequence', icon: '🔢', title: 'Sequence', alt: '🔢 Sequence' },
+  { game: 'rhythmclick', icon: '🎵', title: 'Rhythm Click', alt: '🎵 Rhythm Click' },
+  { game: 'progresstiming', icon: '⏱️', title: 'Progress Timing', alt: '⏱️ Progress Timing' },
+  { game: 'multipoint', icon: '🎯', title: 'Multi-Point', alt: '🎯 Multi-Point' },
+  { game: 'bouncebar', icon: '🏀', title: 'Bounce Bar', alt: '🏀 Bounce Bar' },
+  { game: 'holdrelease', icon: '🤚', title: 'Hold & Release', alt: '🤚 Hold & Release' },
+  { game: 'targetpop', icon: '🎪', title: 'Target Pop', alt: '🎪 Target Pop' },
+  { game: 'chordkeys', icon: '🎹', title: 'Chord Keys', alt: '🎹 Chord Keys' },
+  { game: 'orbitcatch', icon: '🪐', title: 'Orbit Catch', alt: '🪐 Orbit Catch' },
+  { game: 'lanedodge', icon: '🏎️', title: 'Lane Dodge', alt: '🏎️ Lane Dodge' },
+  { game: 'pipealign', icon: '🔧', title: 'Pipe Align', alt: '🔧 Pipe Align' },
 ];
 
 /** Un cubo del selector: ícono + título, activable por click, Enter o Space (ver skillchecksHub.logic.ts). */
-function renderCube(c: SkillCube): string {
+function renderCube(c: SkillCube, index: number): string {
+  const staggerDelay = index * 0.05; // 50ms delay per card
   return `
-  <div class="skill-cube" data-game="${c.game}" role="button" tabindex="0" aria-label="Abrir ${c.title}">
-        <img
-        class="cube-icon"
-        src="assets/icons/${c.icon}"
-        alt="${c.alt}">
+  <div class="skill-cube" data-game="${c.game}" role="button" tabindex="0" aria-label="Abrir ${c.title}" style="--stagger-delay: ${staggerDelay}s">
+        <span class="cube-icon">${c.icon}</span>
     <span class="cube-title">${c.title}</span>
     <div class="bottom-glow"></div>
   </div>`;
@@ -54,7 +58,7 @@ const template = (): string => {
 <div class="skillcheck-selector">
     <button class="back-btn" data-back-to="home"></button>
 
-${SKILL_CUBES.map(renderCube).join('\n')}
+${SKILL_CUBES.map((cube, index) => renderCube(cube, index)).join('\n')}
 
 </div>
 

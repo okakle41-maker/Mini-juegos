@@ -1,6 +1,6 @@
 {
   "name": "minijuegos-entrenador-bots",
-  "version": "2.5.0",
+  "version": "3.0.0",
   "description": "Plataforma de minijuegos para entrenamiento cognitivo",
   "type": "module",
   "engines": {
@@ -10,14 +10,22 @@
     "dev": "vite",
     "build": "vite build && npm run build:sw",
     "build:sw": "tsc -p tsconfig.sw.json --outDir dist --noEmit false",
+    "build:e2e": "node ./e2e/build-for-e2e.mjs",
     "preview": "vite preview",
     "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.sw.json",
     "type-check-watch": "tsc --noEmit --watch",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:load": "k6 run load-test/load-test.js"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.8.0",
+    "@playwright/test": "^1.40.0",
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^20.10.0",
     "@vitest/ui": "^4.1.9",
     "jsdom": "^29.1.1",

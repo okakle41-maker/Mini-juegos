@@ -52,6 +52,13 @@ const ICONS: Record<string, string> = {
     '<path d="M6 10h.5M9.5 10h.5M13 10h.5M16.5 10h.5M8 14h8"/>'
   ),
 
+  // TIPEO — fragmento de código / terminal
+  'snippet-race': svg(
+    '<rect x="3" y="4" width="18" height="16" rx="2"/>' +
+    '<path d="M6 9h5M6 12h8M6 15h6"/>' +
+    '<path d="M15.5 8.5 18 11l-2.5 2.5"/>'
+  ),
+
   // MEMORIA — cuadrícula con celda marcada (termita)
   'termita': svg(
     '<rect x="3.5" y="3.5" width="17" height="17" rx="2"/>' +
@@ -236,6 +243,35 @@ const ICONS: Record<string, string> = {
     '<path d="M7 3.5v6h4v-3h4v7h-4M11 17.5v-3.5h6v-4"/>' +
     '<circle cx="7" cy="17" r="1.1" fill="currentColor" stroke="none"/>' +
     '<circle cx="17" cy="7" r="1.1" fill="currentColor" stroke="none"/>'
+  ),
+
+  'holdrelease': svg(
+    '<rect x="9" y="3" width="6" height="18" rx="2"/>' +
+    '<rect x="10" y="11" width="4" height="8" rx="0.5" fill="currentColor" stroke="none"/>'
+  ),
+  'targetpop': svg(
+    '<circle cx="12" cy="12" r="8.5"/>' +
+    '<circle cx="12" cy="12" r="4.5"/>' +
+    '<circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>'
+  ),
+  'chordkeys': svg(
+    '<rect x="2.5" y="8" width="6" height="8" rx="1.4"/>' +
+    '<rect x="9" y="8" width="6" height="8" rx="1.4"/>' +
+    '<rect x="15.5" y="8" width="6" height="8" rx="1.4"/>'
+  ),
+  'orbitcatch': svg(
+    '<circle cx="12" cy="12" r="3"/>' +
+    '<circle cx="12" cy="12" r="8.5" stroke-dasharray="3 2.5"/>' +
+    '<circle cx="18.8" cy="8.2" r="1.4" fill="currentColor" stroke="none"/>'
+  ),
+  'lanedodge': svg(
+    '<path d="M5 3.5v17M12 3.5v17M19 3.5v17"/>' +
+    '<rect x="9.5" y="15" width="5" height="4" rx="1" fill="currentColor" stroke="none"/>'
+  ),
+  'pipealign': svg(
+    '<path d="M4 8h6v4h4V8h6M4 16h6v-4h4v4h6"/>' +
+    '<circle cx="4" cy="8" r="1.2" fill="currentColor" stroke="none"/>' +
+    '<circle cx="20" cy="16" r="1.2" fill="currentColor" stroke="none"/>'
   ),
 };
 

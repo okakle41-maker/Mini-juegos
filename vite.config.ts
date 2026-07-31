@@ -46,13 +46,15 @@ function copyStaticAssets() {
   };
 }
 
-// GitHub Pages sirve este proyecto en un subpath (https://usuario.github.io/Mini-juegos/),
-// no en la raíz del dominio. Sin `base`, Vite genera todas las rutas de assets
-// asumiendo raíz ('/'), lo que rompe CSS/JS/imágenes en producción aunque
-// funcione perfecto en local (localhost sí es la raíz).
-// VITE_BASE permite seguir buildeando para raíz ('/') en otros destinos
-// (p.ej. Cloudflare Pages) sin tocar este archivo: fijate en package.json
-// o en el workflow de deploy cuál valor se está usando.
+// GitHub Pages (único destino de deploy de este proyecto, ver
+// .github/workflows/deploy.yml) sirve el sitio en un subpath
+// (https://usuario.github.io/Mini-juegos/), no en la raíz del dominio.
+// Sin `base`, Vite genera todas las rutas de assets asumiendo raíz
+// ('/'), lo que rompe CSS/JS/imágenes en producción aunque funcione
+// perfecto en local (localhost sí es la raíz).
+// VITE_BASE permite fijar el subpath real desde deploy.yml sin tocar
+// este archivo — debe coincidir exactamente con el nombre del repo en
+// GitHub (ver el step "Build" en .github/workflows/deploy.yml).
 const base = process.env.VITE_BASE || '/Mini-juegos/';
 
 export default defineConfig({

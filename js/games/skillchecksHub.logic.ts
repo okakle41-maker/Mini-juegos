@@ -17,8 +17,14 @@ export function init() {
     sequence:       'sequence-game',
     rhythmclick:    'rhythmclick',
     progresstiming: 'progresstiming',
-    multipoint:    'multipoint',
-    bouncebar:     'bouncebar',
+    multipoint:     'multipoint',
+    bouncebar:      'bouncebar',
+    holdrelease:    'holdrelease',
+    targetpop:      'targetpop',
+    chordkeys:      'chordkeys',
+    orbitcatch:     'orbitcatch',
+    lanedodge:      'lanedodge',
+    pipealign:      'pipealign',
   };
 
   document.querySelectorAll<HTMLElement>('.skill-cube').forEach(cube => {
