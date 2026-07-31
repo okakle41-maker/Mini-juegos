@@ -2,69 +2,29 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <!--
-    Content-Security-Policy vía <meta> — única vía disponible en GitHub
-    Pages (el destino de deploy de este proyecto, ver
-    .github/workflows/deploy.yml). GitHub Pages no permite fijar
-    cabeceras HTTP custom por archivo de configuración como sí hace
-    Cloudflare Pages con `_headers` (por eso ese archivo se eliminó del
-    proyecto — quedaba sin ningún efecto real y confundía sobre cuál
-    era el mecanismo vigente).
-
-    Limitaciones de un CSP vía <meta> frente a uno vía cabecera HTTP:
-      - No soporta frame-ancestors, report-uri/report-to, ni
-        sandbox — el navegador las ignora si aparecen acá. Por eso no
-        están en esta política (mejor omitirlas que tener una falsa
-        sensación de que están activas).
-      - X-Frame-Options / X-Content-Type-Options / Referrer-Policy /
-        Permissions-Policy tampoco se pueden fijar vía <meta>: son
-        cabeceras HTTP puras, sin equivalente en HTML. GitHub Pages no
-        ofrece ninguna vía para agregarlas (a diferencia de Cloudflare
-        Pages) — quedan fuera de alcance en este destino de deploy.
-
-    Orígenes externos reales del proyecto (auditados en el código — ver
-    js/core/supabaseClient.ts y js/socialSharing.ts):
-      - fonts.googleapis.com / fonts.gstatic.com: Google Fonts (CSS + woff2)
-      - *.supabase.co: backend (REST + Realtime vía WebSocket)
-      - pixabay.com, twitter.com, facebook.com, linkedin.com, wa.me,
-        t.me, reddit.com: solo enlaces <a href> o window.open (compartir
-        / créditos), nunca recursos cargados por la página — no
-        necesitan entrar en ninguna directiva de carga de recursos.
-
-    No hay <script> inline ni onclick=/onload= en este archivo: todo el
-    JS vive en <script type="module" src="...">, así que script-src es
-    estricto y no necesita 'unsafe-inline'. style-src sí lo necesita
-    porque varias vistas fijan estilos inline dinámicos (p.ej.
-    --stagger-delay en skillchecks.ts).
-  -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://yhtanhtuxcowpwbgwupj.supabase.co wss://yhtanhtuxcowpwbgwupj.supabase.co; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Minijuegos · Entrenador de Bots</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@400;500;600;700&display=swap">
-  <!-- Fuentes para los temas visuales adicionales (ver css/lobby-themes.css):
-       Orbitron para "Neón", Comfortaa para "Océano". Se cargan siempre
-       (livianas) pero solo se usan cuando el tema activo las requiere. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Comfortaa:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="css/styles.css?v=4">
+  <!-- "Press Start 2P" = fuente pixel monoespaciada para el tema Pixel Lab.
+       Se carga siempre (es liviana) pero solo se usa cuando
+       body[data-theme="pixel"] está activo — ver css/lobby-pixel.css. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+  <link rel="stylesheet" href="css/styles.css?v=3">
   <link rel="stylesheet" href="css/lobby-tactical.css?v=1">
   <link rel="stylesheet" href="css/lobby-new.css?v=1">
   <link rel="stylesheet" href="css/lobby-header-redesign.css?v=1">
   <link rel="stylesheet" href="css/redesign-extras.css?v=1">
-  <!-- Temas visuales adicionales (todos variantes oscuras: solo
-       cambian la paleta de color). -->
-  <link rel="stylesheet" href="css/lobby-themes.css?v=1">
-  <link rel="stylesheet" href="css/category-identity.css?v=1">
-  <!-- CSS de las nuevas vistas del sistema v3.0.0 se cargan bajo demanda
-       vía GameRegistry.injectCSS() para optimizar rendimiento -->
+  <!-- Tema Pixel Lab: ver anotaciones extensas al inicio del archivo
+       sobre convenciones de sprites, escalado y estado (EN CONSTRUCCIÓN). -->
+  <link rel="stylesheet" href="css/lobby-pixel.css?v=1">
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
-  <link rel="icon" type="image/png" sizes="96x96" href="assets/icon-96.png">
-  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="/assets/icon-96.png">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
   <meta name="theme-color" content="#090400">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!--
     Los CSS de los minijuegos individuales ya NO se precargan aquí.
@@ -76,12 +36,6 @@
   -->
 </head>
 <body>
-
-  <!-- ── Skip to main content (accessibility) ── -->
-  <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
-
-  <!-- ── Toast notification container ── -->
-  <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
   <!-- ── Decorative background layers ── -->
    
@@ -102,15 +56,6 @@
     <div class="beam beam-2"></div>
     <div class="beam beam-3"></div>
   </div>
-  <div class="floating-particles" aria-hidden="true">
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-  </div>
 
   <!-- ── App shell: sidebar + (header & main) ── -->
   <div class="app-shell">
@@ -125,7 +70,7 @@
         </svg>
       </div>
       <div class="side-nav-title">MINIJUEGOS</div>
-      <div class="side-nav-sub">TRAINING_INTERFACE v3.0</div>
+      <div class="side-nav-sub">TRAINING_INTERFACE v2.5</div>
     </div>
 
     <nav class="side-nav-section" aria-label="Navegación principal">
@@ -142,30 +87,6 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         PROGRESO
       </button>
-      <button class="side-nav-link" type="button" data-side-nav="logros">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
-        LOGROS
-      </button>
-      <button class="side-nav-link" type="button" data-side-nav="personalizacion">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-        PERSONALIZACIÓN
-      </button>
-      <button class="side-nav-link" type="button" data-side-nav="estadisticas-avanzadas">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-        ESTADÍSTICAS+
-      </button>
-      <button class="side-nav-link" type="button" data-side-nav="multiplayer">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        MULTIPLAYER
-      </button>
-      <button class="side-nav-link" type="button" data-side-nav="social">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        SOCIAL
-      </button>
-      <button class="side-nav-link" type="button" data-side-nav="torneos">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-        TORNEOS
-      </button>
       <button class="side-nav-link" type="button" data-side-nav="ranking">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M7 6H4a1 1 0 0 0-1 1c0 2.5 2 4 4 4"/><path d="M17 6h3a1 1 0 0 1 1 1c0 2.5-2 4-4 4"/></svg>
         RANKING
@@ -177,6 +98,10 @@
       <button class="side-nav-link" type="button" data-side-nav="manual">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         MANUAL
+      </button>
+      <button class="side-nav-link" type="button" data-side-nav="cuenta" id="sideNavAccountLink">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span data-ui="sideNavAccountLabel">CUENTA</span>
       </button>
     </nav>
 
@@ -254,10 +179,10 @@
           <span class="header-icon-dot"></span>
         </button>
 
-        <div class="header-user" id="headerUserBadge" title="Ir a Cuenta" role="button" tabindex="0" aria-label="Ir a Cuenta">
-          <span class="header-user-avatar">R7</span>
+        <div class="header-user" id="headerUserBadge" title="Perfil de sesión">
+          <span class="header-user-avatar">??</span>
           <span class="header-user-info">
-            <span class="header-user-name">RANGER_7</span>
+            <span class="header-user-name">DESCONOCIDO</span>
             <span class="header-user-level" id="headerUserLevel">RECLUTA</span>
           </span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="header-user-caret"><polyline points="6 9 12 15 18 9"/></svg>
@@ -267,9 +192,7 @@
         <div class="theme-wrapper theme-wrapper--compact">
           <select id="themeSelect" class="theme-select" aria-label="Seleccionar tema visual">
             <option value="dark" selected>Oscuro</option>
-            <option value="neon">💠 Neón</option>
-            <option value="ocean">🌊 Océano</option>
-            <option value="orange">🔥 Naranja</option>
+            <option value="pixel">🕹️ Pixel Lab</option>
           </select>
           <label class="accessibility-toggle">
             <input type="checkbox" id="reducedMotionToggle">
@@ -285,7 +208,7 @@
   </header>
 
   <!-- ── Main ── -->
-  <main id="main-content" role="main" aria-label="Contenido principal">
+  <main id="app">
 
     <!-- Home: lobby grid -->
     <section id="home" class="view">
@@ -346,7 +269,7 @@
           </div>
         </div>
 
-        <div class="game-grid" id="gameList" role="grid" aria-label="Cuadrícula de minijuegos disponibles">
+        <div class="game-grid" id="gameList">
           <!-- Las cartas se generan automáticamente desde gameRegistry.ts -->
         </div>
         <div class="lobby-footer">
@@ -395,7 +318,6 @@
     <section id="ring-puzzle" class="view hidden" data-lazy="1"></section>
 
    <section id="typix" class="view hidden" data-lazy="1"></section>
-   <section id="snippet-race" class="view hidden" data-lazy="1"></section>
 
 
 
@@ -436,13 +358,6 @@
 <!-- ── Bounce Bar ────────────────────────────── -->
 <section id="bouncebar" class="view hidden" data-lazy="1"></section>
 
-<section id="holdrelease" class="view hidden" data-lazy="1"></section>
-<section id="targetpop" class="view hidden" data-lazy="1"></section>
-<section id="chordkeys" class="view hidden" data-lazy="1"></section>
-<section id="orbitcatch" class="view hidden" data-lazy="1"></section>
-<section id="lanedodge" class="view hidden" data-lazy="1"></section>
-<section id="pipealign" class="view hidden" data-lazy="1"></section>
-
 
     <section id="bombdefusal" class="view hidden" data-lazy="1"></section>
 
@@ -480,29 +395,6 @@
 
     <!-- ── Cuenta (registro / inicio de sesión) ── -->
     <section id="cuenta" class="view hidden" data-lazy="1"></section>
-
-    <!-- ── Nuevas Vistas v3.0.0 ── -->
-    
-    <!-- ── Logros y Trofeos ── -->
-    <section id="logros" class="view hidden" data-lazy="1"></section>
-
-    <!-- ── Progresión RPG ── -->
-    <section id="progresion" class="view hidden" data-lazy="1"></section>
-
-    <!-- ── Personalización Avanzada ── -->
-    <section id="personalizacion" class="view hidden" data-lazy="1"></section>
-
-    <!-- ── Estadísticas Avanzadas ── -->
-    <section id="estadisticas-avanzadas" class="view hidden" data-lazy="1"></section>
-
-    <!-- ── Multiplayer ── -->
-    <section id="multiplayer" class="view hidden" data-lazy="1"></section>
-
-    <!-- ── Social ── -->
-    <section id="social" class="view hidden" data-lazy="1"></section>
-
-    <!-- ── Torneos y Eventos ── -->
-    <section id="torneos" class="view hidden" data-lazy="1"></section>
 
 </main>
 
@@ -567,25 +459,17 @@
   <!-- sideNavBoot, statsManager y musicPlayer (drag + lógica) ahora se importan
        desde main.ts (js/sideNavBoot.ts, js/statsManager.ts, js/musicPlayerDrag.ts,
        js/musicPlayer.ts) en vez de vivir como <script> inline. -->
-  <!-- Iconos de las cards: sprites SVG monolínea propios del catálogo
-       (uno dibujado a mano por juego, ver js/core/gameIcons.ts), en vez
-       de emojis o de la librería Lucide que se usaba antes — ya no hay
-       dependencia externa de iconos, todo vive inline en el bundle. -->
-  <script type="module" src="js/main.ts"></script>
+  <!-- Lucide (iconos): reemplaza los emoji de las cards por sprites SVG,
+       tal como en el prototipo React "Lobby B". Se importa como dependencia
+       npm (subset de íconos) desde lobbyRenderer.ts en vez de cargarse
+       desde CDN — ver LUCIDE_ICONS en ese archivo — y createIcons() se
+       invoca ahí mismo tras pintar el DOM. -->
+  <script type="module" src="/js/main.ts"></script>
 
   <!-- El reloj de uptime/latencia del header ahora vive en js/headerUptime.ts
        (importado vía main.ts) en vez de <script> inline. -->
 
   <!-- ── Music Player Widget ── -->
-  <!-- Botón flotante (♪) que reemplaza por completo al panel cuando está
-       colapsado — no es el mismo panel encogido, es un elemento aparte
-       que hereda la posición del panel al colapsar/expandir (ver
-       musicPlayerDrag.ts), para que ambos se puedan arrastrar por
-       separado sin interferirse. -->
-  <button type="button" id="musicPlayerFab" class="music-player-fab" aria-label="Expandir reproductor de música" title="Expandir reproductor" hidden>
-    <span class="mp-fab-note" id="mpFabNote" aria-hidden="true">♪</span>
-  </button>
-
   <div id="musicPlayer" class="music-player" aria-label="Reproductor de música">
     <div class="mp-head">
       <div class="mp-head-left">
@@ -596,9 +480,6 @@
         </span>
       </div>
       <span class="mp-track-badge" id="mpTrackBadge">1/7</span>
-      <button type="button" class="mp-btn mp-collapse-btn" id="mpCollapseBtn" title="Colapsar reproductor" aria-label="Colapsar reproductor" aria-expanded="true">
-        <svg id="mpCollapseIcon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
-      </button>
     </div>
 
     <div class="mp-track-picker">
