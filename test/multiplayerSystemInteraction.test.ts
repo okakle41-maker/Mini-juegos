@@ -153,12 +153,11 @@ describe('MultiplayerSystem Interaction Tests', () => {
 
       await multiplayerSystem.setPlayerStatus(playerStatus);
 
-      // Try multiple room operations concurrently (matchmaking automático
-      // por skill fue eliminado — nunca tuvo tabla real en Supabase)
+      // Try multiple operations concurrently
       const promises = [
-        multiplayerSystem.createRoomMatch('simon', 'player').catch(() => {}),
+        multiplayerSystem.joinMatchmaking('simon', 1).catch(() => {}),
         multiplayerSystem.createRoomMatch('letters', 'viewer').catch(() => {}),
-        multiplayerSystem.joinRoomMatch('termita', 'AB3C', 'player').catch(() => {})
+        multiplayerSystem.joinMatchmaking('termita', 2).catch(() => {})
       ];
 
       // Should not throw unhandled errors

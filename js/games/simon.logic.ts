@@ -9,8 +9,6 @@
 import GameInstanceRegistry from '../core/gameInstanceRegistry.js';
 import type { GameUi } from '../types/game.js';
 import audioManager from '../audioManager.js';
-import { multiplayerSystem } from '../multiplayerSystem.js';
-import { setupSplitView, findRivalElement, type SplitViewHandle } from '../utils/multiplayerSplitView.js';
 
 interface SimonInstance {
   stop: () => void;
@@ -26,26 +24,6 @@ export function init(ui: GameUi) {
 
   const simonColors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple'];
 
-  // Si hay una sala activa para este juego, la dificultad la fija quien
-  // la creó (ver readRoomSettings en multiplayer.logic.ts) — se
-  // deshabilitan los controles locales y se prellenan con esos valores
-  // para que no haya ambigüedad de cuál dificultad se está jugando.
-  const activeMatch = multiplayerSystem.getCurrentMatch();
-  const roomSettings = activeMatch?.gameId === 'simon' ? activeMatch.settings : null;
-  const isMultiplayer = !!roomSettings;
-
-  if (isMultiplayer) {
-    (colorCountEl as HTMLSelectElement).value = String(roomSettings!.colorCount ?? 4);
-    (baseLengthEl as HTMLInputElement).value = String(roomSettings!.baseLength ?? 3);
-    (simonSpeedEl as HTMLInputElement).value = String(roomSettings!.speed ?? 700);
-    (simonRoundsEl as HTMLInputElement).value = String(roomSettings!.rounds ?? 5);
-    [colorCountEl, baseLengthEl, simonSpeedEl, simonRoundsEl].forEach(el => {
-      if (el) (el as HTMLInputElement | HTMLSelectElement).disabled = true;
-    });
-    const info = simonInfo as HTMLElement;
-    if (info) info.textContent = 'Modo multiplayer: dificultad fijada por quien creó la sala.';
-  }
-
   let simonState = {
     colorCount: 4,
     baseLength: 3,
@@ -58,35 +36,6 @@ export function init(ui: GameUi) {
     score: 0,
     playing: false
   };
-
-  // Split-screen "Vos"/"Rival" (ver js/utils/multiplayerSplitView.ts):
-  // solo se activa si isMultiplayer (misma condición que ya deshabilita
-  // los controles arriba). split.sendEvent/onRivalEvent son no-ops si no
-  // hay match, así que el resto del código no necesita ramificar en
-  // cada punto de emisión.
-  const split: SplitViewHandle = setupSplitView('simon', ui, 'simon', simonBoard as HTMLElement);
-  const rivalBoard = ui.simonRival as HTMLElement | undefined;
-
-  if (rivalBoard) {
-    split.onRivalEvent('simon:flash', ({ color }: { color: string }) => {
-      const button = findRivalElement(rivalBoard, 'data-color', color);
-      if (!button) return;
-      button.classList.add('active');
-      setTimeout(() => button.classList.remove('active'), simonState.speed / 2);
-    });
-
-    split.onRivalEvent('simon:press', ({ color }: { color: string }) => {
-      const button = findRivalElement(rivalBoard, 'data-color', color);
-      if (!button) return;
-      button.classList.add('active');
-      setTimeout(() => button.classList.remove('active'), 150);
-    });
-
-    split.onRivalEvent('simon:gameover', ({ score, rounds }: { score: number; rounds: number }) => {
-      const label = ui.simonRivalLabel as HTMLElement | undefined;
-      if (label) label.textContent = `Rival — ${score}/${rounds}`;
-    });
-  }
 
   function setupSimonBoard(count: number) {
     const board = simonBoard as HTMLElement;
@@ -104,9 +53,6 @@ export function init(ui: GameUi) {
       btn.addEventListener('click', () => onSimonPress(color));
       board.appendChild(btn);
     });
-    // El tablero rival debe reconstruirse cada vez que este se
-    // reconstruye (distinta cantidad de colores entre partidas).
-    split.remirror();
   }
 
   function getSimonButtons() {
@@ -118,14 +64,6 @@ export function init(ui: GameUi) {
     if (!button) return;
     button.classList.add('active');
     setTimeout(() => button.classList.remove('active'), simonState.speed / 2);
-    // El rival ve la misma secuencia de memorización en vivo — solo
-    // tiene sentido si ambos jugadores juegan la misma secuencia
-    // (matchmaking de sala fija settings idénticos, pero la secuencia
-    // en sí la genera cada cliente por separado con Math.random —
-    // ver nota en generateSimonSequence). Esto no sincroniza la
-    // secuencia en sí, solo deja ver el "ritmo"/progreso del rival en
-    // su propia partida independiente.
-    split.sendEvent('simon:flash', { color });
   }
 
   function disableSimonButtons(disabled: boolean) {
@@ -183,15 +121,6 @@ export function init(ui: GameUi) {
     const info = simonInfo as HTMLElement;
     info.textContent = message;
     if (window.Leaderboard) window.Leaderboard.save('simon', simonState.score, simonState.rounds);
-    split.sendEvent('simon:gameover', { score: simonState.score, rounds: simonState.rounds });
-    // Cierra la sala en Supabase (status: 'completed') y publica el
-    // score propio al leaderboard en vivo — antes nada llamaba esto y
-    // la sala quedaba 'playing' para siempre, reservando su room_code
-    // indefinidamente (ver migration_005_coop_rooms.sql). No-op si no
-    // hay match activo.
-    if (split.isMultiplayer) {
-      void multiplayerSystem.finishRoomMatch(simonState.score);
-    }
   }
 
   function onSimonPress(color: string) {
@@ -200,7 +129,6 @@ export function init(ui: GameUi) {
     if (!button) return;
     button.classList.add('active');
     setTimeout(() => button.classList.remove('active'), 150);
-    split.sendEvent('simon:press', { color });
 
     const expected = simonState.sequence[simonState.userIndex];
     if (color !== expected) {
@@ -264,7 +192,6 @@ export function init(ui: GameUi) {
       simonState.playing = false;
       simonState.playerTurn = false;
       document.removeEventListener('keydown', onKeyDown);
-      split.cleanup();
     },
   });
 }

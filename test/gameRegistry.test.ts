@@ -32,29 +32,12 @@ const MAX_DIFFICULTY = 5;
 /**
  * IDs de vistas en js/core/viewTemplates.ts que intencionalmente NO
  * tienen juego registrado en GameRegistry: son pantallas informativas
- * (manual, configuración, estadísticas, progreso, ranking, cuenta) sin
- * lógica de juego propia. Documentado aquí para que una futura
- * desincronización real (un juego que debería estar y no está) se note
- * por comparación con esta lista conocida, en vez de perderse entre
- * "siempre fue así".
- *
- * Nota: 'estadisticas-avanzadas', 'logros', 'multiplayer',
- * 'personalizacion', 'social' y 'torneos' NO aparecen acá ni como
- * huérfanas: no tienen (ni deben tener) entrada en viewTemplates.ts en
- * absoluto, así que `orphanViews` (que solo recorre las keys de
- * viewTemplates.ts) nunca las va a encontrar. Estas 6 vistas de sistema
- * están registradas en GameRegistry como juegos ocultos (`hidden: true`,
- * vía registerSystemViews.ts) con su propio `init`/`stop` en
- * *.logic.ts, que inyecta su HTML directamente en el contenedor — sin
- * pasar por viewTemplates.ts. Antes tenían AMBAS cosas a la vez (una
- * entrada duplicada en viewTemplates.ts que inyectaba el mismo HTML que
- * su propio logic.ts volvía a inyectar después, pisándose entre sí),
- * lo cual dejaba el contenedor vacío para siempre tras la primera vez
- * que se salía y volvía a entrar a la vista (ver
- * GameRegistry.stopGame). El index.html correspondiente tampoco tiene
- * ya `data-lazy="1"` en estas 6 secciones, por la misma razón.
+ * (manual, configuración, estadísticas, progreso, ranking) sin lógica de
+ * juego propia. Documentado aquí para que una futura desincronización
+ * real (un juego que debería estar y no está) se note por comparación
+ * con esta lista conocida, en vez de perderse entre "siempre fue así".
  */
-const VIEWS_WITHOUT_GAME = ['configuracion', 'cuenta', 'estadisticas', 'manual', 'progreso', 'ranking'];
+const VIEWS_WITHOUT_GAME = ['configuracion', 'cuenta', 'estadisticas', 'estadisticas-avanzadas', 'logros', 'manual', 'multiplayer', 'personalizacion', 'progreso', 'ranking', 'social', 'torneos'];
 
 /**
  * IDs de juegos registrados en GameRegistry que intencionalmente NO

@@ -8,8 +8,6 @@
 
 import type { GameUi } from '../types/game.js';
 import audioManager from '../audioManager.js';
-import { multiplayerSystem } from '../multiplayerSystem.js';
-import { setupSplitView, findRivalElement, type SplitViewHandle } from '../utils/multiplayerSplitView.js';
 
 export function init(ui: GameUi) {
     const { grid: gridEl, gridSize: gridSizeEl, targets: targetsEl,
@@ -17,22 +15,6 @@ export function init(ui: GameUi) {
     const startTermita = ui.start as HTMLButtonElement | undefined;
 
     if (!startTermita) return;
-
-    // Si hay una sala activa para este juego, la dificultad la fija
-    // quien la creó (ver readRoomSettings en multiplayer.logic.ts).
-    const activeMatch = multiplayerSystem.getCurrentMatch();
-    const roomSettings = activeMatch?.gameId === 'termita' ? activeMatch.settings : null;
-    if (roomSettings) {
-      (gridSizeEl as HTMLSelectElement).value = String(roomSettings.size ?? 5);
-      (targetsEl as HTMLInputElement).value = String(roomSettings.targets ?? 4);
-      (showTimeEl as HTMLInputElement).value = String(roomSettings.showTime ?? 800);
-      (roundsEl as HTMLInputElement).value = String(roomSettings.rounds ?? 5);
-      [gridSizeEl, targetsEl, showTimeEl, roundsEl].forEach(el => {
-        if (el) (el as HTMLInputElement | HTMLSelectElement).disabled = true;
-      });
-      const info = termitaInfo as HTMLElement;
-      if (info) info.textContent = 'Modo multiplayer: dificultad fijada por quien creó la sala.';
-    }
 
     let state = {
       size: 5,
@@ -45,38 +27,6 @@ export function init(ui: GameUi) {
       selections: new Set<number>(),
       acceptingInput: false
     };
-
-    // Split-screen "Vos"/"Rival" (ver js/utils/multiplayerSplitView.ts).
-    const split: SplitViewHandle = setupSplitView('termita', ui, 'termita', gridEl as HTMLElement);
-    const rivalGrid = ui.termitaRival as HTMLElement | undefined;
-
-    if (rivalGrid) {
-      split.onRivalEvent('termita:light', ({ indices }: { indices: number[] }) => {
-        indices.forEach((idx) => {
-          const el = findRivalElement(rivalGrid, 'data-index', String(idx));
-          el?.classList.add('lit');
-        });
-      });
-
-      split.onRivalEvent('termita:clear', () => {
-        rivalGrid.querySelectorAll('.cell').forEach((c) => c.classList.remove('lit'));
-      });
-
-      split.onRivalEvent('termita:select', ({ index }: { index: number }) => {
-        const el = findRivalElement(rivalGrid, 'data-index', String(index));
-        el?.classList.add('selected');
-      });
-
-      split.onRivalEvent('termita:result', ({ score, rounds }: { score: number; rounds: number }) => {
-        const label = ui.termitaRivalLabel as HTMLElement | undefined;
-        if (label) label.textContent = `Rival — ${score} pts`;
-        // Limpia selecciones del round anterior en el tablero rival,
-        // igual que hace evaluateRound() del lado propio.
-        setTimeout(() => {
-          rivalGrid.querySelectorAll('.cell').forEach((c) => c.classList.remove('selected', 'correct', 'wrong'));
-        }, 1000);
-      });
-    }
 
     function setupGrid(size: number) {
       const grid = gridEl as HTMLElement;
@@ -101,9 +51,6 @@ export function init(ui: GameUi) {
         });
         grid.appendChild(cell);
       }
-      // El tablero rival debe reconstruirse cada vez que este se
-      // reconstruye (distinto tamaño de grilla entre partidas).
-      split.remirror();
     }
 
     function pickTargets(size: number, count: number) {
@@ -124,7 +71,6 @@ export function init(ui: GameUi) {
           el.setAttribute('aria-label', `Celda ${idx + 1}, iluminada`);
         }
       });
-      split.sendEvent('termita:light', { indices: targets });
     }
 
     function clearLights() {
@@ -133,7 +79,6 @@ export function init(ui: GameUi) {
         (c as HTMLElement).classList.remove('lit');
         (c as HTMLElement).setAttribute('aria-label', `Celda ${i + 1}`);
       });
-      split.sendEvent('termita:clear', {});
     }
 
     function onCellClick(index: number) {
@@ -145,7 +90,6 @@ export function init(ui: GameUi) {
       el.setAttribute('aria-label', `Celda ${index + 1}, seleccionada`);
       if (audioManager) audioManager.play('click');
       state.selections.add(index);
-      split.sendEvent('termita:select', { index });
       if (state.selections.size >= state.targets) {
         evaluateRound();
       }
@@ -175,7 +119,6 @@ export function init(ui: GameUi) {
       if (audioManager) audioManager.play(allCorrect ? 'good' : 'miss');
       const info = termitaInfo as HTMLElement;
       info.textContent = `Ronda ${state.currentRound}/${state.rounds} — Aciertos: ${correct} — Puntuación total: ${state.score}`;
-      split.sendEvent('termita:result', { score: state.score, rounds: state.rounds });
       setTimeout(() => {
         Array.from(grid.children).forEach((c, i) => {
           (c as HTMLElement).classList.remove('selected', 'correct', 'wrong');
@@ -188,13 +131,6 @@ export function init(ui: GameUi) {
           info.textContent = `Juego terminado — Puntuación final: ${state.score}`;
           if (audioManager) audioManager.play('perfect');
           if (window.Leaderboard) window.Leaderboard.save('termita', state.score, state.rounds);
-          // Cierra la sala en Supabase — ver comentario equivalente en
-          // simon.logic.ts/endSimonGame. Se hace acá (fin real del
-          // juego) y no en cada envío de termita:result (que ocurre
-          // por ronda), para no cerrar la sala a mitad de partida.
-          if (split.isMultiplayer) {
-            void multiplayerSystem.finishRoomMatch(state.score);
-          }
         }
       }, 1000);
     }
@@ -279,16 +215,8 @@ export function init(ui: GameUi) {
         focusedCellIndex = parseInt(target.dataset.index || '0', 10);
       }
     });
-
-    termitaSplitCleanup = split.cleanup;
 }
-
-let termitaSplitCleanup: (() => void) | null = null;
 
 export function stop() {
   // El juego no usa timers persistentes fuera de una ronda en curso
-  if (termitaSplitCleanup) {
-    termitaSplitCleanup();
-    termitaSplitCleanup = null;
-  }
 }

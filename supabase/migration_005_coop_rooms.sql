@@ -68,11 +68,8 @@ create unique index if not exists live_matches_active_room_code_key
 -- sola (no hay cron job acá) — ver nota en migration_002 sobre por qué el
 -- rate limiting de scores tampoco se resuelve completamente en SQL; acá el
 -- frontend marca 'abandoned' salas propias al salir de la vista de sala
--- (ver leaveRoomMatch() en js/multiplayerSystem.ts, llamado tanto desde
--- js/views/multiplayer.logic.ts al salir de esa vista como desde
--- RoomSession.leave() en cada juego coop, p.ej. js/games/lettersFall.logic.ts)
--- y esta migración deja preparado el terreno para un cron de limpieza
--- futuro si hiciera falta.
+-- (ver core/roomManager2.ts) y esta migración deja preparado el terreno
+-- para un cron de limpieza futuro si hiciera falta.
 
 -- 2. Tabla de mensajes dentro de una sala ------------------------------------
 -- Transporte de eventos de juego en tiempo real (no solo chat de texto,

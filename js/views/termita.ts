@@ -31,16 +31,7 @@ const template = (): string => {
             <label for="rounds">Número de rondas: <input id="rounds" data-ui="rounds" type="number" min="1" value="5" style="width:64px"></label>
           </div>
           <button data-ui="start" aria-label="Iniciar juego Termita">Empezar</button>
-          <div data-ui="termitaSplit" class="termita-split hidden">
-            <div class="termita-split-side">
-              <span class="termita-split-label">Vos</span>
-              <div data-ui="grid" class="grid hidden" role="grid" aria-label="Rejilla de cubos interactiva"></div>
-            </div>
-            <div class="termita-split-side">
-              <span data-ui="termitaRivalLabel" class="termita-split-label">Rival</span>
-              <div data-ui="termitaRival" class="grid termita-rival" aria-hidden="true"></div>
-            </div>
-          </div>
+          <div data-ui="grid" class="grid hidden" role="grid" aria-label="Rejilla de cubos interactiva"></div>
           <div data-ui="info" class="result" role="status" aria-live="polite"></div>
         </div>
       </div>

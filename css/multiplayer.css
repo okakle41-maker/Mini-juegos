@@ -395,61 +395,10 @@
   margin: 0 0 15px 0;
 }
 
-.room-settings {
-  display: grid;
-  gap: 10px;
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  background: var(--color-surface, rgba(255,255,255,0.04));
-}
-
-.room-settings-title {
-  font-size: 13px;
-  opacity: 0.75;
-  margin: 0 0 4px 0;
-}
-
 .matches-list {
   display: grid;
   gap: 10px;
 }
-
-.match-list-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: var(--color-surface, rgba(255,255,255,0.05));
-  border-radius: 8px;
-}
-
-.match-list-game {
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.match-list-status {
-  font-size: 13px;
-  opacity: 0.8;
-}
-
-.match-list-players {
-  font-size: 13px;
-  opacity: 0.7;
-  margin-left: auto;
-}
-
-.spectate-list-btn {
-  cursor: pointer;
-}
-
-.no-matches {
-  opacity: 0.6;
-  text-align: center;
-  padding: 10px 0;
-}
-
 
 .section-decorative {
   display: flex;

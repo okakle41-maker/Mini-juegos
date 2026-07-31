@@ -420,23 +420,6 @@ class Observable {
 
 ## Performance Considerations
 
-### Multiplayer Split-View Pattern
-
-`js/utils/multiplayerSplitView.ts` exports `setupSplitView(gameId, ui, prefix?, ownBoard?)`, a shared helper any game's `.logic.ts` can call from `init()` to show a live, read-only copy of the opponent's board next to the player's own, when a multiplayer match for that game is active (`multiplayerSystem.getCurrentMatch()`). It broadcasts/receives game events over `multiplayer:game_event` via `multiplayerSystem.sendGameEvent`.
-
-Integration contract for a new game:
-
-1. Template adds a `data-ui="<prefix>Split"` container (`class="hidden"`) wrapping the existing board, plus an empty `data-ui="<prefix>Rival"` mirror target.
-2. `.logic.ts` calls `setupSplitView(gameId, ui, prefix, ownBoard)` in `init()`, which returns `{ isMultiplayer, sendEvent, onRivalEvent, remirror, cleanup }`.
-3. `sendEvent(type, payload)` is called unconditionally at each emission point (button flash, cell reveal) — it's a no-op when not in a match, so call sites don't need to branch on `isMultiplayer`.
-4. `onRivalEvent(type, handler)` registers reception handlers that replay the action onto the rival board (see `findRivalElement`, which matches elements by shared `data-*` attributes since `mirrorBoard` clones markup 1:1).
-5. `remirror()` re-clones the player's own board into the rival container — call it every time the board is rebuilt (e.g. `setupSimonBoard`/`setupGrid` on each "Start"), not just once, since board size can change between rounds.
-6. `cleanup()` on `stop()`.
-
-Currently wired into Simon and Termita (full mirrored board) and Arrow (summary panel instead of a full mirror, since Arrow's own UI is too visually noisy to clone usefully — only current symbol + combo are shown).
-
-Known limitation: the rival board only has content once the local player has built their own board at least once (mirrored on `remirror()`), not as soon as the opponent starts — in practice this is rarely noticeable since both players reach the game view at roughly the same time via `onRoomUpdate`.
-
 ### Code Splitting
 
 - Game logic split into separate chunks

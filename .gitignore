@@ -1,0 +1,23 @@
+node_modules/
+dist/
+dist-test-build-check/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.vscode/
+.idea/
+coverage/
+*.tsbuildinfo
+
+# Reportes/artefactos generados por los test runners (ver package.json:
+# test:e2e usa Playwright, test usa Vitest) — no deben versionarse
+# porque son output regenerable, no fuente.
+playwright-report/
+test-results/
+.vitest-cache/
+
+# Thumbs.db es el equivalente Windows de .DS_Store (ya cubierto arriba
+# para macOS) — el repo puede tener colaboradores en Windows.
+Thumbs.db

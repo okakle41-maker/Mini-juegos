@@ -3,8 +3,6 @@
  * Sistema social completo con amigos, chat, clanes y muro de perfil
  */
 
-import Auth from './authManager.js';
-
 interface Friend {
   id: string;
   name: string;
@@ -121,140 +119,15 @@ class SocialSystem {
     this.initializeSupabase();
   }
 
-  /**
-   * Id del jugador autenticado (auth.uid()), o null si no hay sesión.
-   * Todas las tablas sociales usan RLS basado en auth.uid()::text, así
-   * que cualquier operación remota sin sesión real va a ser rechazada
-   * por el backend — mejor no intentarla y avisar explícitamente.
-   */
-  private currentPlayerId(): string | null {
-    return Auth.getUser()?.id ?? null;
-  }
-
-  private currentPlayerName(): string {
-    return Auth.getUser()?.username ?? 'Jugador';
-  }
-
   private async initializeSupabase(): Promise<void> {
     try {
       const { getSupabaseClient } = await import('./core/supabaseClient.js');
       this.supabaseClient = await getSupabaseClient();
       this.isConnected = true;
       this.setupRealtimeSubscriptions();
-      await Auth.ready();
-      await this.loadInitialData();
     } catch (e) {
       console.error('[Social] Failed to initialize Supabase:', e);
       this.isConnected = false;
-    }
-  }
-
-  /**
-   * Carga inicial real desde Supabase. Sin esto, al recargar la página
-   * solo se ve lo que quedó en localStorage de una sesión anterior —
-   * los datos del servidor solo llegaban antes vía eventos Realtime
-   * mientras la pestaña seguía abierta, así que un amigo agregado desde
-   * otro dispositivo nunca aparecía hasta el próximo evento en vivo.
-   */
-  private async loadInitialData(): Promise<void> {
-    const myId = this.currentPlayerId();
-    if (!myId || !this.supabaseClient) return;
-
-    try {
-      const [friendsRes, requestsRes, clansRes, chatRes] = await Promise.all([
-        this.supabaseClient
-          .from('friends')
-          .select('*')
-          .or(`player1_id.eq.${myId},player2_id.eq.${myId}`),
-        this.supabaseClient
-          .from('friend_requests')
-          .select('*')
-          .eq('receiver_id', myId)
-          .eq('status', 'pending'),
-        this.supabaseClient
-          .from('clans')
-          .select('*, clan_members!inner(player_id, role)')
-          .eq('clan_members.player_id', myId),
-        this.supabaseClient
-          .from('chat_messages')
-          .select('*')
-          .eq('chat_id', 'global')
-          .order('created_at', { ascending: true })
-          .limit(50)
-      ]);
-
-      if (friendsRes.data) {
-        for (const row of friendsRes.data) {
-          const friend: Friend = {
-            id: row.player1_id === myId ? row.player2_id : row.player1_id,
-            name: row.friend_name,
-            avatar: row.friend_avatar || '👤',
-            level: row.friend_level || 1,
-            status: row.status || 'offline',
-            currentGame: row.current_game,
-            lastSeen: new Date(row.last_seen).getTime(),
-            isFavorite: row.is_favorite || false
-          };
-          this.friends.set(friend.id, friend);
-        }
-        this.socialStats.friendsCount = this.friends.size;
-      }
-
-      if (requestsRes.data) {
-        for (const row of requestsRes.data) {
-          this.friendRequests.set(row.sender_id, {
-            id: row.sender_id,
-            name: row.sender_id, // no hay nombre denormalizado en friend_requests
-            avatar: '👤',
-            level: 1,
-            status: 'offline',
-            lastSeen: Date.now(),
-            isFavorite: false
-          });
-        }
-      }
-
-      if (clansRes.data) {
-        for (const row of clansRes.data) {
-          const membership = Array.isArray(row.clan_members) ? row.clan_members[0] : row.clan_members;
-          const clan: Clan = {
-            id: row.id,
-            name: row.name,
-            tag: row.tag,
-            description: row.description,
-            leaderId: row.leader_id,
-            memberCount: row.member_count,
-            level: row.level || 1,
-            xp: row.xp || 0,
-            createdAt: new Date(row.created_at).getTime(),
-            isMember: true,
-            role: membership?.role || 'member'
-          };
-          this.clans.set(clan.id, clan);
-          if (clan.leaderId === myId || membership) {
-            this.currentClan = clan;
-          }
-        }
-        this.socialStats.clanMembersCount = this.currentClan?.memberCount || 0;
-      }
-
-      if (chatRes.data) {
-        const messages: ChatMessage[] = chatRes.data.map((row: any) => ({
-          id: row.id,
-          senderId: row.sender_id,
-          senderName: row.sender_name,
-          senderAvatar: row.sender_avatar || '👤',
-          content: row.content,
-          timestamp: new Date(row.created_at).getTime(),
-          type: row.type || 'text'
-        }));
-        this.chatMessages.set('global', messages);
-      }
-
-      this.saveLocalData();
-      window.dispatchEvent(new CustomEvent('social:initial_data_loaded'));
-    } catch (e) {
-      console.error('[Social] Failed to load initial data:', e);
     }
   }
 
@@ -321,15 +194,6 @@ class SocialSystem {
     const { eventType, new: newRecord } = payload;
 
     if (eventType === 'INSERT' || eventType === 'UPDATE') {
-      // is_member/role no son columnas de clans (esa tabla no sabe
-      // nada de "quién pregunta") — son estado derivado de si el
-      // jugador actual tiene o no una fila en clan_members para este
-      // clan. Se preserva lo que ya sabíamos localmente en vez de leer
-      // columnas inexistentes que siempre venían undefined/false.
-      const existing = this.clans.get(newRecord.id);
-      const myId = this.currentPlayerId();
-      const isMe = existing?.isMember || newRecord.leader_id === myId;
-
       const clan: Clan = {
         id: newRecord.id,
         name: newRecord.name,
@@ -340,8 +204,8 @@ class SocialSystem {
         level: newRecord.level || 1,
         xp: newRecord.xp || 0,
         createdAt: new Date(newRecord.created_at).getTime(),
-        isMember: isMe,
-        role: existing?.role || (newRecord.leader_id === myId ? 'leader' : 'member')
+        isMember: newRecord.is_member || false,
+        role: newRecord.role || 'member'
       };
 
       this.clans.set(clan.id, clan);
@@ -475,18 +339,12 @@ class SocialSystem {
 
   // Friend system
   async sendFriendRequest(playerId: string, playerName: string): Promise<void> {
-    const myId = this.currentPlayerId();
-    if (!myId) {
-      console.error('[Social] Cannot send friend request: no session');
-      return;
-    }
-
     if (this.supabaseClient && this.isConnected) {
       try {
         await this.supabaseClient
           .from('friend_requests')
           .insert({
-            sender_id: myId,
+            sender_id: (window as any).progressionSystem?.getCurrentLevel() || 'unknown',
             receiver_id: playerId,
             status: 'pending',
             created_at: new Date().toISOString()
@@ -501,34 +359,19 @@ class SocialSystem {
     }));
   }
 
-  /**
-   * playerId acá es el id de quien ENVIÓ la solicitud (sender), tal
-   * como lo expone getFriendRequests()/renderFriendRequests() — no el
-   * receptor (que siempre es el usuario actual). El update y el insert
-   * tienen que filtrar/usar los ids correctos en cada rol, o la fila
-   * nunca se encuentra (y con RLS, ni siquiera pasaría el check).
-   */
   async acceptFriendRequest(playerId: string): Promise<void> {
-    const myId = this.currentPlayerId();
-    if (!myId) {
-      console.error('[Social] Cannot accept friend request: no session');
-      return;
-    }
-
     if (this.supabaseClient && this.isConnected) {
       try {
         await this.supabaseClient
           .from('friend_requests')
           .update({ status: 'accepted' })
-          .eq('sender_id', playerId)
-          .eq('receiver_id', myId);
+          .eq('receiver_id', playerId);
 
         await this.supabaseClient
           .from('friends')
           .insert({
-            player1_id: myId,
+            player1_id: (window as any).progressionSystem?.getCurrentLevel() || 'unknown',
             player2_id: playerId,
-            friend_name: this.friendRequests.get(playerId)?.name || playerId,
             created_at: new Date().toISOString()
           });
       } catch (e) {
@@ -545,15 +388,12 @@ class SocialSystem {
   }
 
   async declineFriendRequest(playerId: string): Promise<void> {
-    const myId = this.currentPlayerId();
-
-    if (this.supabaseClient && this.isConnected && myId) {
+    if (this.supabaseClient && this.isConnected) {
       try {
         await this.supabaseClient
           .from('friend_requests')
           .update({ status: 'declined' })
-          .eq('sender_id', playerId)
-          .eq('receiver_id', myId);
+          .eq('receiver_id', playerId);
       } catch (e) {
         console.error('[Social] Failed to decline friend request:', e);
       }
@@ -568,17 +408,12 @@ class SocialSystem {
   }
 
   async removeFriend(playerId: string): Promise<void> {
-    const myId = this.currentPlayerId();
-
-    if (this.supabaseClient && this.isConnected && myId) {
+    if (this.supabaseClient && this.isConnected) {
       try {
-        // Acotado al par (yo, playerId): el .or() original borraba
-        // cualquier fila donde apareciera playerId, incluidas amistades
-        // de ese jugador con terceros que no tienen nada que ver conmigo.
         await this.supabaseClient
           .from('friends')
           .delete()
-          .or(`and(player1_id.eq.${myId},player2_id.eq.${playerId}),and(player1_id.eq.${playerId},player2_id.eq.${myId})`);
+          .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`);
       } catch (e) {
         console.error('[Social] Failed to remove friend:', e);
       }
@@ -623,56 +458,14 @@ class SocialSystem {
 
   // Clan system
   async createClan(name: string, tag: string, description: string): Promise<void> {
-    const myId = this.currentPlayerId();
-    if (!myId) {
-      console.error('[Social] Cannot create clan: no session');
-      return;
-    }
-
-    let clanId = `clan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    if (this.supabaseClient && this.isConnected) {
-      try {
-        // clans.id es uuid con default gen_random_uuid(); dejamos que
-        // Postgres lo genere en vez de insertar un string tipo
-        // "clan_1234..." que rompería el tipo de la columna.
-        const { data, error } = await this.supabaseClient
-          .from('clans')
-          .insert({
-            name,
-            tag,
-            description,
-            leader_id: myId,
-            member_count: 1,
-            level: 1,
-            xp: 0,
-            created_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-
-        if (!error && data) {
-          clanId = data.id;
-          await this.supabaseClient
-            .from('clan_members')
-            .insert({
-              clan_id: clanId,
-              player_id: myId,
-              role: 'leader',
-              joined_at: new Date().toISOString()
-            });
-        }
-      } catch (e) {
-        console.error('[Social] Failed to create clan:', e);
-      }
-    }
-
+    const clanId = `clan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     const clan: Clan = {
       id: clanId,
       name,
       tag,
       description,
-      leaderId: myId,
+      leaderId: 'current_player', // Would be actual player ID
       memberCount: 1,
       level: 1,
       xp: 0,
@@ -680,6 +473,26 @@ class SocialSystem {
       isMember: true,
       role: 'leader'
     };
+
+    if (this.supabaseClient && this.isConnected) {
+      try {
+        await this.supabaseClient
+          .from('clans')
+          .insert({
+            id: clanId,
+            name,
+            tag,
+            description,
+            leader_id: clan.leaderId,
+            member_count: 1,
+            level: 1,
+            xp: 0,
+            created_at: new Date().toISOString()
+          });
+      } catch (e) {
+        console.error('[Social] Failed to create clan:', e);
+      }
+    }
 
     this.clans.set(clanId, clan);
     this.currentClan = clan;
@@ -695,23 +508,21 @@ class SocialSystem {
     const clan = this.clans.get(clanId);
     if (!clan) return;
 
-    const myId = this.currentPlayerId();
-    if (!myId) {
-      console.error('[Social] Cannot join clan: no session');
-      return;
-    }
-
     if (this.supabaseClient && this.isConnected) {
       try {
-        // member_count se recalcula solo vía trigger (ver migración 007)
         await this.supabaseClient
           .from('clan_members')
           .insert({
             clan_id: clanId,
-            player_id: myId,
+            player_id: 'current_player',
             role: 'member',
             joined_at: new Date().toISOString()
           });
+
+        await this.supabaseClient
+          .from('clans')
+          .update({ member_count: clan.memberCount + 1 })
+          .eq('id', clanId);
       } catch (e) {
         console.error('[Social] Failed to join clan:', e);
       }
@@ -732,23 +543,17 @@ class SocialSystem {
   async leaveClan(): Promise<void> {
     if (!this.currentClan) return;
 
-    const myId = this.currentPlayerId();
-    if (!myId) {
-      console.error('[Social] Cannot leave clan: no session');
-      return;
-    }
-
     if (this.supabaseClient && this.isConnected) {
       try {
-        // Acotado al clan actual: el .eq('player_id', ...) original sin
-        // filtrar por clan_id borraba TODAS las membresías del jugador,
-        // no solo la del clan que está dejando.
-        // member_count se recalcula solo vía trigger (ver migración 007)
         await this.supabaseClient
           .from('clan_members')
           .delete()
-          .eq('player_id', myId)
-          .eq('clan_id', this.currentClan.id);
+          .eq('player_id', 'current_player');
+
+        await this.supabaseClient
+          .from('clans')
+          .update({ member_count: this.currentClan.memberCount - 1 })
+          .eq('id', this.currentClan.id);
       } catch (e) {
         console.error('[Social] Failed to leave clan:', e);
       }
@@ -775,8 +580,8 @@ class SocialSystem {
   async sendChatMessage(chatId: string, content: string, type: ChatMessage['type'] = 'text'): Promise<void> {
     const message: ChatMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      senderId: this.currentPlayerId() || 'anon',
-      senderName: this.currentPlayerName(),
+      senderId: 'current_player',
+      senderName: 'You',
       senderAvatar: '👤',
       content,
       timestamp: Date.now(),
@@ -820,8 +625,8 @@ class SocialSystem {
   createProfilePost(content: string, type: ProfilePost['type'], gameId?: string, score?: number, achievementId?: string): void {
     const post: ProfilePost = {
       id: `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      playerId: this.currentPlayerId() || 'anon',
-      playerName: this.currentPlayerName(),
+      playerId: 'current_player',
+      playerName: 'You',
       content,
       type,
       gameId,
@@ -858,8 +663,8 @@ class SocialSystem {
     if (post) {
       const comment: Comment = {
         id: `comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        playerId: this.currentPlayerId() || 'anon',
-        playerName: this.currentPlayerName(),
+        playerId: 'current_player',
+        playerName: 'You',
         content,
         timestamp: Date.now()
       };
@@ -884,8 +689,8 @@ class SocialSystem {
   sendKudos(toPlayerId: string, toPlayerName: string, reason: string): void {
     const kudos: Kudos = {
       id: `kudos_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      fromPlayerId: this.currentPlayerId() || 'anon',
-      fromPlayerName: this.currentPlayerName(),
+      fromPlayerId: 'current_player',
+      fromPlayerName: 'You',
       toPlayerId,
       toPlayerName,
       reason,

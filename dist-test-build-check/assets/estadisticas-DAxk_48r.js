@@ -1,2 +1,0 @@
-var a=()=>'\n      <div class="game-view-inner">\n        <button class="back-btn" data-back-to="home"></button>\n        <div class="card">\n          <h2>Estadísticas</h2>\n          <p>Resumen global de tu actividad de entrenamiento. Sesiones, módulos completados y rendimiento por categoría.</p>\n          <div class="stats-grid" id="statsGrid"></div>\n          <div class="stats-by-category" id="statsByCategory"></div>\n        </div>\n      </div>\n    ';export{a as default};
-//# sourceMappingURL=estadisticas-DAxk_48r.js.map
