@@ -38,6 +38,13 @@ const template = (): string => {
             <div class="arrow-progress-wrapper">
               <div data-ui="arrowProgress" class="arrow-progress"></div>
             </div>
+            <div data-ui="arrowSplit" class="arrow-rival-panel hidden" aria-hidden="true">
+              <span data-ui="arrowRivalLabel" class="arrow-split-label">Rival</span>
+              <div data-ui="arrowRivalDisplay" class="arrow-rival-display">↑</div>
+              <div class="arrow-rival-stats">
+                <span data-ui="arrowRivalCombo">Combo: 0</span>
+              </div>
+            </div>
             <div class="arrow-display-wrapper">
               <div data-ui="arrowDisplay" class="arrow-display" role="status" aria-live="assertive">↑</div>
               <div class="arrow-display-info">

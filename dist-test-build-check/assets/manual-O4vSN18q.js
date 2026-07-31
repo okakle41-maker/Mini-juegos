@@ -1,0 +1,2 @@
+var a=()=>'\n      <div class="game-view-inner">\n        <button class="back-btn" data-back-to="home"></button>\n        <div class="card">\n          <h2>Manual</h2>\n          <p>Guía de referencia. Cada módulo entrena un vector cognitivo distinto. Selecciona el que más necesite tu bot.</p>\n          <div class="manual-list" id="manualList"></div>\n        </div>\n      </div>\n    ';export{a as default};
+//# sourceMappingURL=manual-O4vSN18q.js.map

@@ -1,0 +1,154 @@
+/* ── Memory Grid — Navigation Memory ── */
+#memorygrid .mg-board {
+  display: grid;
+  gap: 8px;
+  justify-content: center;
+  margin: 20px auto;
+  padding: 20px;
+  max-width: 100%;
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.06), rgba(9, 4, 0, 0.7));
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  border-radius: 20px;
+  box-shadow: inset 0 0 60px rgba(249, 115, 22, 0.04), 0 20px 60px -30px rgba(0, 0, 0, 0.7);
+  position: relative;
+}
+#memorygrid .mg-board::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--accent-orange);
+  opacity: 0.55;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 4px 0 0 0;
+  pointer-events: none;
+}
+#memorygrid .memory-cell {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.5));
+  border: 2px solid rgba(249, 115, 22, 0.2);
+  cursor: pointer;
+  user-select: none;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 1.15em;
+  font-weight: 700;
+  color: #e0f2fe;
+  transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.3s ease;
+}
+#memorygrid .memory-cell:hover:not(:disabled) {
+  transform: scale(1.06);
+  background: rgba(249, 115, 22, 0.12);
+  border-color: rgba(249, 115, 22, 0.4);
+}
+#memorygrid .memory-cell:disabled { cursor: default; }
+#memorygrid .memory-cell.hidden-value {
+  color: rgba(148, 163, 184, 0.7);
+  font-size: 1em;
+}
+#memorygrid .memory-cell.start-cell::before {
+  content: 'S';
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 0.55em;
+  font-weight: 800;
+  color: #67e8f9;
+  line-height: 1;
+  pointer-events: none;
+}
+#memorygrid .memory-cell.end-cell::after {
+  content: 'E';
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 0.55em;
+  font-weight: 800;
+  color: #4ade80;
+  line-height: 1;
+  pointer-events: none;
+}
+#memorygrid .memory-cell.start-cell {
+  border-color: #22d3ee;
+  box-shadow: inset 0 0 14px rgba(34, 211, 238, 0.18);
+}
+#memorygrid .memory-cell.end-cell {
+  border-color: #4ade80;
+  box-shadow: inset 0 0 14px rgba(74, 222, 128, 0.18);
+}
+#memorygrid .memory-cell.current {
+  background: linear-gradient(160deg, #fb923c, #ea580c);
+  border-color: #fed7aa;
+  box-shadow: 0 0 28px rgba(249, 115, 22, 0.7), inset 0 0 18px rgba(255, 255, 255, 0.22);
+  color: #fff;
+  transform: scale(1.08);
+  z-index: 2;
+}
+#memorygrid .memory-cell.path {
+  background: rgba(249, 115, 22, 0.18);
+  border-color: rgba(249, 115, 22, 0.45);
+}
+#memorygrid .memory-cell.hint {
+  outline: 2px dashed rgba(74, 222, 128, 0.9);
+  box-shadow: 0 0 18px rgba(74, 222, 128, 0.4);
+  animation: mg-hint-pulse 1.2s ease-in-out infinite;
+}
+@keyframes mg-hint-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+#memorygrid .memory-cell.reveal-solution {
+  background: rgba(34, 197, 94, 0.3);
+  border-color: #4ade80;
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.4);
+}
+#memorygrid .memory-cell.flash-ok {
+  background: rgba(34, 197, 94, 0.5) !important;
+  animation: mg-pop 0.35s ease;
+}
+#memorygrid .memory-cell.flash-error {
+  background: rgba(239, 68, 68, 0.5) !important;
+  animation: game-shake 0.35s ease;
+}
+@keyframes mg-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.14); }
+  100% { transform: scale(1.08); }
+}
+#memorygrid .mg-hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 16px 0 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+#memorygrid .mg-status {
+  text-align: center;
+  padding: 14px;
+  margin-bottom: 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(249, 115, 22, 0.15);
+  color: var(--text-muted);
+  min-height: 42px;
+}
+#memorygrid .mg-undo-btn {
+  display: block;
+  margin: 14px auto 0;
+  min-width: 160px;
+}
+#memorygrid .mg-undo-btn[hidden] { display: none; }

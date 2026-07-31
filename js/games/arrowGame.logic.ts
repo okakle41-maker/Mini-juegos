@@ -18,6 +18,8 @@ import safeStorage from '../core/safeStorage.js';
 import GameHelpers from '../utils/gameHelpers.js';
 import type { GameUi } from '../types/game.js';
 import audioManager from '../audioManager.js';
+import { multiplayerSystem } from '../multiplayerSystem.js';
+import { setupSplitView, type SplitViewHandle } from '../utils/multiplayerSplitView.js';
 
 interface ArrowClickerInstance {
   stop: (showResult: boolean) => void;
@@ -47,6 +49,43 @@ export function init(ui: GameUi) {
   } = ui;
 
   if (!startArrow) return;
+
+  // Si hay una sala activa para este juego, la dificultad la fija quien
+  // la creó (ver readRoomSettings en multiplayer.logic.ts).
+  const activeMatch = multiplayerSystem.getCurrentMatch();
+  const roomSettings = activeMatch?.gameId === 'arrow' ? activeMatch.settings : null;
+  if (roomSettings && arrowLengthEl && arrowTimeInput) {
+    arrowLengthEl.value = String(roomSettings.steps ?? 20);
+    arrowTimeInput.value = String(roomSettings.time ?? 15);
+    [arrowLevelEl, arrowLengthEl, arrowTimeInput].forEach(el => {
+      if (el) el.disabled = true;
+    });
+    if (arrowMessage) {
+      arrowMessage.textContent = 'Modo multiplayer: dificultad fijada por quien creó la sala.';
+      arrowMessage.classList.remove('hidden');
+    }
+  }
+
+  // Split screen "Vos"/"Rival" (ver js/utils/multiplayerSplitView.ts):
+  // acá es un panel resumen (solo símbolo actual + combo), no un
+  // tablero espejo completo — Arrow no usa remirror/ownBoard.
+  const split: SplitViewHandle = setupSplitView('arrow', ui, 'arrow');
+  const rivalDisplay = ui.arrowRivalDisplay as HTMLElement | undefined;
+  const rivalCombo = ui.arrowRivalCombo as HTMLElement | undefined;
+  const rivalLabel = ui.arrowRivalLabel as HTMLElement | undefined;
+
+  split.onRivalEvent('arrow:input', ({ symbol, correct, combo }: { symbol: string; correct: boolean; combo: number }) => {
+    if (rivalDisplay) {
+      rivalDisplay.textContent = symbol;
+      rivalDisplay.classList.remove('correct', 'wrong');
+      rivalDisplay.classList.add(correct ? 'correct' : 'wrong');
+    }
+    if (rivalCombo) rivalCombo.textContent = `Combo: ${combo}`;
+  });
+
+  split.onRivalEvent('arrow:gameover', ({ percent }: { percent: number }) => {
+    if (rivalLabel) rivalLabel.textContent = `Rival — ${percent}%`;
+  });
 
   class ArrowClicker {
     ui: GameUi;
@@ -135,19 +174,30 @@ export function init(ui: GameUi) {
       this.cleanup.cleanup();
       startArrow.disabled = false;
       this.state.lastResult = success;
+      let finalPercent: number;
       if (success) {
         this.setMessage('HACK COMPLETE', 'success');
         this.ui.arrowDisplay?.classList.add('correct');
         if (audioManager) audioManager.play('perfect');
         this.updateRecord(100);
+        split.sendEvent('arrow:gameover', { percent: 100 });
+        finalPercent = 100;
       } else {
         this.setMessage('ACCESS DENIED', 'fail');
         this.ui.arrowDisplay?.classList.add('wrong');
         if (audioManager) audioManager.play('gameover');
         const percent = Math.round((this.state.currentStep / this.state.sequence.length) * 100);
         this.updateRecord(percent);
+        split.sendEvent('arrow:gameover', { percent });
+        finalPercent = percent;
       }
       this.updateUI();
+      // Cierra la sala en Supabase — ver comentario equivalente en
+      // simon.logic.ts/endSimonGame. Único punto que cubre tanto el
+      // éxito como el fallo de la secuencia.
+      if (split.isMultiplayer) {
+        void multiplayerSystem.finishRoomMatch(finalPercent);
+      }
       return success === true;
     }
 
@@ -230,6 +280,7 @@ export function init(ui: GameUi) {
         this.setMessage('Correcto', 'success');
         this.flashButton(key, true);
         if (audioManager) audioManager.play('click');
+        split.sendEvent('arrow:input', { symbol: expected.symbol, correct: true, combo: this.state.combo });
         if (this.state.currentStep >= this.state.sequence.length) {
           return this.stop(true);
         }
@@ -242,6 +293,7 @@ export function init(ui: GameUi) {
         this.setMessage('Penalización -0.5s', 'fail');
         if (audioManager) audioManager.play('miss');
         this.flashButton(key, false);
+        split.sendEvent('arrow:input', { symbol: expected.symbol, correct: false, combo: 0 });
         if (this.state.timeLeft <= 0) {
           return this.stop(false);
         }
@@ -378,9 +430,11 @@ export function init(ui: GameUi) {
   document.addEventListener('keydown', onKeyDown);
   GameInstanceRegistry.set<ArrowClickerInstance>('arrow', clicker);
   arrowKeyDownHandler = onKeyDown;
+  arrowSplitCleanup = split.cleanup;
 }
 
 let arrowKeyDownHandler: ((event: KeyboardEvent) => void) | null = null;
+let arrowSplitCleanup: (() => void) | null = null;
 
 export function stop() {
   const clicker = GameInstanceRegistry.get<ArrowClickerInstance>('arrow');
@@ -388,6 +442,10 @@ export function stop() {
   if (arrowKeyDownHandler) {
     document.removeEventListener('keydown', arrowKeyDownHandler);
     arrowKeyDownHandler = null;
+  }
+  if (arrowSplitCleanup) {
+    arrowSplitCleanup();
+    arrowSplitCleanup = null;
   }
   GameInstanceRegistry.clear('arrow');
 }

@@ -28,7 +28,16 @@ const template = (): string => {
             <label>Rondas: <input data-ui="simonRounds" type="number" min="1" value="5" style="width:64px"></label>
           </div>
           <button data-ui="start">Empezar</button>
-          <div data-ui="simonBoard" class="simon-board hidden"></div>
+          <div data-ui="simonSplit" class="simon-split hidden">
+            <div class="simon-split-side">
+              <span class="simon-split-label">Vos</span>
+              <div data-ui="simonBoard" class="simon-board hidden"></div>
+            </div>
+            <div class="simon-split-side">
+              <span data-ui="simonRivalLabel" class="simon-split-label">Rival</span>
+              <div data-ui="simonRival" class="simon-board simon-rival" aria-hidden="true"></div>
+            </div>
+          </div>
           <div data-ui="info" class="result" role="status" aria-live="polite"></div>
         </div>
       </div>

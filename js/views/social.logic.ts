@@ -187,7 +187,7 @@ function renderPosts(): void {
           <span class="post-author">${escapeHtml(post.playerName)}</span>
           <span class="post-time">${new Date(post.timestamp).toLocaleString()}</span>
         </div>
-        <p class="post-content">${post.content}</p>
+        <p class="post-content">${escapeHtml(post.content)}</p>
         <div class="post-actions">
           <button class="post-like-btn" data-post-id="${post.id}">
             ❤️ ${post.likes}
