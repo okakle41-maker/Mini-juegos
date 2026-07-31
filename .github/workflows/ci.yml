@@ -67,11 +67,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup k6
+      - name: Run load tests (k6)
         uses: grafana/k6-action@v0.3.1
-
-      - name: Run load tests
-        run: k6 run load-test/load-test.js
+        with:
+          filename: load-test/load-test.js
 
   type-check:
     name: Type Check
