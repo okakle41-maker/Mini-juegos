@@ -484,25 +484,28 @@
     <!-- ── Nuevas Vistas v3.0.0 ── -->
     
     <!-- ── Logros y Trofeos ── -->
-    <section id="logros" class="view hidden" data-lazy="1"></section>
+    <!-- Sin data-lazy: se registra como "juego" en GameRegistry
+         (registerSystemViews.ts) y su HTML lo inyecta logros.logic.ts
+         vía GameRegistry.ensureInit, no viewTemplates. -->
+    <section id="logros" class="view hidden"></section>
 
     <!-- ── Progresión RPG ── -->
     <section id="progresion" class="view hidden" data-lazy="1"></section>
 
     <!-- ── Personalización Avanzada ── -->
-    <section id="personalizacion" class="view hidden" data-lazy="1"></section>
+    <section id="personalizacion" class="view hidden"></section>
 
     <!-- ── Estadísticas Avanzadas ── -->
-    <section id="estadisticas-avanzadas" class="view hidden" data-lazy="1"></section>
+    <section id="estadisticas-avanzadas" class="view hidden"></section>
 
     <!-- ── Multiplayer ── -->
-    <section id="multiplayer" class="view hidden" data-lazy="1"></section>
+    <section id="multiplayer" class="view hidden"></section>
 
     <!-- ── Social ── -->
-    <section id="social" class="view hidden" data-lazy="1"></section>
+    <section id="social" class="view hidden"></section>
 
     <!-- ── Torneos y Eventos ── -->
-    <section id="torneos" class="view hidden" data-lazy="1"></section>
+    <section id="torneos" class="view hidden"></section>
 
 </main>
 

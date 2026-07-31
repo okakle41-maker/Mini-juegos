@@ -38,6 +38,7 @@ import './configReset';
 import './customCursor';
 import './statsManager';
 import './authManager';
+import './accountView';
 import './interactionLock';
 import './keyboardShortcuts';
 import './preferencesManager';

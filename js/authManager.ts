@@ -117,6 +117,70 @@ function friendlyError(rawMessage: string): string {
 class AuthManager {
   private currentUser: AuthUser | null = null;
   private initPromise: Promise<void>;
+  /**
+   * true mientras register()/login()/logout() están en curso.
+   *
+   * Supabase-js v2 dispara `onAuthStateChange` (evento SIGNED_IN /
+   * SIGNED_OUT) no solo ante cambios externos de sesión (otra pestaña,
+   * refresh de token, expiración), sino también como reacción directa a
+   * las propias llamadas a signUp/signInWithPassword/signOut que hacen
+   * register()/login()/logout() acá abajo. Sin esta bandera, cada una de
+   * esas tres operaciones terminaba disparando el flujo DOS veces:
+   *
+   *   register(): signUp() → listener ve SIGNED_IN → loadProfile(userId)
+   *               (ANTES de que register() llegue a insertar la fila en
+   *               profiles unas líneas más abajo) → esa lectura falla o
+   *               trae un perfil todavía inexistente → currentUser=null +
+   *               emitChange() de forma espuria, pisado un instante
+   *               después por el emitChange() correcto de register(). El
+   *               usuario podía ver un parpadeo real del badge del
+   *               header (logueado → "DESCONOCIDO" → logueado) entre
+   *               medio, o directamente quedarse en el estado erróneo si
+   *               la segunda emisión se demoraba.
+   *   login():    signInWithPassword() → listener dispara su propio
+   *               loadProfile(), y login() dispara otro loadProfile()
+   *               explícito — dos queries a `profiles` en paralelo por
+   *               cada login, con dos emitChange() en carrera.
+   *   logout():   signOut() → listener pone currentUser=null y emite, Y
+   *               logout() hace lo mismo de nuevo al final — inofensivo
+   *               en el resultado final (ambos coinciden en null), pero
+   *               duplica el evento 'auth:changed' que escuchan
+   *               accountView.ts/hudPanel.ts/sideNavBoot.ts, cada uno
+   *               re-renderizando dos veces por cada logout real.
+   *
+   * Con la bandera activa, el listener del constructor ignora esos
+   * eventos "propios" y deja que sea el método explícito (que ya sabe
+   * el orden correcto de sus propios pasos, como insertar en profiles
+   * antes de leerlo) el único que actualiza currentUser y emite
+   * 'auth:changed'. El listener sigue activo para lo que de verdad le
+   * corresponde: cambios de sesión que authManager.ts no originó (otra
+   * pestaña cerrando sesión, refresh automático de token, expiración).
+   */
+  private selfInitiatedAuthChange = false;
+
+  /**
+   * Envuelve una llamada a signUp/signInWithPassword/signOut que dispara
+   * `onAuthStateChange` de forma asíncrona (no antes de que el propio
+   * `await` de la llamada resuelva: la doc de Supabase dice "events are
+   * awaited in order", es decir se encolan y se procesan en su propio
+   * turno, no de forma síncrona dentro del `await` de arriba). Bajar
+   * `selfInitiatedAuthChange` inmediatamente después del `await` de la
+   * llamada no alcanza a cubrir esa cola — el evento podría llegar un
+   * tick después, ya con la bandera en `false`, reabriendo la misma
+   * carrera que esto busca evitar. Por eso se le da un margen explícito
+   * (una vuelta de macrotask vía setTimeout) antes de bajar la bandera:
+   * suficiente para que el evento ya encolado por esta misma llamada
+   * llegue al listener mientras todavía se lo va a ignorar a propósito.
+   */
+  private async withSelfInitiatedAuthChange<T>(fn: () => Promise<T>): Promise<T> {
+    this.selfInitiatedAuthChange = true;
+    try {
+      return await fn();
+    } finally {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      this.selfInitiatedAuthChange = false;
+    }
+  }
 
   constructor() {
     // Al cargar la app, restauramos la sesión si el usuario ya estaba
@@ -135,6 +199,16 @@ class AuthManager {
     getSupabaseClient()
       .then((supabase) => {
         supabase.auth.onAuthStateChange((_event, session) => {
+          // Ver comentario de selfInitiatedAuthChange: si este evento lo
+          // disparó nuestro propio register()/login()/logout() en
+          // curso, esos métodos ya se encargan de actualizar
+          // currentUser y emitir 'auth:changed' en el momento y orden
+          // correctos — procesarlo también acá sería una segunda
+          // ejecución redundante (login/logout) o directamente
+          // incorrecta por orden de ejecución (register, que necesita
+          // insertar en profiles antes de poder leerlo).
+          if (this.selfInitiatedAuthChange) return;
+
           if (!session) {
             this.currentUser = null;
             this.emitChange();
@@ -254,10 +328,12 @@ class AuthManager {
     try {
       const supabase = await getSupabaseClient();
 
-      const { data, error } = await supabase.auth.signUp({
-        email: usernameToEmail(trimmed),
-        password,
-      });
+      const { data, error } = await this.withSelfInitiatedAuthChange(() =>
+        supabase.auth.signUp({
+          email: usernameToEmail(trimmed),
+          password,
+        })
+      );
 
       if (error) {
         return { ok: false, error: friendlyError(error.message) };
@@ -310,10 +386,13 @@ class AuthManager {
     const trimmed = username.trim();
     try {
       const supabase = await getSupabaseClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: usernameToEmail(trimmed),
-        password,
-      });
+
+      const { data, error } = await this.withSelfInitiatedAuthChange(() =>
+        supabase.auth.signInWithPassword({
+          email: usernameToEmail(trimmed),
+          password,
+        })
+      );
 
       if (error) {
         return { ok: false, error: friendlyError(error.message) };
@@ -333,7 +412,7 @@ class AuthManager {
   async logout(): Promise<void> {
     try {
       const supabase = await getSupabaseClient();
-      await supabase.auth.signOut();
+      await this.withSelfInitiatedAuthChange(() => supabase.auth.signOut());
     } catch (error) {
       // Aunque falle el signOut remoto (offline, red caída), igual
       // limpiamos el estado local — no tiene sentido dejar al usuario

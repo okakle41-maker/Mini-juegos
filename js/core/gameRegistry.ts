@@ -135,6 +135,16 @@ class GameRegistry implements GameRegistryInterface {
       devLog(`[GameRegistry] Detenido: ${id}`);
     } catch (error) {
       window.ErrorLogger?.log('GameRegistry.stopGame', error, { id });
+    } finally {
+      // `stop()` vacía el DOM de la vista (container.innerHTML = '').
+      // Si no invalidamos `initialized`, la próxima vez que se entre a
+      // esta vista `ensureInit` ve `initialized.has(id) === true` y
+      // sale sin volver a llamar `init()`, dejando el contenedor vacío
+      // para siempre. Al borrar también la entrada de `stopFns`, la
+      // próxima vez que corra `ensureInit` va a reinicializar desde
+      // cero y volver a registrar el `stop` correspondiente.
+      this.initialized.delete(id);
+      this.stopFns.delete(id);
     }
   }
 
