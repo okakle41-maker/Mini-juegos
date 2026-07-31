@@ -1,0 +1,2 @@
+var s=new class{constructor(){this.instances=new Map}set(s,t){this.instances.set(s,t)}get(s){return this.instances.get(s)}has(s){return this.instances.has(s)}clear(s){this.instances.delete(s)}activeIds(){return Array.from(this.instances.keys())}};window.GameInstanceRegistry=s;export{s as t};
+//# sourceMappingURL=core-B2mCY3aD.js.map

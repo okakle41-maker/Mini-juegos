@@ -1,0 +1,441 @@
+/* ======================================================================
+   lobby-new.css — Pase "Lobby B" (Futuristic Tactical Training Dashboard)
+   ----------------------------------------------------------------------
+   Se carga DESPUÉS de styles.css y lobby-tactical.css. No toca markup
+   existente (salvo los elementos nuevos añadidos a propósito: ring de
+   progreso, streak, módulo del día). Usa variables propias para poder
+   ajustar la identidad visual sin pelear con las reglas anteriores.
+   ====================================================================== */
+
+/* ======================================================================
+   lobby-new.css — Pase "Lobby B" (Futuristic Tactical Training Dashboard)
+   ----------------------------------------------------------------------
+   Se carga DESPUÉS de styles.css y lobby-tactical.css. La fuente de
+   verdad de la paleta (--accent-orange, --bg-1, --bg-2, --card, --glow-*)
+   vive ahora en css/styles.css; aquí solo se declaran alias locales
+   (--accent, --bg-dark...) para no reescribir cada regla de este archivo,
+   y los componentes nuevos (ring, streak, módulo del día...).
+   ====================================================================== */
+
+:root {
+  /* Alias locales → variables reales definidas en styles.css */
+  --accent: var(--accent-orange);
+  --accent-2: var(--accent-orange-2);
+  --bg-dark: var(--bg-1);
+  --bg-dark-2: var(--bg-2);
+  --card-bg: var(--card);
+  --card-bg-hover: var(--card-hover);
+  --panel-bg: var(--panel-gradient);
+  --text-primary: #dce8f4;
+  --text-dim: #5a7080;
+  --text-dim-2: #40566a;
+}
+
+/* Fondo base + grid, igual que App.tsx (44px, naranja 0.04) */
+body {
+  background: var(--bg-dark);
+}
+body::before {
+  background-image:
+    linear-gradient(rgba(255, 107, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 107, 0, 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* ----------------------------------------------------------------------
+   Sidebar / Header / HUD panel: paleta afinada al naranja exacto de B
+   ---------------------------------------------------------------------- */
+.side-nav,
+.hud-panel {
+  background: var(--panel-bg);
+}
+.side-nav {
+  border-right-color: rgba(255, 107, 0, 0.35);
+  box-shadow: 4px 0 30px rgba(255, 107, 0, 0.12);
+}
+#site-header {
+  background: rgba(7, 10, 18, 0.97);
+  border-bottom-color: rgba(255, 107, 0, 0.42);
+  box-shadow: 0 1px 0 rgba(255, 107, 0, 0.18), 0 4px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+/* ----------------------------------------------------------------------
+   Cards: superficie + accent-strip alineados a card-bg/card-bg-hover
+   ---------------------------------------------------------------------- */
+.game-card {
+  background: var(--card-bg);
+}
+.game-card:hover {
+  background: var(--card-bg-hover);
+}
+.card-accent-strip {
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent, var(--accent)) 60%, transparent), transparent);
+}
+
+/* ----------------------------------------------------------------------
+   Ring de progreso (nuevo) — SVG generado en lobbyRenderer.ts,
+   equivalente al <Ring/> de App.tsx.
+   ---------------------------------------------------------------------- */
+.card-progress-ring {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+}
+.card-progress-ring svg {
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent, var(--accent)) 70%, transparent));
+}
+.card-progress-ring circle.ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 4;
+}
+.card-progress-ring circle.ring-value {
+  fill: none;
+  stroke: var(--accent, var(--accent));
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;
+}
+.card-progress-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--accent, var(--accent));
+}
+
+/* .card-hero (styles.css) centra un único hijo con justify-content:center;
+   forzamos el ancho completo para que .card-top-row pueda repartir
+   icono/ring con space-between, tal como en GameCard de App.tsx. */
+.card-hero {
+  padding: 0 14px;
+  height: auto;
+  min-height: 96px;
+}
+.card-top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+.card-top-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+/* Streak / veces jugado (nuevo) */
+.card-streak {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #f59e0b;
+  text-shadow: 0 0 4px rgba(245, 158, 11, 0.7);
+}
+.card-streak svg {
+  width: 9px;
+  height: 9px;
+  filter: drop-shadow(0 0 4px #f59e0b);
+}
+
+/* Icono del juego dentro del card-icon-lg (reemplaza el emoji) */
+.card-icon-lg svg {
+  width: 30px;
+  height: 30px;
+  stroke: var(--accent, var(--accent));
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent, var(--accent)) 85%, transparent));
+  transition: filter 0.25s ease;
+}
+.game-card:hover .card-icon-lg svg {
+  filter: drop-shadow(0 0 10px var(--accent, var(--accent))) drop-shadow(0 0 20px color-mix(in srgb, var(--accent, var(--accent)) 65%, transparent));
+}
+
+/* Footer de la card: última partida + mejor puntuación */
+.card-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  margin-top: 2px;
+  border-top: 1px solid color-mix(in srgb, var(--accent, var(--accent)) 15%, transparent);
+  font-family: var(--font-mono);
+}
+.card-footer-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  color: var(--text-dim);
+}
+.card-footer-time svg {
+  width: 9px;
+  height: 9px;
+  stroke: var(--text-dim);
+}
+.card-footer-score {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6a8090;
+  transition: color 0.25s ease, text-shadow 0.25s ease;
+}
+.game-card:hover .card-footer-score {
+  color: var(--accent, var(--accent));
+  text-shadow: 0 0 8px var(--accent, var(--accent));
+}
+
+/* ----------------------------------------------------------------------
+   Módulo del Día (nuevo)
+   ---------------------------------------------------------------------- */
+.module-of-day {
+  position: relative;
+  overflow: hidden;
+  border-radius: 3px;
+  margin: 18px 0;
+  background: linear-gradient(135deg, rgba(9, 13, 24, 0.99) 0%, rgba(16, 22, 36, 0.97) 60%, rgba(255, 107, 0, 0.07) 100%);
+  border: 1px solid rgba(255, 107, 0, 0.6);
+  box-shadow: 0 0 48px rgba(255, 107, 0, 0.22), 0 0 96px rgba(255, 107, 0, 0.1), inset 0 0 40px rgba(255, 107, 0, 0.06);
+}
+.module-of-day::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: var(--accent);
+  filter: blur(60px);
+  opacity: 0.1;
+  transform: translate(30%, -30%);
+  pointer-events: none;
+}
+.mod-brackets span {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  border-color: var(--accent);
+}
+.mod-brackets span:nth-child(1) { top: 0; left: 0; border-top: 2px solid; border-left: 2px solid; }
+.mod-brackets span:nth-child(2) { top: 0; right: 0; border-top: 2px solid; border-right: 2px solid; }
+.mod-brackets span:nth-child(3) { bottom: 0; left: 0; border-bottom: 2px solid; border-left: 2px solid; opacity: 0.5; }
+.mod-brackets span:nth-child(4) { bottom: 0; right: 0; border-bottom: 2px solid; border-right: 2px solid; opacity: 0.5; }
+
+.mod-inner {
+  position: relative;
+  padding: 20px;
+}
+.mod-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-family: var(--font-mono);
+}
+.mod-eyebrow-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent), 0 0 20px rgba(255, 107, 0, 0.6);
+  animation: cyberpulse 1.8s ease-in-out infinite;
+}
+.mod-eyebrow-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(255, 107, 0, 0.8);
+}
+.mod-eyebrow-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 107, 0, 0.5), transparent);
+}
+.mod-eyebrow-priority {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+.mod-eyebrow-priority svg {
+  width: 13px;
+  height: 13px;
+  stroke: #f59e0b;
+  filter: drop-shadow(0 0 6px #f59e0b);
+}
+
+.mod-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+}
+.mod-main { flex: 1; min-width: 260px; }
+.mod-head { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+.mod-icon-box {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  background: rgba(255, 107, 0, 0.14);
+  border: 1px solid rgba(255, 107, 0, 0.55);
+  box-shadow: 0 0 24px rgba(255, 107, 0, 0.35), inset 0 0 12px rgba(255, 107, 0, 0.12);
+}
+.mod-icon-box svg {
+  width: 30px;
+  height: 30px;
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 10px var(--accent));
+}
+.mod-name {
+  font-family: var(--font-tactical, 'Rajdhani', sans-serif);
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 24px;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(255, 107, 0, 0.4);
+  margin: 0 0 6px;
+}
+.mod-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 2px 8px;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+  border-radius: 2px;
+}
+.mod-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #94aabf;
+  max-width: 480px;
+  margin: 0 0 14px;
+}
+.mod-meta { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.mod-meta-label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-dim-2);
+}
+.mod-diffbar { width: 140px; }
+.mod-time { display: flex; align-items: center; gap: 6px; }
+.mod-time svg { width: 11px; height: 11px; stroke: #ff8c00; filter: drop-shadow(0 0 4px #ff8c00); }
+.mod-time span {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: #ff8c00;
+  text-shadow: 0 0 8px rgba(255, 140, 0, 0.7);
+}
+
+.mod-side { display: flex; flex-direction: column; align-items: flex-end; gap: 14px; }
+.mod-rewards { display: flex; gap: 18px; }
+.mod-reward { text-align: center; }
+.mod-reward-label {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-dim-2);
+}
+.mod-reward-value {
+  font-family: var(--font-tactical, 'Rajdhani', sans-serif);
+  font-weight: 900;
+  font-size: 22px;
+  line-height: 1;
+}
+.mod-reward-xp { color: var(--accent); text-shadow: 0 0 16px rgba(255, 107, 0, 0.9); }
+.mod-reward-bonus { color: #f59e0b; text-shadow: 0 0 16px rgba(245, 158, 11, 0.9); }
+
+.mod-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-tactical, 'Rajdhani', sans-serif);
+  font-weight: 900;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #000;
+  border-radius: 3px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 32px rgba(255, 107, 0, 0.9), 0 0 64px rgba(255, 107, 0, 0.45), 0 0 100px rgba(255, 107, 0, 0.18), 0 6px 20px rgba(0, 0, 0, 0.7);
+  transition: transform 0.18s ease;
+}
+.mod-cta:hover { transform: scale(1.05); }
+.mod-cta:active { transform: scale(0.95); }
+.mod-cta svg { width: 15px; height: 15px; fill: #000; }
+
+/* ----------------------------------------------------------------------
+   DiffBar segmentada reutilizable (módulo del día + posibles usos futuros)
+   ---------------------------------------------------------------------- */
+.diffbar-seg {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+.diffbar-seg span {
+  height: 7px;
+  flex: 1;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.diffbar-seg span.filled {
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* ----------------------------------------------------------------------
+   Animaciones
+   Nota: @keyframes cyberpulse vive en css/styles.css (archivo principal),
+   junto al resto de animaciones de "puntos" (status-dot, logo-dot, etc.).
+   ---------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .mod-eyebrow-dot,
+  .hud-dot {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .mod-body { flex-direction: column; align-items: stretch; }
+  .mod-side { align-items: flex-start; }
+}

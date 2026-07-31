@@ -15,44 +15,101 @@ export function template(): string {
         </div>
       </div>
 
-      <!-- Matchmaking -->
+      <!-- Salas por código -->
       <div class="matchmaking-section">
-        <h3 class="section-title">🔍 Buscar Partida</h3>
+        <h3 class="section-title">🚪 Salas por Código</h3>
         <div class="section-decorative">
           <span>🎮</span><span>⚔️</span><span>🏆</span>
         </div>
         <div class="matchmaking-form">
           <div class="form-group">
-            <label for="match-game-select">Juego</label>
-            <select id="match-game-select">
+            <label for="room-game-select">Juego</label>
+            <select id="room-game-select">
               <option value="simon">Simon Dice</option>
               <option value="arrow">Desafío Flechas</option>
               <option value="termita">Termita</option>
               <option value="letters">Caída de Letras</option>
             </select>
           </div>
+          <button class="match-btn" id="create-room-btn">🆕 Crear Sala</button>
+        </div>
+
+        <!-- Dificultad: la fija quien crea la sala, aplica a ambos jugadores -->
+        <div class="room-settings" id="room-settings-simon">
+          <p class="room-settings-title">Dificultad (aplica a ambos jugadores)</p>
           <div class="form-group">
-            <label for="match-skill-select">Nivel de Habilidad</label>
-            <select id="match-skill-select">
-              <option value="1">Principiante</option>
-              <option value="2">Intermedio</option>
-              <option value="3">Avanzado</option>
-              <option value="4">Experto</option>
-              <option value="5">Maestro</option>
+            <label for="room-simon-colors">Colores (4-6)</label>
+            <input type="number" id="room-simon-colors" min="4" max="6" value="4">
+          </div>
+          <div class="form-group">
+            <label for="room-simon-baselength">Longitud inicial</label>
+            <input type="number" id="room-simon-baselength" min="1" value="3">
+          </div>
+          <div class="form-group">
+            <label for="room-simon-speed">Velocidad (ms)</label>
+            <input type="number" id="room-simon-speed" min="200" max="2000" step="100" value="700">
+          </div>
+          <div class="form-group">
+            <label for="room-simon-rounds">Rondas</label>
+            <input type="number" id="room-simon-rounds" min="1" max="20" value="5">
+          </div>
+        </div>
+
+        <div class="room-settings" id="room-settings-arrow" style="display:none;">
+          <p class="room-settings-title">Dificultad (aplica a ambos jugadores)</p>
+          <div class="form-group">
+            <label for="room-arrow-steps">Cantidad de flechas (10-30)</label>
+            <input type="number" id="room-arrow-steps" min="10" max="30" value="20">
+          </div>
+          <div class="form-group">
+            <label for="room-arrow-time">Tiempo (segundos, 5-30)</label>
+            <input type="number" id="room-arrow-time" min="5" max="30" value="15">
+          </div>
+        </div>
+
+        <div class="room-settings" id="room-settings-termita" style="display:none;">
+          <p class="room-settings-title">Dificultad (aplica a ambos jugadores)</p>
+          <div class="form-group">
+            <label for="room-termita-size">Tamaño de cuadrícula</label>
+            <select id="room-termita-size">
+              <option value="4">4 por 4</option>
+              <option value="5" selected>5 por 5</option>
+              <option value="6">6 por 6</option>
+              <option value="8">8 por 8</option>
+              <option value="10">10 por 10</option>
             </select>
           </div>
-          <button class="match-btn" id="find-match-btn">🎯 Buscar Partida</button>
-          <button class="match-btn danger" id="cancel-match-btn" style="display: none;">❌ Cancelar</button>
+          <div class="form-group">
+            <label for="room-termita-targets">Objetivos a memorizar</label>
+            <input type="number" id="room-termita-targets" min="1" max="20" value="4">
+          </div>
+          <div class="form-group">
+            <label for="room-termita-showtime">Tiempo de exhibición (ms)</label>
+            <input type="number" id="room-termita-showtime" min="100" step="100" value="800">
+          </div>
+          <div class="form-group">
+            <label for="room-termita-rounds">Rondas</label>
+            <input type="number" id="room-termita-rounds" min="1" value="5">
+          </div>
         </div>
-        <div class="matchmaking-status" id="matchmaking-status" style="display: none;">
-          <div class="searching-animation">
-            <div class="spinner"></div>
-            <span>Buscando oponente...</span>
-          </div>
+
+        <div class="room-settings" id="room-settings-letters" style="display:none;">
+          <p class="room-settings-title">Caída de Letras tiene su propia pantalla de sala (roles Viewer/Typer) — al crear o unirte acá se te lleva directo ahí.</p>
+        </div>
+
+        <div class="matchmaking-status" id="room-created-status" style="display: none;">
           <div class="queue-info">
-            <span>Jugadores en cola: </span>
-            <span id="queue-count">0</span>
+            <span>Código de sala: </span>
+            <span id="room-code-display" style="font-weight:bold; letter-spacing:2px;"></span>
           </div>
+          <span>Compartí este código con la otra persona para que se una.</span>
+        </div>
+        <div class="matchmaking-form">
+          <div class="form-group">
+            <label for="join-room-code">Código de sala</label>
+            <input type="text" id="join-room-code" placeholder="Ej: AB3C" maxlength="4">
+          </div>
+          <button class="match-btn" id="join-room-btn">🔑 Unirse a Sala</button>
         </div>
       </div>
 

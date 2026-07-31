@@ -36,6 +36,14 @@ interface Match {
    * automático). Ausente en matches de matchmaking por skill.
    */
   roomCode?: string;
+  /**
+   * Configuración de dificultad fijada por quien crea la sala (ver
+   * createRoomMatch). El jugador que se une la recibe de solo lectura —
+   * nunca puede pisarla — así ambos juegan con los mismos parámetros.
+   * Forma libre: cada juego define qué claves espera (p.ej. simon:
+   * { colorCount, baseLength, speed, rounds }).
+   */
+  settings?: Record<string, any>;
 }
 
 interface LeaderboardEntry {
@@ -46,18 +54,8 @@ interface LeaderboardEntry {
   timestamp: number;
 }
 
-interface MatchmakingRequest {
-  id: string;
-  playerId: string;
-  gameId: string;
-  skillLevel: number;
-  preferredRegion?: string;
-  createdAt: number;
-}
-
 class MultiplayerSystem {
   private currentMatch: Match | null = null;
-  private matchmakingQueue: MatchmakingRequest[] = [];
   private liveLeaderboards: Map<string, LeaderboardEntry[]> = new Map();
   private playerStatus: Player | null = null;
   private subscriptions: Map<string, any> = new Map();
@@ -98,16 +96,6 @@ class MultiplayerSystem {
   private setupRealtimeSubscriptions(): void {
     if (!this.supabaseClient || !this.isConnected) return;
 
-    // Subscribe to matchmaking queue
-    const matchmakingSubscription = this.supabaseClient
-      .channel('matchmaking')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matchmaking_queue' }, (payload: any) => {
-        this.handleMatchmakingUpdate(payload);
-      })
-      .subscribe();
-
-    this.subscriptions.set('matchmaking', matchmakingSubscription);
-
     // Subscribe to live matches
     const matchesSubscription = this.supabaseClient
       .channel('live_matches')
@@ -118,15 +106,10 @@ class MultiplayerSystem {
 
     this.subscriptions.set('matches', matchesSubscription);
 
-    // Subscribe to live leaderboards
-    const leaderboardSubscription = this.supabaseClient
-      .channel('leaderboards')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_leaderboard' }, (payload: any) => {
-        this.handleLeaderboardUpdate(payload);
-      })
-      .subscribe();
-
-    this.subscriptions.set('leaderboard', leaderboardSubscription);
+    // Nota: no existe tabla live_leaderboard en el schema real — los
+    // leaderboards "en vivo" corren siempre en memoria local (ver
+    // updateLeaderboard/getLeaderboard más abajo), no hay suscripción
+    // Realtime para ellos.
 
     // Mensajes dentro de una sala (chat genérico y, para juegos coop
     // asimétricos como Letters Fall, el transporte de eventos de juego
@@ -145,31 +128,34 @@ class MultiplayerSystem {
     this.subscriptions.set('messages', messagesSubscription);
   }
 
-  private handleMatchmakingUpdate(payload: any): void {
-    const { eventType, new: newRecord, old: oldRecord } = payload;
-
-    switch (eventType) {
-      case 'INSERT':
-        this.matchmakingQueue.push(newRecord);
-        this.checkMatchmaking();
-        break;
-      case 'DELETE':
-        this.matchmakingQueue = this.matchmakingQueue.filter(req => req.id !== oldRecord.id);
-        break;
-    }
-
-    window.dispatchEvent(new CustomEvent('multiplayer:matchmaking_update', {
-      detail: { queue: this.matchmakingQueue }
-    }));
-  }
-
   private handleMatchUpdate(payload: any): void {
     const { eventType, new: newRecord } = payload;
 
     if (eventType === 'INSERT' || eventType === 'UPDATE') {
       if (newRecord.id === this.currentMatch?.id) {
-        this.currentMatch = { ...this.currentMatch, ...newRecord };
-        
+        // No spreadear newRecord tal cual: es una fila cruda de Postgres
+        // (snake_case: game_id, room_code, players: [{id, role,
+        // joined_at}]) y pisaría this.currentMatch.players (Player[]
+        // con name/avatar/level/status) con esos objetos incompletos.
+        // Se traducen a mano los únicos campos que de verdad pueden
+        // cambiar server-side (status, players, settings) preservando
+        // los Player ya conocidos localmente cuando existen.
+        const rawPlayers: Array<{ id: string; role: string; joined_at: number }> = newRecord.players || [];
+        const knownById = new Map(this.currentMatch.players.map((p) => [p.id, p]));
+        const mergedPlayers: Player[] = rawPlayers.map((p) => {
+          const known = knownById.get(p.id);
+          return known
+            ? { ...known, role: p.role }
+            : { id: p.id, name: 'Jugador', avatar: '👤', level: 1, status: 'online', role: p.role };
+        });
+
+        this.currentMatch = {
+          ...this.currentMatch,
+          status: newRecord.status ?? this.currentMatch.status,
+          players: mergedPlayers,
+          settings: newRecord.settings ?? this.currentMatch.settings
+        };
+
         if (newRecord.status === 'playing' && !this.currentMatch.startedAt) {
           this.currentMatch.startedAt = Date.now();
           this.startMatch();
@@ -184,32 +170,6 @@ class MultiplayerSystem {
 
     window.dispatchEvent(new CustomEvent('multiplayer:match_update', {
       detail: { match: this.currentMatch }
-    }));
-  }
-
-  private handleLeaderboardUpdate(payload: any): void {
-    const { eventType, new: newRecord } = payload;
-
-    if (eventType === 'INSERT' || eventType === 'UPDATE') {
-      const gameId = newRecord.gameId;
-      const currentLeaderboard = this.liveLeaderboards.get(gameId) || [];
-      
-      const existingIndex = currentLeaderboard.findIndex(e => e.playerId === newRecord.playerId);
-      if (existingIndex >= 0) {
-        currentLeaderboard[existingIndex] = newRecord;
-      } else {
-        currentLeaderboard.push(newRecord);
-      }
-
-      // Sort by score descending
-      currentLeaderboard.sort((a, b) => b.score - a.score);
-      
-      // Keep only top 100
-      this.liveLeaderboards.set(gameId, currentLeaderboard.slice(0, 100));
-    }
-
-    window.dispatchEvent(new CustomEvent('multiplayer:leaderboard_update', {
-      detail: { leaderboards: this.liveLeaderboards }
     }));
   }
 
@@ -282,23 +242,10 @@ class MultiplayerSystem {
     this.playerStatus = sanitizedPlayer;
     this.saveLocalData();
 
-    if (this.supabaseClient && this.isConnected) {
-      try {
-        await this.supabaseClient
-          .from('players')
-          .upsert({
-            id: sanitizedPlayer.id,
-            name: sanitizedPlayer.name,
-            avatar: sanitizedPlayer.avatar,
-            level: sanitizedPlayer.level,
-            status: sanitizedPlayer.status,
-            current_game: sanitizedPlayer.currentGame,
-            updated_at: new Date().toISOString()
-          });
-      } catch (e) {
-        console.error('[Multiplayer] Failed to update player status:', e);
-      }
-    }
+    // Nota: no existe tabla `players` en el schema real — el estado
+    // "conectado ahora" se mantiene solo local, no se persiste en
+    // Supabase (antes intentaba un upsert contra una tabla inexistente
+    // que fallaba silenciosamente en el catch).
 
     window.dispatchEvent(new CustomEvent('multiplayer:player_status_changed', {
       detail: { player: sanitizedPlayer }
@@ -309,65 +256,12 @@ class MultiplayerSystem {
     return this.playerStatus;
   }
 
-  // Matchmaking
-  async joinMatchmaking(gameId: string, skillLevel: number = 1): Promise<void> {
-    if (!this.playerStatus) {
-      throw new Error('Player status not set');
-    }
-
-    const request: MatchmakingRequest = {
-      id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      playerId: this.playerStatus.id,
-      gameId,
-      skillLevel,
-      createdAt: Date.now()
-    };
-
-    if (this.supabaseClient && this.isConnected) {
-      try {
-        await this.supabaseClient
-          .from('matchmaking_queue')
-          .insert({
-            player_id: request.playerId,
-            game_id: request.gameId,
-            skill_level: request.skillLevel,
-            created_at: new Date(request.createdAt).toISOString()
-          });
-      } catch (e) {
-        console.error('[Multiplayer] Failed to join matchmaking:', e);
-        throw e;
-      }
-    } else {
-      // Fallback to local queue for offline mode
-      this.matchmakingQueue.push(request);
-      this.checkMatchmaking();
-    }
-
-    window.dispatchEvent(new CustomEvent('multiplayer:matchmaking_joined', {
-      detail: { gameId, skillLevel }
-    }));
-  }
-
-  async leaveMatchmaking(): Promise<void> {
-    if (!this.playerStatus) return;
-
-    if (this.supabaseClient && this.isConnected) {
-      try {
-        await this.supabaseClient
-          .from('matchmaking_queue')
-          .delete()
-          .eq('player_id', this.playerStatus.id);
-      } catch (e) {
-        console.error('[Multiplayer] Failed to leave matchmaking:', e);
-      }
-    } else {
-      this.matchmakingQueue = this.matchmakingQueue.filter(
-        req => req.playerId !== this.playerStatus?.id
-      );
-    }
-
-    window.dispatchEvent(new CustomEvent('multiplayer:matchmaking_left'));
-  }
+  // Matchmaking automático por skill: eliminado. Usaba una tabla
+  // (matchmaking_queue) que nunca existió en el schema real de
+  // Supabase — el botón "Buscar partida" fallaba siempre en
+  // producción. En su lugar, el multiplayer real de este proyecto son
+  // las salas por código (createRoomMatch/joinRoomMatch más abajo),
+  // que sí tienen tablas reales y funcionan de punta a punta.
 
   // ── Salas manuales por código (emparejamiento elegido por el jugador,
   // no matchmaking automático) ────────────────────────────────────────
@@ -414,8 +308,12 @@ class MultiplayerSystem {
    * igual, pero reintentar acá evita mostrarle el error al usuario para
    * el caso normal de colisión, que es raro pero no imposible con solo
    * 4 caracteres).
+   *
+   * `settings` es la config de dificultad que el creador fija para
+   * ambos jugadores (ver migración 008) — el que se une la recibe de
+   * `joinRoomMatch`, nunca la elige él mismo.
    */
-  async createRoomMatch(gameId: string, role: string): Promise<Match> {
+  async createRoomMatch(gameId: string, role: string, settings: Record<string, any> = {}): Promise<Match> {
     await this.waitForInitialization();
     if (!this.supabaseClient || !this.isConnected) {
       throw new Error('No hay conexión con el servidor. Revisá tu internet e intentá de nuevo.');
@@ -433,7 +331,8 @@ class MultiplayerSystem {
           room_code: roomCode,
           game_id: gameId,
           status: 'waiting',
-          players: [{ id: playerId, role, joined_at: Date.now() }]
+          players: [{ id: playerId, role, joined_at: Date.now() }],
+          settings
         });
 
       if (!error) {
@@ -444,7 +343,8 @@ class MultiplayerSystem {
           players: [player],
           status: 'waiting',
           createdAt: Date.now(),
-          scores: new Map()
+          scores: new Map(),
+          settings
         };
         this.currentMatch = match;
         window.dispatchEvent(new CustomEvent('multiplayer:room_created', { detail: { match } }));
@@ -509,7 +409,11 @@ class MultiplayerSystem {
       status: 'playing',
       createdAt: new Date(existing.created_at).getTime(),
       startedAt: Date.now(),
-      scores: new Map()
+      scores: new Map(),
+      // El que se une siempre recibe la config del creador, nunca la
+      // fija — así ambos quedan garantizados de jugar con los mismos
+      // parámetros de dificultad.
+      settings: existing.settings || {}
     };
     this.currentMatch = match;
     window.dispatchEvent(new CustomEvent('multiplayer:room_joined', { detail: { match } }));
@@ -559,7 +463,8 @@ class MultiplayerSystem {
           players: players.map((p) => ({ id: p.id, name: 'Jugador', avatar: '👤', level: 1, status: 'online', role: p.role })),
           status: record.status,
           createdAt: new Date(record.created_at).getTime(),
-          scores: new Map()
+          scores: new Map(),
+          settings: record.settings || {}
         });
       })
       .subscribe();
@@ -586,72 +491,6 @@ class MultiplayerSystem {
       }
     }
     this.currentMatch = null;
-  }
-
-  private checkMatchmaking(): void {
-    // Simple matchmaking: match players with similar skill levels
-    const gameGroups = new Map<string, MatchmakingRequest[]>();
-    
-    this.matchmakingQueue.forEach(req => {
-      const group = gameGroups.get(req.gameId) || [];
-      group.push(req);
-      gameGroups.set(req.gameId, group);
-    });
-
-    gameGroups.forEach((requests, gameId) => {
-      if (requests.length >= 2) {
-        // Sort by skill level and match closest pairs
-        requests.sort((a, b) => Math.abs(a.skillLevel - b.skillLevel) - Math.abs(b.skillLevel - a.skillLevel));
-        
-        // Create match for first two players
-        this.createMatch(requests[0], requests[1], gameId);
-        
-        // Remove matched players from queue
-        this.matchmakingQueue = this.matchmakingQueue.filter(
-          req => req.playerId !== requests[0].playerId && req.playerId !== requests[1].playerId
-        );
-      }
-    });
-  }
-
-  private async createMatch(player1: MatchmakingRequest, player2: MatchmakingRequest, gameId: string): Promise<void> {
-    const matchId = `match_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const match: Match = {
-      id: matchId,
-      gameId,
-      players: [
-        { id: player1.playerId, name: 'Player 1', avatar: '👤', level: player1.skillLevel, status: 'online' },
-        { id: player2.playerId, name: 'Player 2', avatar: '👤', level: player2.skillLevel, status: 'online' }
-      ],
-      status: 'waiting',
-      createdAt: Date.now(),
-      scores: new Map()
-    };
-
-    if (this.supabaseClient && this.isConnected) {
-      try {
-        await this.supabaseClient
-          .from('live_matches')
-          .insert({
-            id: matchId,
-            game_id: gameId,
-            player1_id: player1.playerId,
-            player2_id: player2.playerId,
-            status: 'waiting',
-            created_at: new Date(match.createdAt).toISOString()
-          });
-      } catch (e) {
-        console.error('[Multiplayer] Failed to create match:', e);
-      }
-    }
-
-    if (player1.playerId === this.playerStatus?.id || player2.playerId === this.playerStatus?.id) {
-      this.currentMatch = match;
-      window.dispatchEvent(new CustomEvent('multiplayer:match_found', {
-        detail: { match }
-      }));
-    }
   }
 
   // Match management
@@ -707,23 +546,57 @@ class MultiplayerSystem {
     }));
   }
 
+  /**
+   * Cierra una partida jugada dentro de una sala por código (Simon/
+   * Arrow/Termita), llamado por cada juego desde su punto de "fin de
+   * partida" local (ver endSimonGame/endArrowGame/endTermitaGame).
+   *
+   * Antes de esto, ningún juego llamaba updateScore()/endMatch(): las
+   * salas de live_matches se quedaban en status:'playing' para siempre
+   * (el índice único de room_code solo libera el código en 'completed'/
+   * 'abandoned', ver migration_005_coop_rooms.sql) y el leaderboard "en
+   * vivo" nunca recibía datos de una partida real.
+   *
+   * A diferencia de endMatch() (pensado para un flujo con scores de
+   * ambos jugadores ya sincronizados vía updateScore de los dos lados,
+   * que Simon/Arrow/Termita no usan — transmiten el progreso por
+   * sendGameEvent/split-view, no por la columna `scores`), acá solo se
+   * conoce con certeza el score propio: se guarda con updateScore()
+   * primero y luego se cierra la sala. El ganador solo se decide si el
+   * Map de scores ya tiene la entrada del rival (por ejemplo, si el
+   * rival cerró su partida un instante antes y ese `scores` llegó por
+   * Realtime) — si no, se marca 'completed' sin winner en vez de
+   * declarar ganador con datos incompletos.
+   */
+  async finishRoomMatch(finalScore: number): Promise<void> {
+    if (!this.currentMatch || !this.playerStatus) return;
+    await this.updateScore(finalScore);
+    await this.endMatch();
+  }
+
   async endMatch(): Promise<void> {
     if (!this.currentMatch) return;
 
-    // Determine winner
+    // Determine winner — solo si hay más de una entrada en scores
+    // (juegos que no usan updateScore/finishRoomMatch de ambos lados
+    // pueden llegar acá con un solo score propio; declarar "ganador" a
+    // quien sea que tenga el único número cargado sería incorrecto).
     let winner = '';
-    let maxScore = -1;
-    
-    this.currentMatch.scores.forEach((score, playerId) => {
-      if (score > maxScore) {
-        maxScore = score;
-        winner = playerId;
-      }
-    });
+    if (this.currentMatch.scores.size > 1) {
+      let maxScore = -1;
+      this.currentMatch.scores.forEach((score, playerId) => {
+        if (score > maxScore) {
+          maxScore = score;
+          winner = playerId;
+        }
+      });
+    }
 
-    this.currentMatch.winner = winner;
+    this.currentMatch.winner = winner || undefined;
     this.currentMatch.status = 'completed';
     this.currentMatch.completedAt = Date.now();
+
+    const ownScore = this.playerStatus ? this.currentMatch.scores.get(this.playerStatus.id) : undefined;
 
     if (this.supabaseClient && this.isConnected) {
       try {
@@ -731,14 +604,18 @@ class MultiplayerSystem {
           .from('live_matches')
           .update({ 
             status: 'completed',
-            winner_id: winner,
+            winner_id: winner || null,
             completed_at: new Date().toISOString()
           })
           .eq('id', this.currentMatch.id);
 
-        // Update leaderboard
-        if (winner === this.playerStatus?.id) {
-          await this.updateLeaderboard(this.currentMatch.gameId, maxScore);
+        // Actualiza el leaderboard en vivo con el score propio siempre
+        // que se conozca, sea o no ganador de la comparación — así el
+        // leaderboard "en vivo" (ver getLeaderboard/renderLeaderboards)
+        // recibe datos de cada partida jugada, no solo de la que
+        // resultó ganadora cuando hay ambos scores.
+        if (ownScore !== undefined && (!winner || winner === this.playerStatus?.id)) {
+          await this.updateLeaderboard(this.currentMatch.gameId, ownScore);
         }
       } catch (e) {
         console.error('[Multiplayer] Failed to end match:', e);
@@ -771,6 +648,9 @@ class MultiplayerSystem {
   }
 
   // Leaderboard management
+  // Nota: no existe tabla live_leaderboard en el schema real, así que
+  // esto corre siempre en memoria local (se pierde al recargar). Antes
+  // intentaba un upsert contra Supabase que fallaba silenciosamente.
   async updateLeaderboard(gameId: string, score: number): Promise<void> {
     if (!this.playerStatus) return;
 
@@ -782,36 +662,19 @@ class MultiplayerSystem {
       timestamp: Date.now()
     };
 
-    if (this.supabaseClient && this.isConnected) {
-      try {
-        await this.supabaseClient
-          .from('live_leaderboard')
-          .upsert({
-            player_id: entry.playerId,
-            player_name: entry.playerName,
-            score: entry.score,
-            game_id: entry.gameId,
-            updated_at: new Date().toISOString()
-          });
-      } catch (e) {
-        console.error('[Multiplayer] Failed to update leaderboard:', e);
+    const currentLeaderboard = this.liveLeaderboards.get(gameId) || [];
+    const existingIndex = currentLeaderboard.findIndex(e => e.playerId === entry.playerId);
+
+    if (existingIndex >= 0) {
+      if (score > currentLeaderboard[existingIndex].score) {
+        currentLeaderboard[existingIndex] = entry;
       }
     } else {
-      // Local leaderboard fallback
-      const currentLeaderboard = this.liveLeaderboards.get(gameId) || [];
-      const existingIndex = currentLeaderboard.findIndex(e => e.playerId === entry.playerId);
-      
-      if (existingIndex >= 0) {
-        if (score > currentLeaderboard[existingIndex].score) {
-          currentLeaderboard[existingIndex] = entry;
-        }
-      } else {
-        currentLeaderboard.push(entry);
-      }
-
-      currentLeaderboard.sort((a, b) => b.score - a.score);
-      this.liveLeaderboards.set(gameId, currentLeaderboard.slice(0, 100));
+      currentLeaderboard.push(entry);
     }
+
+    currentLeaderboard.sort((a, b) => b.score - a.score);
+    this.liveLeaderboards.set(gameId, currentLeaderboard.slice(0, 100));
 
     window.dispatchEvent(new CustomEvent('multiplayer:leaderboard_updated', {
       detail: { gameId, entry }
@@ -852,23 +715,76 @@ class MultiplayerSystem {
   }
 
   // Spectator mode
-  async spectateMatch(matchId: string): Promise<void> {
-    if (this.supabaseClient && this.isConnected) {
-      try {
-        const { data } = await this.supabaseClient
-          .from('live_matches')
-          .select('*')
-          .eq('id', matchId)
-          .single();
 
-        if (data) {
-          window.dispatchEvent(new CustomEvent('multiplayer:spectating_started', {
-            detail: { match: data }
-          }));
-        }
-      } catch (e) {
-        console.error('[Multiplayer] Failed to spectate match:', e);
-      }
+  /**
+   * Lista salas activas (esperando o en curso) para mostrar en "Partidas
+   * Activas" — sin esto el contenedor #active-matches en la UI nunca se
+   * llenaba, porque nada hacía un select real contra live_matches.
+   */
+  async listActiveMatches(gameId?: string): Promise<Match[]> {
+    if (!this.supabaseClient || !this.isConnected) return [];
+    try {
+      let query = this.supabaseClient
+        .from('live_matches')
+        .select('*')
+        .in('status', ['waiting', 'playing'])
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (gameId) query = query.eq('game_id', gameId);
+
+      const { data, error } = await query;
+      if (error || !data) return [];
+
+      return data.map((row: any) => ({
+        id: row.id,
+        gameId: row.game_id,
+        roomCode: row.room_code,
+        players: (row.players || []).map((p: any) => ({
+          id: p.id, name: 'Jugador', avatar: '👤', level: 1, status: 'online', role: p.role
+        })),
+        status: row.status,
+        createdAt: new Date(row.created_at).getTime(),
+        scores: new Map(),
+        settings: row.settings || {}
+      }));
+    } catch (e) {
+      console.error('[Multiplayer] Failed to list active matches:', e);
+      return [];
+    }
+  }
+
+  async spectateMatch(matchId: string): Promise<Match | null> {
+    if (!this.supabaseClient || !this.isConnected) return null;
+    try {
+      const { data } = await this.supabaseClient
+        .from('live_matches')
+        .select('*')
+        .eq('id', matchId)
+        .single();
+
+      if (!data) return null;
+
+      const match: Match = {
+        id: data.id,
+        gameId: data.game_id,
+        roomCode: data.room_code,
+        players: (data.players || []).map((p: any) => ({
+          id: p.id, name: 'Jugador', avatar: '👤', level: 1, status: 'online', role: p.role
+        })),
+        status: data.status,
+        createdAt: new Date(data.created_at).getTime(),
+        scores: new Map(),
+        settings: data.settings || {}
+      };
+
+      window.dispatchEvent(new CustomEvent('multiplayer:spectating_started', {
+        detail: { match }
+      }));
+      return match;
+    } catch (e) {
+      console.error('[Multiplayer] Failed to spectate match:', e);
+      return null;
     }
   }
 
@@ -896,7 +812,6 @@ class MultiplayerSystem {
   // Reset
   resetData(): void {
     this.currentMatch = null;
-    this.matchmakingQueue = [];
     this.liveLeaderboards.clear();
     this.playerStatus = null;
     this.saveLocalData();
