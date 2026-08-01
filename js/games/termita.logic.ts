@@ -309,4 +309,8 @@ export function stop() {
     termitaSplitCleanup();
     termitaSplitCleanup = null;
   }
+  // Libera el estado del lobby si se sale de la vista sin haber
+  // terminado (o especteando) — ver comentario equivalente en
+  // arrowGame.logic.ts/stop(). No-op si no hay match activo.
+  void lobbySystem.leaveCurrentMatch();
 }
