@@ -142,10 +142,18 @@ class LobbySystem {
     // así que cualquier intento de crear un lobby primero libera los
     // que quedaron abandonados (pestaña cerrada sin leaveLobby) — evita
     // que codes vencidos bloqueen para siempre a lobbies_active_room_code_key.
-    // No se espera con `await` de forma bloqueante para el resto del
-    // flujo: si falla (red, RPC no desplegado todavía), no debe impedir
-    // crear el lobby — simplemente esta vez no se purga nada.
-    await client.rpc('purge_stale_lobbies').catch(() => {});
+    // No se espera de forma bloqueante para el resto del flujo: si falla
+    // (red, RPC no desplegado todavía) no debe impedir crear el lobby.
+    //
+    // El `typeof client.rpc === 'function'` no es paranoia sin motivo:
+    // client viene de getSupabaseClient(), tipado como `any` en este
+    // archivo — un cliente cacheado de una versión vieja del SDK (o un
+    // mock/stub en algún entorno) puede no exponer .rpc en absoluto, y
+    // llamarlo directo revienta con "client.rpc is not a function"
+    // ANTES de llegar siquiera a intentar crear el lobby.
+    if (typeof client.rpc === 'function') {
+      await client.rpc('purge_stale_lobbies').catch(() => {});
+    }
 
     for (let attempt = 0; attempt < 5; attempt++) {
       const roomCode = this.generateRoomCode();
@@ -205,8 +213,11 @@ class LobbySystem {
     // Mismo motivo que en createLobby: purga oportunista antes de
     // buscar, así un código que en teoría estaba "ocupado" por un
     // lobby abandonado hace rato queda libre para un lobby nuevo en
-    // vez de fallar con "no existe" para siempre.
-    await client.rpc('purge_stale_lobbies').catch(() => {});
+    // vez de fallar con "no existe" para siempre. Ver nota sobre el
+    // typeof-check en createLobby.
+    if (typeof client.rpc === 'function') {
+      await client.rpc('purge_stale_lobbies').catch(() => {});
+    }
 
     const { data: lobbyRow, error: fetchError } = await client
       .from('lobbies')
