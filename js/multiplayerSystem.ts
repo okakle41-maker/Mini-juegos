@@ -321,12 +321,22 @@ class MultiplayerSystem {
     const playerId = this.ensurePlayerId();
     const player: Player = { id: playerId, name: this.playerStatus!.name, avatar: this.playerStatus!.avatar, level: 1, status: 'online', role };
 
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const roomCode = this.generateRoomCode();
-      const matchId = `match_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-      const { error } = await this.supabaseClient
-        .from('live_matches')
-        .insert({
+     for (let attempt = 0; attempt < 5; attempt++) {
+       const roomCode = this.generateRoomCode();
+-      const matchId = `match_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
++      // live_matches.id es `uuid` en el schema (con default
++      // gen_random_uuid(), ver migration_005_coop_rooms.sql) — un
++      // string con prefijo tipo "match_<timestamp>_<random>" no es un
++      // UUID válido y Postgres rechaza el insert entero con
++      // "invalid input syntax for type uuid". crypto.randomUUID() es
++      // una API web estándar (sin dependencias) disponible en todo
++      // navegador moderno, y genera un id sincrónicamente en el
++      // cliente sin tener que esperar un .select() de vuelta.
++      const matchId = crypto.randomUUID();
+       const { error } = await this.supabaseClient
+         .from('live_matches')
+         .insert({
+
           id: matchId,
           room_code: roomCode,
           game_id: gameId,
