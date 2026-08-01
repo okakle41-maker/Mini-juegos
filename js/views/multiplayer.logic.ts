@@ -62,60 +62,230 @@ function renderLeaderboards(): void {
 }
 
 /**
- * Lee del panel de dificultad correspondiente los valores que el
- * creador de la sala fija para ambos jugadores. Los clamps replican los
- * mismos límites que cada juego ya aplica en single-player (ver
- * simon.logic.ts/arrowGame.logic.ts/termita.logic.ts/lettersFall.logic.ts)
- * para que una sala nunca quede con parámetros que el juego rechazaría.
+ * Definición de los campos de dificultad por juego — se usa tanto para
+ * generar el HTML del panel dentro del lobby como para leerlo/validarlo.
+ * Los límites replican los que cada juego ya aplica en single-player
+ * (ver simon.logic.ts/arrowGame.logic.ts/termita.logic.ts) para que una
+ * sala nunca quede con parámetros que el juego rechazaría.
  */
-function readRoomSettings(gameId: string): Record<string, any> {
-  const num = (id: string, fallback: number) => {
-    const el = document.getElementById(id) as HTMLInputElement | null;
-    const v = parseFloat(el?.value ?? '');
-    return Number.isFinite(v) ? v : fallback;
-  };
+type RoomFieldDef =
+  | { key: string; label: string; kind: 'number'; min: number; max?: number; step?: number; default: number }
+  | { key: string; label: string; kind: 'select'; options: Array<{ value: string; label: string }>; default: string };
 
-  switch (gameId) {
-    case 'simon':
-      return {
-        colorCount: Math.max(4, Math.min(num('room-simon-colors', 4), 6)),
-        baseLength: Math.max(1, num('room-simon-baselength', 3)),
-        speed: Math.max(200, Math.min(num('room-simon-speed', 700), 2000)),
-        rounds: Math.max(1, Math.min(num('room-simon-rounds', 5), 20))
-      };
-    case 'arrow':
-      return {
-        steps: Math.max(10, Math.min(num('room-arrow-steps', 20), 30)),
-        time: Math.max(5, Math.min(num('room-arrow-time', 15), 30))
-      };
-    case 'termita': {
-      const validSizes = [4, 5, 6, 8, 10];
-      const rawSize = num('room-termita-size', 5);
-      const size = validSizes.includes(rawSize) ? rawSize : 5;
-      return {
-        size,
-        targets: Math.max(1, num('room-termita-targets', 4)),
-        showTime: Math.max(100, num('room-termita-showtime', 800)),
-        rounds: Math.max(1, num('room-termita-rounds', 5))
-      };
+const ROOM_FIELDS: Record<string, RoomFieldDef[]> = {
+  simon: [
+    { key: 'colorCount', label: 'Colores (4-6)', kind: 'number', min: 4, max: 6, default: 4 },
+    { key: 'baseLength', label: 'Longitud inicial', kind: 'number', min: 1, default: 3 },
+    { key: 'speed', label: 'Velocidad (ms)', kind: 'number', min: 200, max: 2000, step: 100, default: 700 },
+    { key: 'rounds', label: 'Rondas', kind: 'number', min: 1, max: 20, default: 5 }
+  ],
+  arrow: [
+    { key: 'steps', label: 'Cantidad de flechas (10-30)', kind: 'number', min: 10, max: 30, default: 20 },
+    { key: 'time', label: 'Tiempo (segundos, 5-30)', kind: 'number', min: 5, max: 30, default: 15 }
+  ],
+  termita: [
+    {
+      key: 'size', label: 'Tamaño de cuadrícula', kind: 'select', default: '5',
+      options: [
+        { value: '4', label: '4 por 4' },
+        { value: '5', label: '5 por 5' },
+        { value: '6', label: '6 por 6' },
+        { value: '8', label: '8 por 8' },
+        { value: '10', label: '10 por 10' }
+      ]
+    },
+    { key: 'targets', label: 'Objetivos a memorizar', kind: 'number', min: 1, max: 20, default: 4 },
+    { key: 'showTime', label: 'Tiempo de exhibición (ms)', kind: 'number', min: 100, step: 100, default: 800 },
+    { key: 'rounds', label: 'Rondas', kind: 'number', min: 1, default: 5 }
+  ]
+};
+
+function fieldElId(gameId: string, key: string): string {
+  return `lobby-setting-${gameId}-${key}`;
+}
+
+/**
+ * Genera el HTML del panel de dificultad dentro del lobby. `readOnly`
+ * deshabilita los controles para el jugador que no es el anfitrión —
+ * ver isRoomHost en multiplayerSystem.ts.
+ */
+function renderSettingsPanel(gameId: string, values: Record<string, any>, readOnly: boolean): string {
+  const fields = ROOM_FIELDS[gameId];
+  if (!fields) return '';
+
+  const rows = fields.map(f => {
+    const current = values[f.key] ?? f.default;
+    const id = fieldElId(gameId, f.key);
+    if (f.kind === 'select') {
+      const opts = f.options.map(o =>
+        `<option value="${escapeHtml(o.value)}" ${String(current) === o.value ? 'selected' : ''}>${escapeHtml(o.label)}</option>`
+      ).join('');
+      return `<div class="form-group"><label for="${id}">${escapeHtml(f.label)}</label><select id="${id}" ${readOnly ? 'disabled' : ''}>${opts}</select></div>`;
     }
-    default:
-      return {};
+    const minAttr = f.min !== undefined ? `min="${f.min}"` : '';
+    const maxAttr = f.max !== undefined ? `max="${f.max}"` : '';
+    const stepAttr = f.step !== undefined ? `step="${f.step}"` : '';
+    return `<div class="form-group"><label for="${id}">${escapeHtml(f.label)}</label><input type="number" id="${id}" ${minAttr} ${maxAttr} ${stepAttr} value="${escapeHtml(String(current))}" ${readOnly ? 'disabled' : ''}></div>`;
+  }).join('');
+
+  return `
+    <div class="room-settings ${readOnly ? 'room-settings-readonly' : ''}">
+      <p class="room-settings-title">${readOnly ? 'Dificultad (fijada por el anfitrión)' : 'Dificultad (aplica a ambos jugadores)'}</p>
+      ${rows}
+    </div>
+  `;
+}
+
+/**
+ * Lee los valores actuales del panel de dificultad renderizado en el
+ * lobby, clampeados a los mismos límites que el juego real acepta.
+ */
+function readSettingsPanel(gameId: string): Record<string, any> {
+  const fields = ROOM_FIELDS[gameId];
+  if (!fields) return {};
+  const result: Record<string, any> = {};
+  for (const f of fields) {
+    const el = document.getElementById(fieldElId(gameId, f.key)) as HTMLInputElement | HTMLSelectElement | null;
+    if (f.kind === 'select') {
+      const validValues = f.options.map(o => o.value);
+      const val = el?.value;
+      result[f.key] = validValues.includes(val || '') ? val : f.default;
+      // termita.logic.ts espera `size` como number, no string.
+      if (gameId === 'termita' && f.key === 'size') result[f.key] = Number(result[f.key]);
+    } else {
+      const raw = parseFloat(el?.value ?? '');
+      let v = Number.isFinite(raw) ? raw : f.default;
+      v = Math.max(f.min, v);
+      if (f.max !== undefined) v = Math.min(f.max, v);
+      result[f.key] = v;
+    }
   }
+  return result;
+}
+
+function defaultSettingsFor(gameId: string): Record<string, any> {
+  const fields = ROOM_FIELDS[gameId];
+  if (!fields) return {};
+  const result: Record<string, any> = {};
+  for (const f of fields) {
+    result[f.key] = f.kind === 'select' ? Number(f.default) || f.default : f.default;
+  }
+  return result;
+}
+
+let stopLobbyRoomWatch: (() => void) | null = null;
+let lobbySettingsDebounce: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Muestra el lobby de la sala recién creada/unida y engancha toda su
+ * interactividad: dificultad editable solo para el anfitrión (ver
+ * isRoomHost), botón de inicio que solo el anfitrión ve, y
+ * actualización en vivo cuando cambia algo del lado del servidor
+ * (se une el segundo jugador, el anfitrión cambia la dificultad, o
+ * arranca la partida).
+ */
+function enterLobby(match: any): void {
+  document.getElementById('room-lobby-section')!.style.display = 'block';
+  document.getElementById('lobby-room-code')!.textContent = match.roomCode || '';
+
+  renderLobby(match);
+
+  stopLobbyRoomWatch?.();
+  stopLobbyRoomWatch = multiplayerSystem.onRoomUpdate(match.id, (updated) => {
+    if (updated.status === 'abandoned') {
+      stopLobbyRoomWatch?.();
+      stopLobbyRoomWatch = null;
+      document.getElementById('room-lobby-section')!.style.display = 'none';
+      alert('La sala fue abandonada.');
+      return;
+    }
+    renderLobby(updated);
+    if (updated.status === 'playing') {
+      stopLobbyRoomWatch?.();
+      stopLobbyRoomWatch = null;
+      document.getElementById('room-lobby-section')!.style.display = 'none';
+      navigateToGame(updated.gameId);
+    }
+  });
+}
+
+function renderLobby(match: any): void {
+  const isHost = multiplayerSystem.isRoomHost(match);
+  const gameId = match.gameId;
+
+  document.getElementById('lobby-players-count')!.textContent = `${match.players.length}/2 jugadores`;
+
+  const container = document.getElementById('lobby-settings-container');
+  if (container) {
+    // No pisar lo que el anfitrión está tipeando: si es el host y ya
+    // hay inputs montados, solo actualizar el estado de otros
+    // elementos (conteo de jugadores, botón), no re-renderizar el panel
+    // entero en cada evento — evitaría que el cursor salte mientras
+    // escribe. Como anfitrión, el panel se monta una sola vez.
+    if (!isHost || container.childElementCount === 0) {
+      container.innerHTML = renderSettingsPanel(gameId, match.settings || {}, !isHost);
+      if (isHost) attachHostSettingsListeners(match.id, gameId);
+    }
+  }
+
+  const hostHint = document.getElementById('lobby-host-hint')!;
+  const guestHint = document.getElementById('lobby-guest-hint')!;
+  const startBtn = document.getElementById('lobby-start-btn') as HTMLButtonElement;
+
+  hostHint.style.display = isHost ? 'block' : 'none';
+  guestHint.style.display = isHost ? 'none' : 'block';
+  startBtn.style.display = isHost ? 'inline-block' : 'none';
+  startBtn.disabled = match.players.length < 2;
+}
+
+/**
+ * Cada cambio en un input de dificultad del anfitrión se persiste a la
+ * sala (debounced, para no golpear la base en cada tecla) — así el
+ * invitado ve la dificultad actualizarse en vivo vía onRoomUpdate.
+ */
+function attachHostSettingsListeners(matchId: string, gameId: string): void {
+  const fields = ROOM_FIELDS[gameId];
+  if (!fields) return;
+  fields.forEach(f => {
+    const el = document.getElementById(fieldElId(gameId, f.key));
+    el?.addEventListener('input', () => {
+      if (lobbySettingsDebounce) clearTimeout(lobbySettingsDebounce);
+      lobbySettingsDebounce = setTimeout(() => {
+        const settings = readSettingsPanel(gameId);
+        multiplayerSystem.updateRoomSettings(matchId, settings).catch(() => {});
+      }, 400);
+    });
+  });
+}
+
+function setupLobbyControls(): void {
+  document.getElementById('lobby-start-btn')?.addEventListener('click', async () => {
+    const match = multiplayerSystem.getCurrentMatch();
+    if (!match) return;
+    try {
+      await multiplayerSystem.startRoomMatch(match.id);
+      // El propio anfitrión también navega al confirmar: onRoomUpdate
+      // igual lo hubiera hecho al recibir su propio UPDATE, pero no
+      // conviene esperar ese round-trip para el que hizo la acción.
+      stopLobbyRoomWatch?.();
+      stopLobbyRoomWatch = null;
+      document.getElementById('room-lobby-section')!.style.display = 'none';
+      navigateToGame(match.gameId);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo iniciar la partida');
+    }
+  });
+
+  document.getElementById('lobby-leave-btn')?.addEventListener('click', async () => {
+    stopLobbyRoomWatch?.();
+    stopLobbyRoomWatch = null;
+    document.getElementById('room-lobby-section')!.style.display = 'none';
+    await multiplayerSystem.leaveRoomMatch().catch(() => {});
+  });
 }
 
 function setupEventListeners(): void {
-  // Mostrar el panel de dificultad del juego elegido
-  const roomGameSelect = document.getElementById('room-game-select') as HTMLSelectElement | null;
-  const toggleRoomSettings = () => {
-    const gameId = roomGameSelect?.value || 'simon';
-    ['simon', 'arrow', 'termita', 'letters'].forEach(g => {
-      const panel = document.getElementById(`room-settings-${g}`);
-      if (panel) panel.style.display = g === gameId ? 'block' : 'none';
-    });
-  };
-  roomGameSelect?.addEventListener('change', toggleRoomSettings);
-  toggleRoomSettings();
+  setupLobbyControls();
 
   // Crear sala
   document.getElementById('create-room-btn')?.addEventListener('click', async () => {
@@ -123,35 +293,23 @@ function setupEventListeners(): void {
 
     // Letters Fall es coop asimétrico (roles viewer/typer, no "player"
     // genérico) y ya tiene su propia pantalla de crear/unirse sala
-    // dentro del juego, donde el viewer fija la dificultad para ambos
-    // igual que acá. Crear una sala genérica desde esta vista generaría
-    // una fila de live_matches incompatible con lo que espera
-    // lettersFall.logic.ts (sin rol asignado) — mejor redirigir al
-    // flujo nativo que duplicar la lógica de sala.
+    // dentro del juego, donde el viewer fija la dificultad para ambos.
+    // Crear una sala genérica desde esta vista generaría una fila de
+    // live_matches incompatible con lo que espera lettersFall.logic.ts
+    // (sin rol asignado) — mejor redirigir al flujo nativo que duplicar
+    // la lógica de sala.
     if (gameId === 'letters') {
       window.showView?.('letters');
       return;
     }
 
     try {
-      const settings = readRoomSettings(gameId);
-      const match = await multiplayerSystem.createRoomMatch(gameId, 'player', settings);
-      document.getElementById('room-code-display')!.textContent = match.roomCode || '';
-      document.getElementById('room-created-status')!.style.display = 'block';
-      document.getElementById('current-match-section')!.style.display = 'block';
-      renderCurrentMatch(match);
-
-      // Los juegos con vista propia (simon/arrow/termita) solo saben
-      // leer el match activo al arrancar su init() — hay que navegar a
-      // esa vista recién cuando se une el segundo jugador, no antes
-      // (si el creador entrara ya, quedaría esperando dentro del juego
-      // sin feedback de "esperando rival" que sí tiene esta vista).
-      const stopWatching = multiplayerSystem.onRoomUpdate(match.id, (updated) => {
-        if (updated.players.length >= 2) {
-          stopWatching();
-          window.showView?.(gameId);
-        }
-      });
+      // La sala se crea con la dificultad por defecto de cada juego; el
+      // anfitrión la ajusta después, ya dentro del lobby (ver
+      // enterLobby), no antes de crear la sala.
+      const defaults = defaultSettingsFor(gameId);
+      const match = await multiplayerSystem.createRoomMatch(gameId, 'player', defaults);
+      enterLobby(match);
     } catch (e) {
       alert(e instanceof Error ? e.message : 'No se pudo crear la sala');
     }
@@ -169,10 +327,10 @@ function setupEventListeners(): void {
 
     if (!code.trim()) return;
     try {
-      const match = await multiplayerSystem.joinRoomMatch(gameId, code, 'player');
-      document.getElementById('current-match-section')!.style.display = 'block';
-      renderCurrentMatch(match);
-      window.showView?.(gameId);
+      // autoStart=false: la sala queda en el lobby hasta que el
+      // anfitrión la arranque, no al conectarse el segundo jugador.
+      const match = await multiplayerSystem.joinRoomMatch(gameId, code, 'player', false);
+      enterLobby(match);
     } catch (e) {
       alert(e instanceof Error ? e.message : 'No se pudo unir a la sala');
     }
@@ -256,9 +414,6 @@ function renderLeaderboardForGame(gameId: string): void {
 }
 
 function setupMultiplayerListeners(): void {
-  const matchStartedHandler = () => {
-    alert('¡La partida ha comenzado!');
-  };
   const scoreUpdatedHandler = (e: any) => {
     updateMatchScores(e.detail);
   };
@@ -270,13 +425,11 @@ function setupMultiplayerListeners(): void {
     renderCurrentMatch(e.detail.match);
   };
 
-  window.addEventListener('multiplayer:match_started', matchStartedHandler);
   window.addEventListener('multiplayer:score_updated', scoreUpdatedHandler);
   window.addEventListener('multiplayer:leaderboard_updated', leaderboardUpdatedHandler);
   window.addEventListener('multiplayer:spectating_started', spectatingStartedHandler);
 
   eventListeners.push(() => {
-    window.removeEventListener('multiplayer:match_started', matchStartedHandler);
     window.removeEventListener('multiplayer:score_updated', scoreUpdatedHandler);
     window.removeEventListener('multiplayer:leaderboard_updated', leaderboardUpdatedHandler);
     window.removeEventListener('multiplayer:spectating_started', spectatingStartedHandler);
@@ -305,6 +458,19 @@ function updateMatchScores(data: ScoreEventDetail): void {
   }
 }
 
+/**
+ * true mientras navegamos deliberadamente hacia el juego porque la
+ * partida arrancó (por el propio anfitrión o porque onRoomUpdate
+ * detectó status:'playing') — en ese caso stop() no debe abandonar la
+ * sala que el juego está a punto de usar. Se resetea apenas se sale.
+ */
+let leavingToPlay = false;
+
+function navigateToGame(gameId: string): void {
+  leavingToPlay = true;
+  window.showView?.(gameId);
+}
+
 export function stop(): void {
   // Limpiar event listeners
   eventListeners.forEach(cleanup => cleanup());
@@ -313,16 +479,20 @@ export function stop(): void {
   // Limpiar caché de elementos
   clearCache();
 
+  stopLobbyRoomWatch?.();
+  stopLobbyRoomWatch = null;
+
   // Si el jugador creó o se unió a una sala desde esta vista y la deja
   // sin ir a jugar (navega a otra sección del menú), la sala quedaba
   // "waiting"/"playing" para siempre — nadie más la marcaba abandonada.
-  // No se toca si el juego real ya tomó la sala (lettersFall.logic.ts
-  // gestiona su propio leaveRoomMatch() al terminar la partida): acá
-  // solo limpiamos si currentMatch sigue siendo la sala que se ve en
-  // esta pantalla, no una en curso dentro de un juego.
-  if (multiplayerSystem.getCurrentMatch()) {
+  // No se toca si estamos saliendo porque la partida arrancó (ver
+  // navigateToGame) ni si el juego real ya tomó la sala
+  // (lettersFall.logic.ts gestiona su propio leaveRoomMatch() al
+  // terminar la partida).
+  if (!leavingToPlay && multiplayerSystem.getCurrentMatch()) {
     multiplayerSystem.leaveRoomMatch().catch(() => {});
   }
+  leavingToPlay = false;
   
   // Limpiar contenido del contenedor
   const container = document.getElementById('multiplayer');

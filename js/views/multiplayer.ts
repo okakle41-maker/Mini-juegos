@@ -34,69 +34,6 @@ export function template(): string {
           <button class="match-btn" id="create-room-btn">🆕 Crear Sala</button>
         </div>
 
-        <!-- Dificultad: la fija quien crea la sala, aplica a ambos jugadores -->
-        <div class="room-settings" id="room-settings-simon">
-          <p class="room-settings-title">Dificultad (aplica a ambos jugadores)</p>
-          <div class="form-group">
-            <label for="room-simon-colors">Colores (4-6)</label>
-            <input type="number" id="room-simon-colors" min="4" max="6" value="4">
-          </div>
-          <div class="form-group">
-            <label for="room-simon-baselength">Longitud inicial</label>
-            <input type="number" id="room-simon-baselength" min="1" value="3">
-          </div>
-          <div class="form-group">
-            <label for="room-simon-speed">Velocidad (ms)</label>
-            <input type="number" id="room-simon-speed" min="200" max="2000" step="100" value="700">
-          </div>
-          <div class="form-group">
-            <label for="room-simon-rounds">Rondas</label>
-            <input type="number" id="room-simon-rounds" min="1" max="20" value="5">
-          </div>
-        </div>
-
-        <div class="room-settings" id="room-settings-arrow" style="display:none;">
-          <p class="room-settings-title">Dificultad (aplica a ambos jugadores)</p>
-          <div class="form-group">
-            <label for="room-arrow-steps">Cantidad de flechas (10-30)</label>
-            <input type="number" id="room-arrow-steps" min="10" max="30" value="20">
-          </div>
-          <div class="form-group">
-            <label for="room-arrow-time">Tiempo (segundos, 5-30)</label>
-            <input type="number" id="room-arrow-time" min="5" max="30" value="15">
-          </div>
-        </div>
-
-        <div class="room-settings" id="room-settings-termita" style="display:none;">
-          <p class="room-settings-title">Dificultad (aplica a ambos jugadores)</p>
-          <div class="form-group">
-            <label for="room-termita-size">Tamaño de cuadrícula</label>
-            <select id="room-termita-size">
-              <option value="4">4 por 4</option>
-              <option value="5" selected>5 por 5</option>
-              <option value="6">6 por 6</option>
-              <option value="8">8 por 8</option>
-              <option value="10">10 por 10</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="room-termita-targets">Objetivos a memorizar</label>
-            <input type="number" id="room-termita-targets" min="1" max="20" value="4">
-          </div>
-          <div class="form-group">
-            <label for="room-termita-showtime">Tiempo de exhibición (ms)</label>
-            <input type="number" id="room-termita-showtime" min="100" step="100" value="800">
-          </div>
-          <div class="form-group">
-            <label for="room-termita-rounds">Rondas</label>
-            <input type="number" id="room-termita-rounds" min="1" value="5">
-          </div>
-        </div>
-
-        <div class="room-settings" id="room-settings-letters" style="display:none;">
-          <p class="room-settings-title">Caída de Letras tiene su propia pantalla de sala (roles Viewer/Typer) — al crear o unirte acá se te lleva directo ahí.</p>
-        </div>
-
         <div class="matchmaking-status" id="room-created-status" style="display: none;">
           <div class="queue-info">
             <span>Código de sala: </span>
@@ -111,6 +48,30 @@ export function template(): string {
           </div>
           <button class="match-btn" id="join-room-btn">🔑 Unirse a Sala</button>
         </div>
+      </div>
+
+      <!-- Lobby de sala: se muestra tras crear/unirse, antes de arrancar -->
+      <div class="room-lobby-section" id="room-lobby-section" style="display: none;">
+        <h3 class="section-title">🚪 Sala de espera</h3>
+        <div class="room-lobby-code">
+          <span>Código: </span>
+          <span id="lobby-room-code" style="font-weight:bold; letter-spacing:2px;"></span>
+        </div>
+        <div class="room-lobby-players">
+          <span id="lobby-players-count">1/2 jugadores</span>
+        </div>
+
+        <div id="lobby-settings-container"></div>
+
+        <p class="room-lobby-hint" id="lobby-host-hint" style="display:none;">
+          Sos el anfitrión: ajustá la dificultad y arrancá cuando el otro jugador se una.
+        </p>
+        <p class="room-lobby-hint" id="lobby-guest-hint" style="display:none;">
+          Esperando a que el anfitrión inicie la partida...
+        </p>
+
+        <button class="match-btn" id="lobby-start-btn" style="display:none;" disabled>▶️ Iniciar Partida</button>
+        <button class="match-btn danger" id="lobby-leave-btn">🚪 Salir de la sala</button>
       </div>
 
       <!-- Current Match -->
