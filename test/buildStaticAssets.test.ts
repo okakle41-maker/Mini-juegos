@@ -17,7 +17,7 @@ import { resolve } from 'path';
  * en el fallback SPA de Vite y devolvía `index.html` (HTTP 200,
  * `Content-Type: text/html`) en vez de un 404 limpio — lo que hacía el
  * bug invisible incluso a una inspección rápida de status code sin
- * mirar el Content-Type real de la respuesta. Afectaba a 24 de los 26
+ * mirar el Content-Type real de la respuesta. Afectaba a 30 de los 34
  * juegos (los que declaran `css:` en su `GameConfig`) y al menú
  * completo de Skill Check (9 íconos SVG).
  *

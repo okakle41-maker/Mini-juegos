@@ -19,7 +19,7 @@ import type { GameConfig } from '../js/core/gameRegistry';
  *
  * Se importa js/games/index.ts, el barrel real que main.ts usa en
  * producción, para que este test corra contra el registro completo de
- * juegos reales (26 al momento de escribir esto, ver `games.length` más
+ * juegos reales (34 al momento de escribir esto, ver `games.length` más
  * abajo — el número cambia con cada juego agregado/quitado, por eso el
  * assert usa `toBeGreaterThan` en vez de un valor fijo) y no una lista
  * de mocks inventados a mano.

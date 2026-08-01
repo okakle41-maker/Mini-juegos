@@ -6,11 +6,11 @@
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20.19.0-green)](https://nodejs.org/)
 [![PWA](https://img.shields.io/badge/PWA-Ready-orange)](https://www.pwabuilder.com/)
 
-Plataforma PWA de minijuegos de entrenamiento cognitivo: reflejos, memoria, lógica, percepción, cifrado, tipeo y análisis bajo presión. 26 módulos jugables, en español, pensados para sesiones cortas y repetibles con seguimiento de récords personales.
+Plataforma PWA de minijuegos de entrenamiento cognitivo: reflejos, memoria, lógica, percepción, cifrado, tipeo y análisis bajo presión. 34 módulos jugables (19 en el lobby + 15 sub-juegos ocultos), en español, pensados para sesiones cortas y repetibles con seguimiento de récords personales.
 
 - **Versión:** 3.0.0
 - **Stack:** TypeScript + Vite, sin framework de UI (DOM nativo, HTML generado como strings)
-- **Persistencia:** `localStorage` (offline-first, sin backend)
+- **Persistencia:** `localStorage` offline-first vía `SafeStorage`, con backend opcional en Supabase para cuentas, ranking global, multiplayer, social y torneos
 - **Distribución:** PWA instalable con Service Worker
 
 ---
@@ -20,26 +20,26 @@ Plataforma PWA de minijuegos de entrenamiento cognitivo: reflejos, memoria, lóg
 1. [Instalación para Desarrolladores](#instalación-para-desarrolladores)
 2. [Inicio rápido](#inicio-rápido)
 3. [Scripts disponibles](#scripts-disponibles)
-3. [Arquitectura](#arquitectura)
+4. [Arquitectura](#arquitectura)
    - [Filosofía general](#filosofía-general)
    - [Ciclo de vida de un juego](#ciclo-de-vida-de-un-juego)
    - [Orden de arranque (`main.ts`)](#orden-de-arranque-maints)
    - [Sistema de vistas lazy](#sistema-de-vistas-lazy)
    - [`data-ui`: el contrato entre vista y lógica](#data-ui-el-contrato-entre-vista-y-lógica)
-4. [Estructura de carpetas](#estructura-de-carpetas)
-5. [Módulos `core/`](#módulos-core)
-6. [Managers de estado](#managers-de-estado)
-7. [Catálogo de minijuegos](#catálogo-de-minijuegos)
-8. [Sistema de estilos](#sistema-de-estilos)
-9. [Cuentas de usuario y scoreboard global](#cuentas-de-usuario-y-scoreboard-global)
-10. [PWA y Service Worker](#pwa-y-service-worker)
-11. [Testing](#testing)
-12. [Build y bundling](#build-y-bundling)
-13. [CI/CD](#cicd)
-14. [Convenciones de código](#convenciones-de-código)
-15. [Deuda técnica conocida](#deuda-técnica-conocida)
-16. [Cómo agregar un minijuego nuevo](#cómo-agregar-un-minijuego-nuevo)
-17. [Troubleshooting](#troubleshooting)
+5. [Estructura de carpetas](#estructura-de-carpetas)
+6. [Módulos `core/`](#módulos-core)
+7. [Managers de estado](#managers-de-estado)
+8. [Catálogo de minijuegos](#catálogo-de-minijuegos)
+9. [Sistema de estilos](#sistema-de-estilos)
+10. [Cuentas de usuario y scoreboard global](#cuentas-de-usuario-y-scoreboard-global)
+11. [PWA y Service Worker](#pwa-y-service-worker)
+12. [Testing](#testing)
+13. [Build y bundling](#build-y-bundling)
+14. [CI/CD](#cicd)
+15. [Convenciones de código](#convenciones-de-código)
+16. [Deuda técnica conocida](#deuda-técnica-conocida)
+17. [Cómo agregar un minijuego nuevo](#cómo-agregar-un-minijuego-nuevo)
+18. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -153,7 +153,7 @@ El proyecto es una migración de una versión anterior basada en HTML estático 
 Principios que se repiten en todo el código base:
 
 - **Sin framework de UI.** Las vistas son funciones puras `() => string` que devuelven HTML; se inyectan con `innerHTML` y se conectan a mano vía `data-ui` + `getElementById`/`querySelectorAll`. No hay React/Vue ni virtual DOM.
-- **Lazy-loading agresivo.** Tanto el HTML de cada vista como la lógica pesada de cada juego se cargan bajo demanda vía `import()` dinámico, para que abrir el lobby no descargue las ~20 mil líneas de TypeScript de los 26 juegos.
+- **Lazy-loading agresivo.** Tanto el HTML de cada vista como la lógica pesada de cada juego se cargan bajo demanda vía `import()` dinámico, para que abrir el lobby no descargue las ~20 mil líneas de TypeScript de los 34 juegos.
 - **`localStorage` como única fuente de persistencia**, siempre detrás de una capa (`SafeStorage`) que absorbe fallos de entorno (modo privado, cuota excedida, JSON corrupto).
 - **Registro central en vez de imports dispersos.** Cada juego se registra en `GameRegistry` con sus metadatos; el lobby, los filtros, las estadísticas y el ranking se generan **todos** a partir de ese registro, nunca hardcodeados.
 
@@ -253,7 +253,7 @@ export function init(ui: GameUi) {
 
 **Este contrato es puramente por convención de nombres** — no hay ningún chequeo de tipos que impida que la lógica lea `ui.algo` sin que ninguna vista declare `data-ui="algo"`. Cuando eso pasa, el código no crashea (casi siempre hay guards `if (ui.algo)` o `ui.algo?.method()`), simplemente esa parte de la UI queda muerta en silencio.
 
-Esto ocurrió realmente en este proyecto (ver [Testing](#testing) → `dataUiIntegrity.test.ts`) y por eso existe un test dedicado a verificarlo automáticamente para los 26 juegos.
+Esto ocurrió realmente en este proyecto (ver [Testing](#testing) → `dataUiIntegrity.test.ts`) y por eso existe un test dedicado a verificarlo automáticamente para los 34 juegos.
 
 ---
 
@@ -358,7 +358,7 @@ El leaderboard emite `window.dispatchEvent(new CustomEvent('leaderboard:updated'
 
 ## Catálogo de minijuegos
 
-26 módulos jugables en el lobby (+ sub-juegos ocultos de Skill Check). `num` es el identificador visible en la card del lobby; `tag` determina el filtro por categoría (generado dinámicamente, no hardcodeado — ver `lobbyRenderer.ts`).
+34 módulos jugables (19 en el lobby + 15 sub-juegos ocultos de Skill Check). `num` es el identificador visible en la card del lobby; `tag` determina el filtro por categoría (generado dinámicamente, no hardcodeado — ver `lobbyRenderer.ts`).
 
 | # | Nombre | Categoría | Dificultad | Descripción |
 |---|---|:---:|:---:|---|
@@ -375,6 +375,8 @@ El leaderboard emite `window.dispatchEvent(new CustomEvent('leaderboard:updated'
 | 11 | Sequence | MEMORIA | ★★★ | Observa y repite la secuencia; cada nivel añade un paso |
 | 12 | Rhythm Click | REFLEJOS | ★★★ | Clic en el núcleo justo cuando el anillo se contrae |
 | 13 | Progress Timing | REFLEJOS | ★★★★ | Detén el marcador en la zona verde; velocidad y tamaño configurables |
+| 14 | Key Spam | REFLEJOS | ★★ | Pulsa la tecla mostrada la cantidad de veces requerida antes de que se acabe el tiempo |
+| 15 | Maze | NAVEGACIÓN | ★★★★ | Encuentra la salida del laberinto antes de que se acabe el tiempo |
 | 16 | Neural Fragment Hack | MEMORIA | ★★★ | Reconstruye fragmentos de memoria corrupta, filtrando el ruido |
 | 17 | Memory Grid | MEMORIA | ★★★ | Memoriza los números del tablero y encuentra la ruta de S a E con saltos exactos |
 | 18 | Virus Overload | SUPERVISIÓN | ★★★★★ | Sobrevive a la infección del sistema: 4 fases progresivas con 20 minijuegos únicos dentro |
@@ -384,6 +386,7 @@ El leaderboard emite `window.dispatchEvent(new CustomEvent('leaderboard:updated'
 | 22 | Ring Puzzle | LÓGICA | ★★★ | Alinea los nodos de colores de cada anillo girándolos hasta la posición objetivo |
 | 23 | Pairs | ESTRATEGIA | ★★ | Encuentra todos los pares iguales con el menor número de movimientos |
 | 24 | Cerradura Mecánica | LÓGICA | ★★★★ | Mecanismo procedural de engranajes, pestillos, imanes y contrapesos |
+| 25 | Snippet Race | TIPEO | ★★★ | Completa o corrige fragmentos de código; velocidad y precisión cuentan |
 
 Sub-juegos ocultos del lobby principal (`hidden: true` en su `GameConfig`, solo accesibles desde Skill Check u otra vista contenedora): **Circle**, **Multi-Point**, **Bounce Bar**, **Hold & Release**, **Target Pop**, **Chord Keys**, **Orbit Catch**, **Lane Dodge**, **Pipe Align** (además de Rapid Lines, Maze, Key Spam, Sequence, Rhythm Click y Progress Timing, que también se abren desde el hub).
 
@@ -1076,7 +1079,7 @@ El esquema de base de datos **no se aplica solo** — hay que correrlo una vez a
 3. Corré también **`supabase/migration_002_rate_limit_scores.sql`** — agrega un trigger que rechaza más de 10 inserts de `scores` por usuario en 60 segundos. Sin esto, nada impide que una cuenta logueada llame a la API de Supabase en bucle para inflar el ranking global (ver [`docs/SUPABASE_RATE_LIMITING.md`](./docs/SUPABASE_RATE_LIMITING.md) para el resto de los límites de Auth, que se configuran desde el dashboard y no requieren SQL).
 4. Corré en orden las migraciones restantes — cada una depende de que la anterior ya se haya aplicado:
    - **`migration_003_scores_value_check.sql`** — agrega un `CHECK (value >= 0)` en `scores`, ya que RLS por sí sola no valida el valor insertado.
-   - **`migration_004_global_activity_rank.sql`** — crea la vista `global_activity_rank` que alimenta el panel "TOP GLOBAL" del HUD lateral (antes hardcodeado con datos de ejemplo).
+   - **`migration_004_global_activity_rank.sql`** — crea la vista `global_activity_rank` (ranking por cantidad de partidas jugadas). Sin consumidor activo en el frontend actual — se usaba desde `hudPanel.ts` para el panel "TOP GLOBAL" del HUD lateral, que fue eliminado junto con ese módulo. La vista se deja aplicada (no rompe nada mantenerla) por si se reutiliza en el futuro; no es necesaria para que el resto del multiplayer/social funcione.
    - **`migration_005_coop_rooms.sql`** — crea `live_matches` y `match_messages`, las tablas reales detrás del multiplayer por salas con código (`createRoomMatch`/`joinRoomMatch`, ver más abajo). **Sin esta migración el multiplayer por salas no funciona.**
    - **`migration_006_social_tournaments.sql`** — crea las 7 tablas que necesitan `socialSystem.ts` y `tournamentSystem.ts` (amigos, solicitudes, clanes, miembros de clan, chat, torneos, participantes). Sin esto, el sistema social y de torneos no tiene dónde persistir nada.
    - **`migration_007_friends_delete_policy.sql`** — agrega la policy de `DELETE` en `friends` que `migration_006` había omitido; sin ella, `removeFriend()` fallaba siempre en producción (silenciosamente).
@@ -1135,7 +1138,7 @@ La seguridad de este sistema **no depende de que el frontend se comporte bien** 
 
 Este proyecto usa **Vite 8**, que por defecto usa **Rolldown** (motor de build en Rust, todavía experimental) en vez de Rollup clásico. Al integrar Supabase se encontró que `manualChunks` **como función** en `vite.config.ts` no separaba correctamente el SDK de Supabase en su propio chunk — el módulo quedaba arrastrado dentro de `bootstrap` (247 KB sin comprimir) pese a que la condición de matching dentro de la función sí se cumplía (verificado imprimiendo el `id` recibido). Se probaron varias formas del patrón de matching y la sintaxis alternativa de objeto (`manualChunks: { 'x': [...] }`, que directamente no está soportada en esta versión y tira `TypeError: manualChunks is not a function`), sin éxito.
 
-La solución fue evitar `manualChunks` por completo para este caso: `supabaseClient.ts` carga el SDK con `import()` dinámico (el mismo mecanismo de code-splitting que ya usan los 26 `*.logic.ts` de los juegos, que sí funciona de forma confiable) en vez de un import estático arriba del archivo. Resultado: el chunk `bootstrap` volvió a ~33 KB, y el chunk de Supabase (~215 KB) no aparece en el precache/modulepreload inicial de `index.html` — solo se descarga la primera vez que alguien realmente interactúa con login/registro/scoreboard.
+La solución fue evitar `manualChunks` por completo para este caso: `supabaseClient.ts` carga el SDK con `import()` dinámico (el mismo mecanismo de code-splitting que ya usan los 34 `*.logic.ts` de los juegos, que sí funciona de forma confiable) en vez de un import estático arriba del archivo. Resultado: el chunk `bootstrap` volvió a ~33 KB, y el chunk de Supabase (~215 KB) no aparece en el precache/modulepreload inicial de `index.html` — solo se descarga la primera vez que alguien realmente interactúa con login/registro/scoreboard.
 
 El único costo cosmético de esta solución era que Rollup nombraba ese chunk lazy con un hash genérico sin sentido (`dist-[hash].js`) porque el nombre por defecto de un chunk lazy sale de su "módulo de entrada" — y el módulo de entrada de `import('@supabase/supabase-js')` es el propio paquete de `node_modules`, no algo bajo `/js/` con un nombre reconocible. Esto se resolvió con `chunkFileNames` como función (a diferencia de `manualChunks`, esta sí opera de forma confiable en Rolldown 1.1.3): inspecciona `chunkInfo.moduleIds` y, si el chunk contiene algún módulo bajo `node_modules/@supabase/`, le asigna el nombre `vendor-supabase-[hash].js`. Puramente cosmético — no cambia qué se separa de qué ni cuándo se descarga cada chunk — pero hace mucho más legible la salida de `npm run build` y el Network tab del navegador.
 
@@ -1164,7 +1167,7 @@ npm run test:ui   # UI interactiva
 | Archivo | Qué cubre |
 |---|---|
 | **`gameRegistry.test.ts`** | El registro central: `register`, `visible`/`all`, `ensureInit` (incluyendo el flujo `logic` con `import()` dinámico y su cacheo), `prefetch`, `resolveUi`, `stopGame`. |
-| **`dataUiIntegrity.test.ts`** | Verificación de integración genérica: para cada uno de los 26 juegos, extrae todas las claves `ui.<algo>` que su `.logic.ts` referencia y falla si la vista correspondiente no declara el `data-ui="<algo>"` equivalente. Detectó y previene la regresión de un bug real (ver [Deuda técnica conocida](#deuda-técnica-conocida)). Incluye además un test de cobertura que verifica que todo archivo `.logic.ts` en `js/games/` tenga un `viewId` asociado, para que un juego nuevo no quede fuera de esta verificación por accidente. |
+| **`dataUiIntegrity.test.ts`** | Verificación de integración genérica: para cada uno de los 34 juegos, extrae todas las claves `ui.<algo>` que su `.logic.ts` referencia y falla si la vista correspondiente no declara el `data-ui="<algo>"` equivalente. Detectó y previene la regresión de un bug real (ver [Deuda técnica conocida](#deuda-técnica-conocida)). Incluye además un test de cobertura que verifica que todo archivo `.logic.ts` en `js/games/` tenga un `viewId` asociado, para que un juego nuevo no quede fuera de esta verificación por accidente. |
 | **`inputAccessibility.test.ts`** | Dos verificaciones. (1) Recorre las 40 vistas registradas en `viewTemplates.ts` y exige que cada `<input>`/`<select>`/`<textarea>` tenga una etiqueta accesible real: `aria-label`, `aria-labelledby` apuntando a un id que existe de verdad, `label[for]` emparejado, o `<label>` envolvente. (2) Recorre también cada `<button>`, simulando la hidratación real de `hydrateBackButtons()` (ver `js/utils/backButton.ts`) para no dar falso positivo en los `.back-btn` que reciben su `aria-label` recién en runtime — un botón vacío en el HTML estático de una vista puede estar perfectamente bien si algo lo hidrata después; un test que no simule esa hidratación no lo puede saber. Parsea HTML real con jsdom (no regex), lo que permitió detectar un caso donde el label visual estaba fuera del elemento que técnicamente lo envolvía — invisible a una revisión manual rápida. |
 | **`viewTemplates.test.ts`** | Contrato de `ViewTemplate`: cada vista registrada exporta un `default()` puro (sin argumentos, sin dependencias del DOM) que devuelve HTML no vacío, y es idempotente (dos invocaciones seguidas producen el mismo markup). |
 | **`sidebarViews.test.ts`** | Que Estadísticas/Progreso/Ranking se rellenen con datos reales de `GameRegistry`/`Leaderboard`/`Favorites` al recibir el evento `view-shown` real — contra el DOM real de la app, no un contenedor inventado. |
@@ -1327,7 +1330,7 @@ Una auditoría manual inicial de los 52 `<input>` en `js/views/` encontró la ma
 
 El más grave de los hallazgos de esta lista, y el más tardío en aparecer: no lo detectó ningún test, ninguna revisión de código, ni `npm run dev` (donde todo se veía perfecto). Solo apareció al inspeccionar el contenido real de `dist/` tras un build de producción.
 
-`GameConfig.css` (24 de los 26 juegos) y `renderCube()` en `views/skillchecks.ts` (9 íconos) referencian `css/<juego>.css` y `assets/icons/<icono>.svg` como **rutas string planas**, inyectadas en runtime vía `injectCSS()`/`<img src="...">` — no como `import './archivo.css'`. Vite solo copia al `outDir` lo que reconoce como asset importado o lo que vive dentro de `publicDir` (por convención, la carpeta `public/`). Con `css/` y `assets/` en la raíz del proyecto y sin `publicDir` configurado, ninguna de las dos sobrevivía a `vite build`.
+`GameConfig.css` (30 de los 34 juegos) y `renderCube()` en `views/skillchecks.ts` (9 íconos) referencian `css/<juego>.css` y `assets/icons/<icono>.svg` como **rutas string planas**, inyectadas en runtime vía `injectCSS()`/`<img src="...">` — no como `import './archivo.css'`. Vite solo copia al `outDir` lo que reconoce como asset importado o lo que vive dentro de `publicDir` (por convención, la carpeta `public/`). Con `css/` y `assets/` en la raíz del proyecto y sin `publicDir` configurado, ninguna de las dos sobrevivía a `vite build`.
 
 `npm run dev` ocultaba el problema por completo: con `root: '.'`, el dev server de Vite expone todo el filesystem del proyecto, así que `css/bombdefusal.css` se servía igual sin que nada estuviera realmente "copiado" a ningún lado. El bug solo existía en el `dist/` de producción — y ahí, además, era casi invisible a una inspección superficial: una petición a una ruta inexistente no devolvía 404, caía en el fallback SPA de Vite y devolvía `index.html` con `HTTP 200` (confirmado con `curl -v`, mirando el `Content-Type: text/html` de la respuesta en vez de solo el status code). El navegador cargaba ese HTML donde esperaba CSS o una imagen: sin crash visible, sin error de consola evidente, solo un juego sin sus estilos propios y un menú de Skill Check con 9 íconos rotos.
 

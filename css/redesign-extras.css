@@ -10,8 +10,11 @@
    --------------------------------------------------------------------- */
 .stat-card-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  gap: 10px;
+  width: min(100%, 500px);
+  max-width: 100%;
+  margin-left: auto;
 }
 
 .stat-card {
@@ -20,8 +23,9 @@
   flex-direction: column;
   justify-content: center;
   gap: 6px;
-  padding: 16px 18px 15px;
-  border-radius: 14px;
+  min-height: 74px;
+  padding: 12px 10px 11px;
+  border-radius: 12px;
   border: 1px solid rgba(249, 115, 22, 0.14);
   background:
     radial-gradient(120% 140% at 100% 0%, rgba(249, 115, 22, 0.10) 0%, rgba(249, 115, 22, 0) 55%),
@@ -30,6 +34,7 @@
   isolation: isolate;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
   transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+  max-width: 100%;
 }
 
 /* Barra de acento vertical a la izquierda */
@@ -82,16 +87,18 @@
 
 .stat-card-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 7px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.11em;
   color: rgba(220, 165, 100, 0.55);
-  max-width: calc(100% - 40px);
+  max-width: 100%;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .stat-card-value {
   font-family: var(--font-tactical, var(--font-mono));
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1;
   color: #fde8cc;

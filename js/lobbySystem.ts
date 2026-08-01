@@ -151,8 +151,21 @@ class LobbySystem {
     // mock/stub en algún entorno) puede no exponer .rpc en absoluto, y
     // llamarlo directo revienta con "client.rpc is not a function"
     // ANTES de llegar siquiera a intentar crear el lobby.
+    //
+    // try/catch en vez de .catch() encadenado: client.rpc(...) devuelve
+    // un PostgrestFilterBuilder, no una Promise nativa — implementa
+    // .then() (por eso funciona con await) pero deliberadamente NO
+    // implementa .catch() ni .finally() como métodos propios. Encadenar
+    // .catch() directo sobre eso rompe siempre con
+    // "client.rpc(...).catch is not a function", sin importar versión
+    // del SDK ni caché de navegador — no es un bug intermitente, hay
+    // que envolver con try/catch si se quiere ignorar el error.
     if (typeof client.rpc === 'function') {
-      await client.rpc('purge_stale_lobbies').catch(() => {});
+      try {
+        await client.rpc('purge_stale_lobbies');
+      } catch {
+        // Oportunista: no debe impedir crear el lobby si falla.
+      }
     }
 
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -214,9 +227,14 @@ class LobbySystem {
     // buscar, así un código que en teoría estaba "ocupado" por un
     // lobby abandonado hace rato queda libre para un lobby nuevo en
     // vez de fallar con "no existe" para siempre. Ver nota sobre el
-    // typeof-check en createLobby.
+    // typeof-check y el try/catch (en vez de .catch() encadenado, que
+    // PostgrestFilterBuilder no soporta) en createLobby.
     if (typeof client.rpc === 'function') {
-      await client.rpc('purge_stale_lobbies').catch(() => {});
+      try {
+        await client.rpc('purge_stale_lobbies');
+      } catch {
+        // Oportunista: no debe impedir unirse al lobby si falla.
+      }
     }
 
     const { data: lobbyRow, error: fetchError } = await client

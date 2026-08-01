@@ -72,7 +72,7 @@ Documentación de arquitectura del proyecto Minijuegos — Entrenador de Bots.
 │                      Business Layer                           │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
 │  │ Game Logic   │  │  Game State  │  │  Game Rules  │      │
-│  │  (26 Games)  │  │  (Scoring)   │  │ (Validation) │      │
+│  │  (34 Games)  │  │  (Scoring)   │  │ (Validation) │      │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
 └─────────────────────────────────────────────────────────────┘
                             ↓
@@ -105,7 +105,7 @@ minijuegos-entrenador-bots/
 │   │   ├── simon.logic.ts       # Simon Says logic
 │   │   ├── termita.logic.ts     # Memory grid logic
 │   │   ├── arrowGame.logic.ts   # Reflex game logic
-│   │   └── ... (23 more games)
+│   │   └── ... (31 more games)
 │   ├── managers/                # State managers
 │   │   ├── leaderboardManager.ts
 │   │   ├── favoritesManager.ts

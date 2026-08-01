@@ -145,7 +145,7 @@ class AuthManager {
    *               logout() hace lo mismo de nuevo al final — inofensivo
    *               en el resultado final (ambos coinciden en null), pero
    *               duplica el evento 'auth:changed' que escuchan
-   *               accountView.ts/hudPanel.ts/sideNavBoot.ts, cada uno
+   *               accountView.ts/sideNavBoot.ts, cada uno
    *               re-renderizando dos veces por cada logout real.
    *
    * Con la bandera activa, el listener del constructor ignora esos

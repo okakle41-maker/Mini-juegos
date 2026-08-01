@@ -802,14 +802,22 @@ export function init(rawUi: GameUi) {
 
   ui.modeCreate.addEventListener('click', () => {
     pendingMode = 'create';
+    selectedRole = null;
     ui.joinCodeRow.classList.add('hidden');
+    ui.roleViewer.setAttribute('aria-pressed', 'false');
+    ui.roleTyper.setAttribute('aria-pressed', 'false');
+    ui.roleConfirm.disabled = true;
     ui.roleChooserLabel.textContent = 'Elegí tu rol (vas a compartir el código después):';
     showStep(ui.roleChooser);
   });
 
   ui.modeJoin.addEventListener('click', () => {
     pendingMode = 'join';
+    selectedRole = null;
     ui.joinCodeRow.classList.remove('hidden');
+    ui.roleViewer.setAttribute('aria-pressed', 'false');
+    ui.roleTyper.setAttribute('aria-pressed', 'false');
+    ui.roleConfirm.disabled = true;
     ui.roleChooserLabel.textContent = 'Ingresá el código y elegí tu rol:';
     showStep(ui.roleChooser);
   });
@@ -821,7 +829,7 @@ export function init(rawUi: GameUi) {
     selectedRole = role;
     ui.roleViewer.setAttribute('aria-pressed', String(role === 'viewer'));
     ui.roleTyper.setAttribute('aria-pressed', String(role === 'typer'));
-    const codeOk = pendingMode === 'create' || ui.joinCodeInput.value.trim().length === 4;
+    const codeOk = selectedRole !== null && (pendingMode === 'create' || ui.joinCodeInput.value.trim().length === 4);
     ui.roleConfirm.disabled = !codeOk;
   };
   ui.roleViewer.addEventListener('click', () => selectRole('viewer'));
@@ -829,7 +837,8 @@ export function init(rawUi: GameUi) {
 
   ui.joinCodeInput.addEventListener('input', () => {
     ui.joinCodeInput.value = ui.joinCodeInput.value.toUpperCase().slice(0, 4);
-    if (selectedRole) ui.roleConfirm.disabled = ui.joinCodeInput.value.trim().length !== 4;
+    const codeOk = pendingMode === 'create' || ui.joinCodeInput.value.trim().length === 4;
+    ui.roleConfirm.disabled = !selectedRole || !codeOk;
   });
 
   ui.roleConfirm.addEventListener('click', () => {

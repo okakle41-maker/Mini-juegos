@@ -62,5 +62,4 @@ import './musicPlayerDrag';
 import './musicPlayer';
 import './lobbySidebarUI';
 import './headerUptime';
-import './hudPanel';
 
