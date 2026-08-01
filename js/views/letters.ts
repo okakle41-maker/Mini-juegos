@@ -7,7 +7,8 @@
  * (`lettersCard`) queda oculto hasta que el jugador elige "Solo" o
  * hasta que la sala coop conecta con el otro jugador. Ver
  * lettersFall.logic.ts para el manejo de estos tres caminos y
- * core/roomManager.ts para el transporte en tiempo real de la sala.
+ * multiplayerSystem.ts (createRoomMatch/joinRoomMatch/sendGameEvent)
+ * para el transporte en tiempo real de la sala.
  *
  * En modo coop, `lettersCard` se marca con `data-role="viewer"` o
  * `data-role="typer"` para que css/letters.css pueda ocultar el área

@@ -212,6 +212,7 @@ class LettersFallGame {
   wordPool: string[];
   chuchuWordPool: string[];
   cleanup: ReturnType<typeof GameHelpers.createCleanupManager>;
+  private lastSentState: { score: number; best: number; lives: number } | null = null;
 
   /**
    * Modo coop. En 'solo' (default) el juego funciona exactamente
@@ -291,9 +292,10 @@ class LettersFallGame {
     this.state.currentInput = '';
     this.ui.lettersInput.value = '';
     this.ui.lettersArea.classList.remove('letters-flash');
-    const config = this.getDifficultyConfig();
-    this.state.spawnInterval = config.spawnStart;
-    this.state.wordSpeed = config.speed * 4;
+    // Fuerza el envío del estado inicial de la partida nueva en el
+    // próximo updateUI(), en vez de depender de que difiera por
+    // casualidad del último estado enviado en la partida anterior.
+    this.lastSentState = null;
     this.updateUI();
   }
 
@@ -516,18 +518,50 @@ class LettersFallGame {
     this.ui.lettersBest.textContent = `Mejor: ${this.state.best}`;
     this.ui.lettersLives.innerHTML = Array.from({ length: this.state.lives }, () => '<span>❤️</span>').join('');
 
+    // updateUI() corre en cada frame del loop de requestAnimationFrame
+    // (~60/s) porque también repinta el DOM local, que es barato. Pero
+    // room.send() es un insert real a Supabase (ver sendGameEvent en
+    // multiplayerSystem.ts) — sin este chequeo, cada frame disparaba un
+    // insert aunque score/best/lives no hubiesen cambiado desde el
+    // frame anterior (que es la inmensa mayoría de los frames, ya que
+    // solo cambian en eventos puntuales: acierto, fallo, o récord
+    // nuevo). Eso podía saturar la conexión o el rate limit de
+    // Supabase en cualquier partida coop mínimamente larga.
     if (this.role === 'viewer' && this.room) {
-      this.room.send('viewer:state', {
-        score: this.state.score,
-        best: this.state.best,
-        lives: this.state.lives
-      }).catch(() => {
-        // Silencioso: updateUI corre en cada frame del loop de
-        // render, un fallo puntual de red acá no debe interrumpir el
-        // juego ni loguear ruido en cada tick — el próximo tick
-        // reintenta con el estado actualizado de todas formas.
-      });
+      const current = { score: this.state.score, best: this.state.best, lives: this.state.lives };
+      const changed = !this.lastSentState
+        || current.score !== this.lastSentState.score
+        || current.best !== this.lastSentState.best
+        || current.lives !== this.lastSentState.lives;
+      if (changed) {
+        this.lastSentState = current;
+        this.room.send('viewer:state', current).catch(() => {
+          // Silencioso: un fallo puntual de red acá no debe interrumpir
+          // el juego. lastSentState ya quedó actualizado arriba a
+          // propósito (no se revierte en el catch): si se revirtiera,
+          // una racha de fallos de red sostenidos volvería a reintentar
+          // el envío en cada frame siguiente, reintroduciendo el mismo
+          // spam que este fix busca evitar. El costo es que el typer
+          // puede quedarse con un valor viejo hasta el próximo cambio
+          // real de score/best/lives — aceptable frente a eso.
+        });
+      }
     }
+  }
+
+  /**
+   * Cierra la sala coop al salir de la vista (stop() del módulo llama
+   * esto vía StoppableInstance.leave — ver más abajo). Antes, esta
+   * clase no implementaba `leave()` en absoluto: solo el wrapper
+   * liviano del rol 'typer' (ver startTyperMode) lo tenía, así que si
+   * el 'viewer' (quien SÍ instancia LettersFallGame) navegaba fuera de
+   * la vista a mitad de partida coop, la sala quedaba 'playing' para
+   * siempre en Supabase, reservando su room_code indefinidamente (ver
+   * leaveRoomMatch/el índice único en migration_005_coop_rooms.sql).
+   * No-op en modo 'solo' (this.room es null, no hay sala que cerrar).
+   */
+  leave() {
+    this.room?.leave().catch(() => {});
   }
 }
 

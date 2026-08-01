@@ -36,8 +36,8 @@ function copyStaticAssets() {
     },
     closeBundle() {
       for (const dir of ['css', 'assets', 'audio']) {
-        const src = resolve(__dirname, dir);
-        const dest = resolve(__dirname, outDir, dir);
+        const src = resolve(import.meta.dirname, dir);
+        const dest = resolve(import.meta.dirname, outDir, dir);
         if (!existsSync(src)) continue;
         mkdirSync(dest, { recursive: true });
         cpSync(src, dest, { recursive: true });

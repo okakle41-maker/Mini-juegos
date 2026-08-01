@@ -33,6 +33,14 @@ test.describe('Lobby - Critical Flows', () => {
     const firstCard = gameCards.first();
     await expect(firstCard.locator('.card-icon-lg')).toBeVisible();
     await expect(firstCard.locator('.card-name')).toBeVisible();
+
+    // .card-desc está oculta por diseño hasta hover/focus (ver
+    // .game-card:hover .card-desc en css/styles.css) — es un reveal
+    // intencional, no un bug. Sin el hover acá, el locator siempre
+    // resuelve pero queda "hidden" (opacity:0/max-height:0 en el
+    // estado base), y el toBeVisible() de más abajo fallaría contra
+    // el diseño real, no contra un defecto de la app.
+    await firstCard.hover();
     await expect(firstCard.locator('.card-desc')).toBeVisible();
   });
 
