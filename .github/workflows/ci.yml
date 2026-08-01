@@ -67,10 +67,49 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # k6-action corre k6 en su propio contenedor Docker, separado
+      # del contenedor/host donde corre este step — "localhost" desde
+      # adentro de ese contenedor no resuelve al runner. Por eso el
+      # server de la app tiene que quedar accesible en la red del
+      # runner (no dockerizado) y el contenedor de k6 alcanzarlo vía
+      # el gateway del host, que es exactamente lo que resuelve
+      # `network: host` en el step de abajo.
+      #
+      # Reusamos el mismo mecanismo que ya usa Playwright
+      # (e2e/build-for-e2e.mjs: build de producción + vite preview
+      # sirviendo en la raíz del puerto) en vez de duplicar la lógica
+      # de build acá. Ese script deja el server corriendo en foreground
+      # en el puerto 3000, así que lo lanzamos en background y
+      # esperamos a que responda antes de correr k6.
+      - name: Build and start preview server
+        run: |
+          node ./e2e/build-for-e2e.mjs &
+          echo $! > server.pid
+          npx wait-on http://localhost:3000 --timeout 60000
+
       - name: Run load tests (k6)
         uses: grafana/k6-action@v0.3.1
         with:
           filename: load-test/load-test.js
+        env:
+          BASE_URL: http://localhost:3000
+        # El contenedor de k6-action necesita compartir la red del
+        # host del runner para poder llegar al preview server que
+        # levantamos arriba en localhost:3000 (ver comentario previo).
+        options: --net=host
+
+      - name: Stop preview server
+        if: always()
+        run: kill $(cat server.pid) 2>/dev/null || true
 
   type-check:
     name: Type Check
