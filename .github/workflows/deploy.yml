@@ -1,51 +1,53 @@
 name: Deploy to GitHub Pages
-
+# GitHub Pages es el único destino de deploy de este proyecto.
+# (Anteriormente el repo tenía referencias en paralelo a Cloudflare
+# Pages — docs/CLOUDFLARE_DEPLOY.md, public/_headers — que se
+# eliminaron para no tener dos rutas de deploy documentadas al mismo
+# tiempo sin que ninguna fuera la real. El CSP y demás cabeceras de
+# seguridad que antes vivían en public/_headers ahora están como
+# <meta http-equiv="Content-Security-Policy"> en index.html, con las
+# limitaciones que eso implica frente a una cabecera HTTP real — ver
+# el comentario junto a esa etiqueta.)
 on:
   push:
-    branches: [main]
-  # Permite disparar el workflow a mano desde la pestaña Actions,
-  # sin necesidad de un push nuevo (útil para re-deployar el mismo
-  # commit si el build falló por una causa externa, p.ej. un mirror
-  # de npm caído).
+    branches: [main, master]
   workflow_dispatch:
-
-# Permisos mínimos que necesita el job para publicar en Pages.
 permissions:
   contents: read
   pages: write
   id-token: write
-
-# Evita que dos deploys corran en paralelo y se pisen — si llega un
-# push nuevo mientras el anterior todavía está compilando, se cancela
-# el run en curso y arranca el nuevo (siempre gana el último commit).
 concurrency:
   group: pages
   cancel-in-progress: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
+          node-version: 20.19.0
+          cache: npm
       - name: Install dependencies
         run: npm ci
-
       - name: Build
+        # vite.config.ts usa VITE_BASE (default: '/Mini-juegos/') como
+        # subpath de todos los assets — necesario porque GitHub Pages
+        # sirve el proyecto en usuario.github.io/<nombre-del-repo>/,
+        # no en la raíz del dominio. Si el repo en GitHub NO se llama
+        # exactamente "Mini-juegos", hay que fijar VITE_BASE acá con
+        # el nombre real (ej: VITE_BASE: '/mi-repo-real/'), o todo el
+        # CSS/JS/audio dará 404 en producción aunque el build local
+        # funcione perfecto.
         run: npm run build
-
-      - name: Upload build artifact
+        env:
+          VITE_BASE: /Mini-juegos/
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
-
   deploy:
     needs: build
     runs-on: ubuntu-latest
