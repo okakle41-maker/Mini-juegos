@@ -825,11 +825,23 @@ export function init(rawUi: GameUi) {
 
   let pendingMode: 'create' | 'join' = 'create';
 
+  // `roleChooser` y `roomStatus` viven anidados DENTRO de
+  // `lettersModePanel` (ver js/views/letters.ts), no como hermanos al
+  // mismo nivel. `lettersModePanel` en sí nunca debe llevar `hidden`
+  // mientras se está navegando entre sus pasos internos: ocultarlo
+  // esconde también a sus hijos aunque estos no tengan la clase
+  // `hidden` puesta, dejando la pantalla en blanco pese a que
+  // `roleChooser`/`roomStatus` estén "visibles" en el DOM.
+  const innerSteps = [ui.roleChooser, ui.roomStatus] as const;
+  const modeOptions = ui.lettersModePanel.querySelector<HTMLElement>('.letters-mode-options');
+
   const showStep = (step: HTMLElement) => {
-    [ui.lettersModePanel, ui.roleChooser, ui.roomStatus].forEach((el) => {
-      if (el !== step) el.classList.add('hidden');
+    ui.lettersModePanel.classList.remove('hidden');
+    const showingModeOptions = step === ui.lettersModePanel;
+    modeOptions?.classList.toggle('hidden', !showingModeOptions);
+    innerSteps.forEach((el) => {
+      el.classList.toggle('hidden', el !== step);
     });
-    step.classList.remove('hidden');
   };
 
   ui.modeSolo.addEventListener('click', () => startGameCard(ui, 'solo', null));
