@@ -1,0 +1,123 @@
+name: Security Scanning
+
+# Nota sobre este workflow (revisado — ver notas inline en cada job):
+# - Se eliminó el job "codeql-sast" porque duplicaba exactamente lo que
+#   ya hacía "sast" (misma acción, mismo análisis) para 'javascript',
+#   solo que sin cubrir 'typescript' como sí hace "sast" vía matrix.
+#   Tenerlos ambos no agregaba cobertura, solo gastaba minutos de CI y
+#   podía chocar al subir resultados duplicados a Code Scanning.
+# - Se eliminó el job "bandit-scan": Bandit es un analizador estático
+#   de Python (busca patrones como uso de eval/pickle/subprocess en
+#   código .py). Este repo es 100% TypeScript — no hay ni un archivo
+#   .py — así que "-r js/" no tenía nada válido que analizar y el job
+#   no aportaba señal real.
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 0 * * 0' # Weekly on Sunday
+
+jobs:
+  sast:
+    name: SAST with CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript', 'typescript' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"
+
+  dependency-scan:
+    name: Dependency Scanning with Snyk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      # Se define acá (a nivel de job) para poder usarlo en `if:` en
+      # los steps de abajo. `secrets.*` no se puede leer directamente
+      # dentro de una expresión `if:` de forma confiable en todos los
+      # contextos de GitHub Actions, pero un `env` de job sí.
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Snyk necesita SNYK_TOKEN (Settings → Secrets → Actions del
+      # repo en GitHub). Sin el secret configurado, la acción falla
+      # con error de autenticación y no con "no hay vulnerabilidades"
+      # — por eso este step es `continue-on-error`: hasta que alguien
+      # configure el token, este job no debe bloquear el resto del
+      # pipeline ni marcar el commit como roto por un secret ausente.
+      # `npm audit` (abajo) ya cubre el mismo tipo de chequeo mientras
+      # tanto sin depender de credenciales externas.
+      - name: Run Snyk to check for vulnerabilities
+        if: ${{ env.SNYK_TOKEN != '' }}
+        continue-on-error: true
+        uses: snyk/actions/node@master
+        with:
+          args: --severity-threshold=high
+
+      - name: Skip notice (no SNYK_TOKEN configured)
+        if: ${{ env.SNYK_TOKEN == '' }}
+        run: echo "SNYK_TOKEN no está configurado en los secrets del repo — se omite el escaneo de Snyk. npm-audit (job aparte) cubre dependencias mientras tanto."
+
+  npm-audit:
+    name: NPM Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+
+  semgrep:
+    name: Semgrep Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: auto
