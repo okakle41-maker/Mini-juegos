@@ -163,3 +163,60 @@ describe('Letters Fall: no reenvía viewer:state si el estado no cambió', () =>
     expect(leaveRoomMatch).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('Letters Fall: reset() inicializa wordSpeed/spawnInterval desde la dificultad', () => {
+  /**
+   * Regresión: reset() dejaba wordSpeed y spawnInterval en su default
+   * de 0 (ver constructor de LettersFallGame) sin pisarlos con
+   * getDifficultyConfig(). spawnWord() instanciaba cada Word con
+   * speed:0, así que `word.y += word.speed * deltaTime` en update()
+   * nunca las movía — las palabras se quedaban congeladas en y=20 para
+   * siempre, y por lo tanto tampoco llegaban nunca a la zona de
+   * peligro que dispara loseLife() (el juego nunca perdía vidas por
+   * ese motivo). No se puede llamar a start() en este test (dispara
+   * requestAnimationFrame real), así que se verifica directamente el
+   * resultado de reset(), que es donde vive el fix.
+   */
+  it('wordSpeed queda en base a config.speed*4, no en 0', () => {
+    const ui = buildLettersUi();
+    init(ui);
+    ui.modeSolo.click();
+
+    const game = GameInstanceRegistry.get<any>('letters');
+    expect(game).toBeTruthy();
+
+    game.reset();
+
+    expect(game.state.wordSpeed).toBeGreaterThan(0);
+  });
+
+  it('spawnInterval arranca en config.spawnStart, no en 0', () => {
+    const ui = buildLettersUi();
+    init(ui);
+    ui.modeSolo.click();
+
+    const game = GameInstanceRegistry.get<any>('letters');
+    expect(game).toBeTruthy();
+
+    game.reset();
+
+    const config = game.getDifficultyConfig();
+    expect(game.state.spawnInterval).toBe(config.spawnStart);
+  });
+
+  it('una palabra creada por spawnWord() efectivamente se mueve con el tiempo', () => {
+    const ui = buildLettersUi();
+    init(ui);
+    ui.modeSolo.click();
+
+    const game = GameInstanceRegistry.get<any>('letters');
+    game.reset();
+    game.spawnWord();
+
+    const word = game.state.words[0];
+    const initialY = word.y;
+    word.y += word.speed * 1; // simula 1s de deltaTime, como haría update()
+
+    expect(word.y).toBeGreaterThan(initialY);
+  });
+});

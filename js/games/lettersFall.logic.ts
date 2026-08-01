@@ -292,6 +292,19 @@ class LettersFallGame {
     this.state.currentInput = '';
     this.ui.lettersInput.value = '';
     this.ui.lettersArea.classList.remove('letters-flash');
+    // wordSpeed/spawnInterval quedaban en su default de 0 (ver
+    // constructor) y nunca se pisaban con la config de dificultad
+    // elegida: las palabras se instanciaban con speed:0 en
+    // spawnWord() y jamás se movían (word.y += word.speed * dt),
+    // y con spawnInterval:0 el primer nextSpawnTime caía
+    // inmediatamente en vez de respetar config.spawnStart. Se fijan
+    // ambos acá, no en el constructor, porque dependen de
+    // getDifficultyConfig() (que lee el <select> de dificultad, que
+    // el jugador puede cambiar entre partidas sin recrear la
+    // instancia de LettersFallGame).
+    const config = this.getDifficultyConfig();
+    this.state.wordSpeed = config.speed * 4;
+    this.state.spawnInterval = config.spawnStart;
     // Fuerza el envío del estado inicial de la partida nueva en el
     // próximo updateUI(), en vez de depender de que difiera por
     // casualidad del último estado enviado en la partida anterior.
