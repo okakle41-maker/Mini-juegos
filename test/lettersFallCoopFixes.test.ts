@@ -27,12 +27,12 @@ vi.mock('../js/multiplayerSystem', () => ({
   },
 }));
 
-import { init } from '../js/games/lettersFall.logic.js';
+import { init, stop } from '../js/games/lettersFall.logic.js';
 import GameInstanceRegistry from '../js/core/gameInstanceRegistry.js';
 
 function buildLettersUi() {
   document.body.innerHTML = `
-    <div data-ui="lettersModePanel"></div>
+    <div data-ui="lettersModePanel"><div class="letters-mode-options"></div></div>
     <div data-ui="roleChooser" class="hidden"></div>
     <div data-ui="roomStatus" class="hidden"></div>
     <div data-ui="roomStatusText"></div>
@@ -218,5 +218,53 @@ describe('Letters Fall: reset() inicializa wordSpeed/spawnInterval desde la difi
     word.y += word.speed * 1; // simula 1s de deltaTime, como haría update()
 
     expect(word.y).toBeGreaterThan(initialY);
+  });
+});
+
+describe('Letters Fall: Enter limpia el input aunque el intento falle', () => {
+  it('en modo solo, un Enter con la palabra incorrecta igual vacía el input', () => {
+    const ui = buildLettersUi();
+    init(ui);
+    ui.modeSolo.click();
+
+    ui.lettersInput.value = 'PALABRA_QUE_NO_EXISTE';
+    ui.lettersInput.dispatchEvent(new Event('input'));
+    ui.lettersInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+    expect(ui.lettersInput.value).toBe('');
+  });
+});
+
+describe('Letters Fall: stop() restaura el panel de selección de modo', () => {
+  it('vuelve a mostrar lettersModePanel y oculta lettersCard tras salir de una partida solo', async () => {
+    const ui = buildLettersUi();
+    init(ui);
+    ui.modeSolo.click();
+
+    // startGameCard oculta el panel de modos y muestra el tablero.
+    expect(ui.lettersModePanel.classList.contains('hidden')).toBe(true);
+    expect(ui.lettersCard.classList.contains('hidden')).toBe(false);
+
+    stop();
+
+    expect(ui.lettersModePanel.classList.contains('hidden')).toBe(false);
+    expect(ui.lettersCard.classList.contains('hidden')).toBe(true);
+  });
+
+  it('vuelve a mostrar lettersModePanel tras salir de una sala coop en espera', async () => {
+    const ui = buildLettersUi();
+    init(ui);
+
+    ui.modeCreate.click();
+    ui.roleViewer.click();
+
+    expect(ui.lettersModePanel.classList.contains('hidden')).toBe(false);
+    expect(ui.roleChooser.classList.contains('hidden')).toBe(false);
+
+    stop();
+
+    expect(ui.lettersModePanel.classList.contains('hidden')).toBe(false);
+    expect(ui.roleChooser.classList.contains('hidden')).toBe(true);
+    expect(ui.lettersModePanel.querySelector('.letters-mode-options')?.classList.contains('hidden')).toBe(false);
   });
 });

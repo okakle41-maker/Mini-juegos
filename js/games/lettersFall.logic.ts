@@ -604,7 +604,16 @@ function wireDifficultyAndInput(ui: LettersFallUi, game: LettersFallGame) {
 
   ui.lettersInput.addEventListener('keydown', (event: KeyboardEvent) => {
     if (event.key === 'Enter') {
+      // checkInputMatch() solo limpia ui.lettersInput.value cuando hay
+      // match (ver la rama `if (matchIndex >= 0)` más arriba en este
+      // archivo) — un intento fallido dejaba el texto tipeado en el
+      // input, obligando a borrarlo a mano antes de poder escribir la
+      // próxima palabra. Enter siempre limpia el campo, haya
+      // acertado o no, para que se pueda seguir escribiendo de
+      // corrido.
       game.checkInputMatch();
+      ui.lettersInput.value = '';
+      game.state.currentInput = '';
       event.preventDefault();
     }
   });
@@ -686,7 +695,13 @@ function startTyperMode(ui: LettersFallUi, room: RoomSession) {
 
   ui.lettersInput.addEventListener('keydown', (event: KeyboardEvent) => {
     if (event.key === 'Enter') {
+      // Antes solo se limpiaba al recibir viewer:result de tipo
+      // 'success' (ver abajo) — un intento fallido, o la demora
+      // normal del viaje de ida y vuelta a Supabase, dejaba el texto
+      // tipeado en el input. Se limpia acá mismo, en el momento de
+      // enviar, igual que en el modo solo/viewer.
       sendInput();
+      ui.lettersInput.value = '';
       event.preventDefault();
     }
   });
@@ -832,9 +847,22 @@ function launchCoop(ui: LettersFallUi, role: CoopRole, room: RoomSession) {
   }
 }
 
+/**
+ * Referencia a la `ui` de la última vez que se llamó `init()`, para
+ * que `stop()` (que no recibe parámetros — ver GameConfig.stop en
+ * core/gameRegistry.ts) pueda volver a mostrar el panel de selección
+ * de modo al salir de la vista. El DOM de `#letters` persiste entre
+ * visitas (no se vacía al salir, ver comentario en
+ * GameRegistry.stopGame), así que sin esto, reentrar a Letters Fall
+ * después de haber jugado una partida mostraba el tablero de juego
+ * congelado en vez de volver a "Solo / Crear sala / Unirse a sala".
+ */
+let lastUi: LettersFallUi | null = null;
+
 export function init(rawUi: GameUi) {
   const ui = rawUi as unknown as LettersFallUi;
   if (!ui.start) return; // sección no presente
+  lastUi = ui;
 
   let pendingMode: 'create' | 'join' = 'create';
 
@@ -912,4 +940,20 @@ export function stop() {
   if (instance?.reset) instance.reset();
   if (instance?.leave) instance.leave();
   GameInstanceRegistry.clear('letters');
+
+  // Restaura la pantalla de selección de modo (Solo / Crear sala /
+  // Unirse a sala) para la próxima vez que se entre a la vista — ver
+  // el comentario en la declaración de `lastUi` más arriba.
+  const ui = lastUi;
+  if (ui) {
+    ui.lettersCard.classList.add('hidden');
+    delete ui.lettersCard.dataset.role;
+    ui.lettersRoleBadge.classList.add('hidden');
+    ui.lettersInput.disabled = false;
+
+    ui.lettersModePanel.classList.remove('hidden');
+    ui.lettersModePanel.querySelector<HTMLElement>('.letters-mode-options')?.classList.remove('hidden');
+    ui.roleChooser.classList.add('hidden');
+    ui.roomStatus.classList.add('hidden');
+  }
 }
