@@ -1,0 +1,58 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Permite disparar el workflow a mano desde la pestaña Actions,
+  # sin necesidad de un push nuevo (útil para re-deployar el mismo
+  # commit si el build falló por una causa externa, p.ej. un mirror
+  # de npm caído).
+  workflow_dispatch:
+
+# Permisos mínimos que necesita el job para publicar en Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Evita que dos deploys corran en paralelo y se pisen — si llega un
+# push nuevo mientras el anterior todavía está compilando, se cancela
+# el run en curso y arranca el nuevo (siempre gana el último commit).
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
