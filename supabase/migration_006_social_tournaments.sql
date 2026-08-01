@@ -163,19 +163,29 @@ alter table public.tournament_participants enable row level security;
 
 -- Políticas para friend_requests
 -- Users can only see requests where they are sender or receiver
+--
+-- Dropea tanto el nombre viejo ("_all", de una versión anterior de este
+-- mismo archivo) como el nombre actual ("_own") — sin el segundo drop,
+-- correr esta migración una segunda vez (por ejemplo tras clonar el
+-- repo en un proyecto Supabase que ya tenía el schema aplicado) fallaba
+-- con 42710 "policy already exists", porque CREATE POLICY no admite
+-- IF NOT EXISTS ni OR REPLACE.
 drop policy if exists "friend_requests_select_all" on public.friend_requests;
+drop policy if exists "friend_requests_select_own" on public.friend_requests;
 create policy "friend_requests_select_own"
   on public.friend_requests for select
   using ((select auth.uid())::text = sender_id or (select auth.uid())::text = receiver_id);
 
 -- Users can only insert requests where they are the sender
 drop policy if exists "friend_requests_insert_all" on public.friend_requests;
+drop policy if exists "friend_requests_insert_own" on public.friend_requests;
 create policy "friend_requests_insert_own"
   on public.friend_requests for insert
   with check ((select auth.uid())::text = sender_id);
 
 -- Users can only update requests where they are sender (cancel) or receiver (accept/decline)
 drop policy if exists "friend_requests_update_all" on public.friend_requests;
+drop policy if exists "friend_requests_update_own" on public.friend_requests;
 create policy "friend_requests_update_own"
   on public.friend_requests for update
   using ((select auth.uid())::text = sender_id or (select auth.uid())::text = receiver_id);
@@ -183,18 +193,21 @@ create policy "friend_requests_update_own"
 -- Políticas para friends
 -- Users can only see their own friend relationships
 drop policy if exists "friends_select_all" on public.friends;
+drop policy if exists "friends_select_own" on public.friends;
 create policy "friends_select_own"
   on public.friends for select
   using ((select auth.uid())::text = player1_id or (select auth.uid())::text = player2_id);
 
 -- Users can only insert friend relationships where they are player1
 drop policy if exists "friends_insert_all" on public.friends;
+drop policy if exists "friends_insert_own" on public.friends;
 create policy "friends_insert_own"
   on public.friends for insert
   with check ((select auth.uid())::text = player1_id);
 
 -- Users can only update their own friend relationships
 drop policy if exists "friends_update_all" on public.friends;
+drop policy if exists "friends_update_own" on public.friends;
 create policy "friends_update_own"
   on public.friends for update
   using ((select auth.uid())::text = player1_id or (select auth.uid())::text = player2_id);

@@ -32,6 +32,19 @@
 -- cierre solo mientras todavía lo están usando activamente.
 -- ============================================================================
 
+-- Guard: si esto se corre sin haber ejecutado antes
+-- migration_008_lobbies.sql (que crea public.lobbies), Postgres tira un
+-- 42P01 "relation does not exist" en cuanto llega al primer ALTER TABLE
+-- — mensaje correcto pero poco obvio para quien está corriendo
+-- migraciones a mano una por una en el SQL Editor. Este chequeo falla
+-- antes, con un mensaje que dice exactamente qué falta.
+do $$
+begin
+  if to_regclass('public.lobbies') is null then
+    raise exception 'migration_008_lobbies.sql no se ejecutó todavía — corré esa migración primero (crea la tabla public.lobbies que esta migración extiende).';
+  end if;
+end $$;
+
 -- 1. Última actividad del lobby ---------------------------------------------
 alter table public.lobbies
   add column if not exists last_activity_at timestamptz not null default now();
