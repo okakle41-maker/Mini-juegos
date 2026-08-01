@@ -18,7 +18,7 @@ import safeStorage from '../core/safeStorage.js';
 import GameHelpers from '../utils/gameHelpers.js';
 import type { GameUi } from '../types/game.js';
 import audioManager from '../audioManager.js';
-import { multiplayerSystem } from '../multiplayerSystem.js';
+import { lobbySystem } from '../lobbySystem.js';
 import { setupSplitView, type SplitViewHandle } from '../utils/multiplayerSplitView.js';
 
 interface ArrowClickerInstance {
@@ -50,47 +50,19 @@ export function init(ui: GameUi) {
 
   if (!startArrow) return;
 
-  // Si hay una sala activa: el anfitrión usa los controles normales
-  // (sin panel aparte) y su click en "Empezar" también arranca la sala
-  // en el servidor; el invitado ve esos mismos controles bloqueados
-  // hasta que eso ocurra — ver mismo patrón en simon.logic.ts.
-  const activeMatch = multiplayerSystem.getCurrentMatch();
+  // Partida de lobby (ver lobbySystem.ts): la sub-partida ya queda en
+  // 'playing' con settings fijados por quien la creó apenas se une el
+  // segundo jugador — no hay pantalla previa de "esperando anfitrión"
+  // (eso era del viejo flujo de sala 1v1 suelta sobre MultiplayerSystem,
+  // ver nota histórica en multiplayerSplitView.ts).
+  const activeMatch = lobbySystem.getCurrentMatch();
   const isMultiplayer = activeMatch?.gameId === 'arrow';
-  const isHost = isMultiplayer && multiplayerSystem.isRoomHost(activeMatch!);
-  let stopRoomWatch: (() => void) | null = null;
 
   const applyArrowSettings = (s: Record<string, any>) => {
     if (!arrowLengthEl || !arrowTimeInput) return;
     arrowLengthEl.value = String(s.steps ?? 20);
     arrowTimeInput.value = String(s.time ?? 15);
   };
-
-  if (isMultiplayer && !isHost) {
-    applyArrowSettings(activeMatch!.settings || {});
-    [arrowLevelEl, arrowLengthEl, arrowTimeInput].forEach(el => {
-      if (el) el.disabled = true;
-    });
-    startArrow.disabled = true;
-    if (arrowMessage) {
-      arrowMessage.textContent = 'Esperando a que el anfitrión inicie la partida...';
-      arrowMessage.classList.remove('hidden');
-    }
-
-    stopRoomWatch = multiplayerSystem.onRoomUpdate(activeMatch!.id, (updated) => {
-      if (updated.status === 'waiting' && updated.settings) {
-        applyArrowSettings(updated.settings);
-      }
-      if (updated.status === 'playing') {
-        stopRoomWatch?.();
-        stopRoomWatch = null;
-        startArrow.disabled = false;
-        startArrow.click();
-      }
-    });
-  } else if (isHost && arrowMessage) {
-    arrowMessage.textContent = 'Sos el anfitrión: ajustá la dificultad y presioná Empezar cuando quieras.';
-    arrowMessage.classList.remove('hidden');
-  }
 
   // Split screen "Vos"/"Rival" (ver js/utils/multiplayerSplitView.ts):
   // acá es un panel resumen (solo símbolo actual + combo), no un
@@ -99,6 +71,24 @@ export function init(ui: GameUi) {
   const rivalDisplay = ui.arrowRivalDisplay as HTMLElement | undefined;
   const rivalCombo = ui.arrowRivalCombo as HTMLElement | undefined;
   const rivalLabel = ui.arrowRivalLabel as HTMLElement | undefined;
+
+  if (isMultiplayer) {
+    applyArrowSettings(activeMatch!.settings || {});
+    [arrowLevelEl, arrowLengthEl, arrowTimeInput].forEach(el => {
+      if (el) el.disabled = true;
+    });
+    if (split.isSpectating) {
+      startArrow.disabled = true;
+      startArrow.classList.add('hidden');
+      if (arrowMessage) {
+        arrowMessage.textContent = 'Especteando esta partida.';
+        arrowMessage.classList.remove('hidden');
+      }
+    } else if (arrowMessage) {
+      arrowMessage.textContent = 'Partida de lobby: presioná Empezar cuando quieras.';
+      arrowMessage.classList.remove('hidden');
+    }
+  }
 
   split.onRivalEvent('arrow:input', ({ symbol, correct, combo }: { symbol: string; correct: boolean; combo: number }) => {
     if (rivalDisplay) {
@@ -178,6 +168,7 @@ export function init(ui: GameUi) {
 
     start(options: Partial<ArrowOptions> = {}) {
       if (this.state.active) return;
+      if (split.isSpectating) return;
       this.options.steps = Number(options.steps || this.options.steps);
       this.options.time = Number(options.time || this.options.time);
       this.state.sequence = this.generateSequence(this.options.steps);
@@ -218,11 +209,13 @@ export function init(ui: GameUi) {
         finalPercent = percent;
       }
       this.updateUI();
-      // Cierra la sala en Supabase — ver comentario equivalente en
-      // simon.logic.ts/endSimonGame. Único punto que cubre tanto el
-      // éxito como el fallo de la secuencia.
-      if (split.isMultiplayer) {
-        void multiplayerSystem.finishRoomMatch(finalPercent);
+      // Reporta el resultado propio a la sub-partida del lobby — ver
+      // lobbySystem.completeMatch: se marca 'completed' recién cuando
+      // ambos jugadores reportaron el suyo. No aplica si se está
+      // especteando (un espectador no tiene resultado propio que
+      // reportar — su "stop" solo limpia estado visual local).
+      if (split.isMultiplayer && !split.isSpectating) {
+        void lobbySystem.completeMatch(finalPercent);
       }
       return success === true;
     }
@@ -294,6 +287,7 @@ export function init(ui: GameUi) {
 
     handleInput(key: string) {
       if (!this.state.active) return;
+      if (split.isSpectating) return;
       const expected = this.state.sequence[this.state.currentStep];
       if (!expected) return;
       const isCorrect = key === expected.key;
@@ -425,19 +419,10 @@ export function init(ui: GameUi) {
   }
 
   startArrow.addEventListener('click', () => {
+    if (split.isSpectating) return;
     const steps = Math.max(1, Math.min(parseInt(arrowLengthEl.value, 10) || 20, 30));
     const time = Math.max(5, Math.min(parseFloat(arrowTimeInput.value) || 15, 30));
     clicker.start({ steps, time });
-
-    // El anfitrión decide cuándo arranca: al apretar Empezar, además de
-    // arrancar localmente, persiste la dificultad final elegida y avisa
-    // al servidor para que el invitado también arranque (ver
-    // onRoomUpdate más arriba).
-    if (isHost && activeMatch) {
-      multiplayerSystem.updateRoomSettings(activeMatch.id, { steps, time })
-        .then(() => multiplayerSystem.startRoomMatch(activeMatch.id))
-        .catch(() => {});
-    }
   });
 
   // ARIA labels para accesibilidad
@@ -467,12 +452,10 @@ export function init(ui: GameUi) {
   GameInstanceRegistry.set<ArrowClickerInstance>('arrow', clicker);
   arrowKeyDownHandler = onKeyDown;
   arrowSplitCleanup = split.cleanup;
-  arrowRoomWatchCleanup = stopRoomWatch;
 }
 
 let arrowKeyDownHandler: ((event: KeyboardEvent) => void) | null = null;
 let arrowSplitCleanup: (() => void) | null = null;
-let arrowRoomWatchCleanup: (() => void) | null = null;
 
 export function stop() {
   const clicker = GameInstanceRegistry.get<ArrowClickerInstance>('arrow');
@@ -484,10 +467,6 @@ export function stop() {
   if (arrowSplitCleanup) {
     arrowSplitCleanup();
     arrowSplitCleanup = null;
-  }
-  if (arrowRoomWatchCleanup) {
-    arrowRoomWatchCleanup();
-    arrowRoomWatchCleanup = null;
   }
   GameInstanceRegistry.clear('arrow');
 }

@@ -2,17 +2,29 @@
  * js/utils/multiplayerSplitView.ts
  *
  * Mecanismo compartido para que un juego (con `logic.ts` de la forma
- * simon/arrowGame/termita) muestre, cuando hay una sala activa
- * (`createRoomMatch`/`joinRoomMatch`, ver multiplayerSystem.ts), un panel
- * de "split screen" con el propio tablero a un lado y una copia de solo
- * lectura del tablero del rival al otro — sincronizada en vivo transmitiendo
- * eventos de juego por `multiplayerSystem.sendGameEvent`.
+ * simon/arrowGame/termita) muestre, cuando hay una sub-partida activa
+ * dentro de un lobby (ver js/lobbySystem.ts), un panel de "split screen"
+ * con el propio tablero a un lado y una copia de solo lectura del tablero
+ * del rival al otro — sincronizada en vivo transmitiendo eventos de juego
+ * por `lobbySystem.sendGameEvent`.
+ *
+ * Nota histórica: Simon/Arrow/Termita jugaban antes 1v1 sueltos por
+ * código de sala directo sobre MultiplayerSystem
+ * (createRoomMatch/joinRoomMatch, live_matches). Eso se reemplazó por el
+ * sistema de lobbies (hasta 8 jugadores, sub-partidas 1v1 dentro del
+ * lobby, con spectating) — este helper ahora lee de `lobbySystem`, no de
+ * `multiplayerSystem`. MultiplayerSystem sigue existiendo tal cual para
+ * Letters Fall (coop asimétrico 1v1 sin lobby, otro caso de uso
+ * distinto), pero ya no es la fuente para estos tres juegos.
  *
  * No aplica al modo coop asimétrico de Letters Fall (roles viewer/typer,
  * donde ambos jugadores YA ven cosas distintas por diseño) — está pensado
- * para juegos donde ambos jugadores compiten en paralelo con el mismo
+ * para juegos donde dos jugadores compiten en paralelo con el mismo
  * tablero (Simon, Arrow, Termita), donde antes cada uno solo veía el
- * suyo sin ninguna noción de cómo le iba al otro.
+ * suyo sin ninguna noción de cómo le iba al otro. También soporta un
+ * tercer rol, espectador: alguien que no es player1Id ni player2Id de la
+ * sub-partida ve ambos lados en modo 100% solo-lectura (ver
+ * isSpectating más abajo).
  *
  * Contrato que cada juego debe cumplir para integrarse:
  *   1. Agregar en su template (`js/views/<juego>.ts`) un contenedor
@@ -24,25 +36,35 @@
  *      propio para que el CSS existente (no scoped a un id, o scoped a
  *      la sección de la vista) se aplique gratis.
  *   3. Llamar a `setupSplitView(...)` en `init()`, que devuelve
- *      `{ isMultiplayer, sendEvent }` — `sendEvent(type, payload)` es un
- *      no-op si no hay match activo, así que los puntos de emisión del
- *      juego (flashear un botón, marcar una celda) pueden llamarlo
- *      siempre sin ramificar con `if (isMultiplayer)` en cada sitio.
+ *      `{ isMultiplayer, isSpectating, sendEvent, onRivalEvent, remirror, cleanup }`
+ *      — `sendEvent(type, payload)` es un no-op si no hay match activo o
+ *      si se está especteando (un espectador no transmite nada, solo
+ *      recibe), así que los puntos de emisión del juego pueden llamarlo
+ *      siempre sin ramificar en cada sitio.
  *   4. Registrar los handlers de recepción con `onRivalEvent(type, fn)`
  *      para reconstruir cada acción visual sobre el tablero rival.
  *   5. Llamar a la función de limpieza devuelta al hacer `stop()`.
  */
 
-import { multiplayerSystem } from '../multiplayerSystem.js';
+import { lobbySystem } from '../lobbySystem.js';
 import type { GameUi } from '../types/game.js';
 
 export interface SplitViewHandle {
-  /** true si hay una sala activa para este juego (currentMatch.gameId coincide). */
+  /** true si hay una sub-partida activa de este juego (jugando o especteando). */
   isMultiplayer: boolean;
   /**
+   * true si quien mira la pantalla no es ninguno de los dos jugadores de
+   * la sub-partida — está especteando. En ese caso el propio tablero
+   * ("Vos") también debe tratarse como solo-lectura del lado de quien lo
+   * usa: cada juego consulta este flag para decidir si sus propios
+   * controles (click en botones/celdas) deben ignorarse.
+   */
+  isSpectating: boolean;
+  /**
    * Transmite un evento de juego al rival. No-op silencioso si no hay
-   * match activo — los puntos de emisión del juego pueden llamarlo
-   * incondicionalmente sin chequear isMultiplayer en cada uno.
+   * match activo o si se está especteando — los puntos de emisión del
+   * juego pueden llamarlo incondicionalmente sin chequear nada en cada
+   * uno.
    */
   sendEvent: (type: string, payload: unknown) => void;
   /**
@@ -89,8 +111,8 @@ function mirrorBoard(sourceBoard: HTMLElement, rivalContainer: HTMLElement): voi
 }
 
 /**
- * @param gameId id del juego (debe coincidir con `activeMatch.gameId`,
- *   ver readRoomSettings en multiplayer.logic.ts).
+ * @param gameId id del juego (debe coincidir con `activeMatch.gameId` de
+ *   `lobbySystem.getCurrentMatch()`).
  * @param ui GameUi ya resuelto por `resolveUi` — se espera
  *   `ui[`${prefix}Split`]` (opcional: algunos juegos, como Arrow, usan
  *   un panel de resumen en vez de un split de dos columnas y no tienen
@@ -109,14 +131,13 @@ function mirrorBoard(sourceBoard: HTMLElement, rivalContainer: HTMLElement): voi
  * "Empezar" llama a setupSimonBoard/setupGrid, que llama remirror()) —
  * no apenas el rival empieza su partida. Si el rival arranca primero y
  * yo todavía no presioné "Empezar", su lado del split queda vacío hasta
- * que yo también arranque. Solucionarlo de raíz (mostrar el tablero
- * rival apenas se sabe su tamaño/config, sin depender de que el propio
- * ya exista) requeriría que la sala transmitiera también la estructura
- * del tablero por separado del primer evento de juego — se deja así por
- * ahora porque ambos jugadores comparten el mismo `roomSettings`
- * (tamaño de grilla/cantidad de colores ya fijados por quien creó la
- * sala), así que en la práctica ambos arrancan casi al mismo tiempo tras
- * `onRoomUpdate` navegarlos al juego.
+ * que yo también arranque. Para un espectador que entra después de que
+ * ambos jugadores ya armaron su tablero, este límite no aplica: recibe
+ * el estado ya poblado en cuanto ambos lados vuelvan a emitir un evento
+ * (p.ej. el próximo flash/light), aunque no ve el estado previo a que
+ * él empezara a mirar — es una limitación aceptada del modelo actual
+ * (sin snapshot del tablero al conectar, solo eventos incrementales
+ * desde que se empieza a escuchar).
  */
 export function setupSplitView(
   gameId: string,
@@ -124,8 +145,12 @@ export function setupSplitView(
   prefix: string,
   ownBoard?: HTMLElement
 ): SplitViewHandle {
-  const activeMatch = multiplayerSystem.getCurrentMatch();
+  const activeMatch = lobbySystem.getCurrentMatch();
   const isMultiplayer = activeMatch?.gameId === gameId;
+  const myId = lobbySystem.currentPlayerId();
+  const isSpectating = isMultiplayer
+    && activeMatch!.player1Id !== myId
+    && activeMatch!.player2Id !== myId;
 
   const splitEl = ui[`${prefix}Split`] as HTMLElement | undefined;
   const rivalEl = ui[`${prefix}Rival`] as HTMLElement | undefined;
@@ -163,9 +188,10 @@ export function setupSplitView(
 
   return {
     isMultiplayer,
+    isSpectating,
     sendEvent: (type, payload) => {
-      if (!isMultiplayer) return;
-      void multiplayerSystem.sendGameEvent(type, payload);
+      if (!isMultiplayer || isSpectating) return;
+      void lobbySystem.sendGameEvent(type, payload);
     },
     onRivalEvent: (type, handler) => {
       if (!handlers.has(type)) handlers.set(type, []);

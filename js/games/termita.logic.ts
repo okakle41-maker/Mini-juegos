@@ -8,7 +8,7 @@
 
 import type { GameUi } from '../types/game.js';
 import audioManager from '../audioManager.js';
-import { multiplayerSystem } from '../multiplayerSystem.js';
+import { lobbySystem } from '../lobbySystem.js';
 import { setupSplitView, findRivalElement, type SplitViewHandle } from '../utils/multiplayerSplitView.js';
 
 export function init(ui: GameUi) {
@@ -18,15 +18,12 @@ export function init(ui: GameUi) {
 
     if (!startTermita) return;
 
-    // Si hay una sala activa: el anfitrión usa los controles normales
-    // (sin panel aparte) y su click en "Empezar" también arranca la
-    // sala en el servidor; el invitado ve esos mismos controles
-    // bloqueados hasta que eso ocurra — ver mismo patrón en
-    // simon.logic.ts.
-    const activeMatch = multiplayerSystem.getCurrentMatch();
+    // Partida de lobby (ver lobbySystem.ts): la sub-partida ya queda en
+    // 'playing' con settings fijados por quien la creó apenas se une el
+    // segundo jugador — no hay pantalla previa de "esperando anfitrión"
+    // (ver nota histórica en multiplayerSplitView.ts).
+    const activeMatch = lobbySystem.getCurrentMatch();
     const isMultiplayer = activeMatch?.gameId === 'termita';
-    const isHost = isMultiplayer && multiplayerSystem.isRoomHost(activeMatch!);
-    let stopRoomWatch: (() => void) | null = null;
 
     const applySettingsToInputs = (s: Record<string, any>) => {
       (gridSizeEl as HTMLSelectElement).value = String(s.size ?? 5);
@@ -34,31 +31,6 @@ export function init(ui: GameUi) {
       (showTimeEl as HTMLInputElement).value = String(s.showTime ?? 800);
       (roundsEl as HTMLInputElement).value = String(s.rounds ?? 5);
     };
-
-    if (isMultiplayer && !isHost) {
-      applySettingsToInputs(activeMatch!.settings || {});
-      [gridSizeEl, targetsEl, showTimeEl, roundsEl].forEach(el => {
-        if (el) (el as HTMLInputElement | HTMLSelectElement).disabled = true;
-      });
-      startTermita.disabled = true;
-      const info = termitaInfo as HTMLElement;
-      if (info) info.textContent = 'Esperando a que el anfitrión inicie la partida...';
-
-      stopRoomWatch = multiplayerSystem.onRoomUpdate(activeMatch!.id, (updated) => {
-        if (updated.status === 'waiting' && updated.settings) {
-          applySettingsToInputs(updated.settings);
-        }
-        if (updated.status === 'playing') {
-          stopRoomWatch?.();
-          stopRoomWatch = null;
-          startTermita.disabled = false;
-          startTermita.click();
-        }
-      });
-    } else if (isHost) {
-      const info = termitaInfo as HTMLElement;
-      if (info) info.textContent = 'Sos el anfitrión: ajustá la dificultad y presioná Empezar cuando quieras.';
-    }
 
     let state = {
       size: 5,
@@ -75,6 +47,21 @@ export function init(ui: GameUi) {
     // Split-screen "Vos"/"Rival" (ver js/utils/multiplayerSplitView.ts).
     const split: SplitViewHandle = setupSplitView('termita', ui, 'termita', gridEl as HTMLElement);
     const rivalGrid = ui.termitaRival as HTMLElement | undefined;
+
+    if (isMultiplayer) {
+      applySettingsToInputs(activeMatch!.settings || {});
+      [gridSizeEl, targetsEl, showTimeEl, roundsEl].forEach(el => {
+        if (el) (el as HTMLInputElement | HTMLSelectElement).disabled = true;
+      });
+      const info = termitaInfo as HTMLElement;
+      if (split.isSpectating) {
+        startTermita.disabled = true;
+        startTermita.classList.add('hidden');
+        if (info) info.textContent = 'Especteando esta partida.';
+      } else if (info) {
+        info.textContent = 'Partida de lobby: presioná Empezar cuando quieras.';
+      }
+    }
 
     if (rivalGrid) {
       split.onRivalEvent('termita:light', ({ indices }: { indices: number[] }) => {
@@ -163,6 +150,7 @@ export function init(ui: GameUi) {
     }
 
     function onCellClick(index: number) {
+      if (split.isSpectating) return;
       if (!state.acceptingInput) return;
       const grid = gridEl as HTMLElement;
       const el = grid.children[index] as HTMLElement;
@@ -214,12 +202,14 @@ export function init(ui: GameUi) {
           info.textContent = `Juego terminado — Puntuación final: ${state.score}`;
           if (audioManager) audioManager.play('perfect');
           if (window.Leaderboard) window.Leaderboard.save('termita', state.score, state.rounds);
-          // Cierra la sala en Supabase — ver comentario equivalente en
-          // simon.logic.ts/endSimonGame. Se hace acá (fin real del
-          // juego) y no en cada envío de termita:result (que ocurre
-          // por ronda), para no cerrar la sala a mitad de partida.
-          if (split.isMultiplayer) {
-            void multiplayerSystem.finishRoomMatch(state.score);
+          // Reporta el resultado propio a la sub-partida del lobby — ver
+          // lobbySystem.completeMatch: se marca 'completed' recién
+          // cuando ambos jugadores reportaron el suyo. Se hace acá (fin
+          // real del juego) y no en cada envío de termita:result (que
+          // ocurre por ronda), para no cerrar la sub-partida a mitad de
+          // partida. No aplica si se está especteando.
+          if (split.isMultiplayer && !split.isSpectating) {
+            void lobbySystem.completeMatch(state.score);
           }
         }
       }, 1000);
@@ -240,6 +230,7 @@ export function init(ui: GameUi) {
     }
 
     startTermita.addEventListener('click', () => {
+      if (split.isSpectating) return;
       state.size = parseInt((gridSizeEl as HTMLInputElement).value, 10) || 5;
       state.targets = Math.max(1, Math.min(parseInt((targetsEl as HTMLInputElement).value, 10) || 4, state.size * state.size));
       state.showTime = Math.max(100, parseInt((showTimeEl as HTMLInputElement).value, 10) || 800);
@@ -255,28 +246,13 @@ export function init(ui: GameUi) {
       startTermita.disabled = true;
       const totalDuration = (state.showTime + 2000) * state.rounds;
       setTimeout(() => { startTermita.disabled = false; }, totalDuration);
-
-      // El anfitrión decide cuándo arranca: al apretar Empezar, además
-      // de arrancar localmente, persiste la dificultad final elegida y
-      // avisa al servidor para que el invitado también arranque (ver
-      // onRoomUpdate más arriba).
-      if (isHost && activeMatch) {
-        const finalSettings = {
-          size: state.size,
-          targets: state.targets,
-          showTime: state.showTime,
-          rounds: state.rounds
-        };
-        multiplayerSystem.updateRoomSettings(activeMatch.id, finalSettings)
-          .then(() => multiplayerSystem.startRoomMatch(activeMatch.id))
-          .catch(() => {});
-      }
     });
 
     // Soporte de teclado para navegación por la cuadrícula
     let focusedCellIndex = 0;
     const grid = gridEl as HTMLElement;
     grid.addEventListener('keydown', (e) => {
+      if (split.isSpectating) return;
       if (!state.acceptingInput) return;
       
       const size = state.size;
@@ -323,20 +299,14 @@ export function init(ui: GameUi) {
     });
 
     termitaSplitCleanup = split.cleanup;
-    termitaRoomWatchCleanup = stopRoomWatch;
 }
 
 let termitaSplitCleanup: (() => void) | null = null;
-let termitaRoomWatchCleanup: (() => void) | null = null;
 
 export function stop() {
   // El juego no usa timers persistentes fuera de una ronda en curso
   if (termitaSplitCleanup) {
     termitaSplitCleanup();
     termitaSplitCleanup = null;
-  }
-  if (termitaRoomWatchCleanup) {
-    termitaRoomWatchCleanup();
-    termitaRoomWatchCleanup = null;
   }
 }

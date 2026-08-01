@@ -9,7 +9,7 @@
 import GameInstanceRegistry from '../core/gameInstanceRegistry.js';
 import type { GameUi } from '../types/game.js';
 import audioManager from '../audioManager.js';
-import { multiplayerSystem } from '../multiplayerSystem.js';
+import { lobbySystem } from '../lobbySystem.js';
 import { setupSplitView, findRivalElement, type SplitViewHandle } from '../utils/multiplayerSplitView.js';
 
 interface SimonInstance {
@@ -26,20 +26,20 @@ export function init(ui: GameUi) {
 
   const simonColors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple'];
 
-  // Si hay una sala activa para este juego: el anfitrión (isRoomHost)
-  // usa los controles normalmente — son los mismos inputs/botón de
-  // siempre, sin ningún panel aparte — y su click en "Empezar" además
-  // arranca la sala en el servidor (startRoomMatch) para que el
-  // invitado también arranque. El invitado ve esos mismos controles
-  // bloqueados y su "Empezar" deshabilitado hasta que eso ocurra.
-  const activeMatch = multiplayerSystem.getCurrentMatch();
+  // Split-screen "Vos"/"Rival" (ver js/utils/multiplayerSplitView.ts).
+  // A diferencia del viejo flujo de sala 1v1 suelta (createRoomMatch/
+  // joinRoomMatch sobre MultiplayerSystem), acá no hay pantalla previa
+  // de "esperando a que el anfitrión arranque": la sub-partida del
+  // lobby (lobbySystem.createMatch/joinMatchAsPlayer) ya queda en
+  // 'playing' apenas se completa el segundo jugador, con settings
+  // fijados por quien la creó — este código arranca directo con esos
+  // valores en vez de mostrar el formulario de dificultad editable.
+  const activeMatch = lobbySystem.getCurrentMatch();
   const isMultiplayer = activeMatch?.gameId === 'simon';
-  const isHost = isMultiplayer && multiplayerSystem.isRoomHost(activeMatch!);
-  let stopRoomWatch: (() => void) | null = null;
+  const split: SplitViewHandle = setupSplitView('simon', ui, 'simon', simonBoard as HTMLElement);
+  const rivalBoard = ui.simonRival as HTMLElement | undefined;
 
-  if (isMultiplayer && !isHost) {
-    // Invitado: valores del anfitrión (prellenados, no editables) y
-    // arranque bloqueado hasta que llegue el startRoomMatch real.
+  if (isMultiplayer) {
     const s = activeMatch!.settings || {};
     (colorCountEl as HTMLSelectElement).value = String(s.colorCount ?? 4);
     (baseLengthEl as HTMLInputElement).value = String(s.baseLength ?? 3);
@@ -48,52 +48,15 @@ export function init(ui: GameUi) {
     [colorCountEl, baseLengthEl, simonSpeedEl, simonRoundsEl].forEach(el => {
       if (el) (el as HTMLInputElement | HTMLSelectElement).disabled = true;
     });
-    startSimon.disabled = true;
     const info = simonInfo as HTMLElement;
-    if (info) info.textContent = 'Esperando a que el anfitrión inicie la partida...';
-
-    stopRoomWatch = multiplayerSystem.onRoomUpdate(activeMatch!.id, (updated) => {
-      // Mientras se espera, seguir reflejando los cambios de dificultad
-      // que el anfitrión vaya haciendo (todavía no arrancó nada local).
-      if (updated.status === 'waiting' && updated.settings) {
-        const us = updated.settings;
-        (colorCountEl as HTMLSelectElement).value = String(us.colorCount ?? 4);
-        (baseLengthEl as HTMLInputElement).value = String(us.baseLength ?? 3);
-        (simonSpeedEl as HTMLInputElement).value = String(us.speed ?? 700);
-        (simonRoundsEl as HTMLInputElement).value = String(us.rounds ?? 5);
-      }
-      if (updated.status === 'playing') {
-        stopRoomWatch?.();
-        stopRoomWatch = null;
-        startSimon.disabled = false;
-        startSimon.click();
-      }
-    });
-  } else if (isHost) {
-    const info = simonInfo as HTMLElement;
-    if (info) info.textContent = 'Sos el anfitrión: ajustá la dificultad y presioná Empezar cuando quieras.';
+    if (split.isSpectating) {
+      if (info) info.textContent = 'Especteando esta partida.';
+      startSimon.disabled = true;
+      startSimon.classList.add('hidden');
+    } else if (info) {
+      info.textContent = 'Partida de lobby: presioná Empezar cuando quieras.';
+    }
   }
-
-  let simonState = {
-    colorCount: 4,
-    baseLength: 3,
-    speed: 700,
-    rounds: 5,
-    currentRound: 0,
-    sequence: [] as string[],
-    userIndex: 0,
-    playerTurn: false,
-    score: 0,
-    playing: false
-  };
-
-  // Split-screen "Vos"/"Rival" (ver js/utils/multiplayerSplitView.ts):
-  // solo se activa si isMultiplayer (misma condición que ya deshabilita
-  // los controles arriba). split.sendEvent/onRivalEvent son no-ops si no
-  // hay match, así que el resto del código no necesita ramificar en
-  // cada punto de emisión.
-  const split: SplitViewHandle = setupSplitView('simon', ui, 'simon', simonBoard as HTMLElement);
-  const rivalBoard = ui.simonRival as HTMLElement | undefined;
 
   if (rivalBoard) {
     split.onRivalEvent('simon:flash', ({ color }: { color: string }) => {
@@ -115,6 +78,28 @@ export function init(ui: GameUi) {
       if (label) label.textContent = `Rival — ${score}/${rounds}`;
     });
   }
+
+  /**
+   * Un espectador ve el split (ambos tableros construidos vía
+   * setupSimonBoard/remirror para que el CSS/estructura sea igual que
+   * la de un jugador real), pero no juega ninguno de los dos lados: acá
+   * se muestra "Vos" con el tablero del jugador 1 espejado también
+   * (mismo mecanismo que el rival), en vez de dejarlo interactivo.
+   * Sencillo por ahora: si isSpectating, el propio tablero también
+   * queda deshabilitado apenas se construye (ver setupSimonBoard).
+   */
+  let simonState = {
+    colorCount: 4,
+    baseLength: 3,
+    speed: 700,
+    rounds: 5,
+    currentRound: 0,
+    sequence: [] as string[],
+    userIndex: 0,
+    playerTurn: false,
+    score: 0,
+    playing: false
+  };
 
   function setupSimonBoard(count: number) {
     const board = simonBoard as HTMLElement;
@@ -212,17 +197,16 @@ export function init(ui: GameUi) {
     info.textContent = message;
     if (window.Leaderboard) window.Leaderboard.save('simon', simonState.score, simonState.rounds);
     split.sendEvent('simon:gameover', { score: simonState.score, rounds: simonState.rounds });
-    // Cierra la sala en Supabase (status: 'completed') y publica el
-    // score propio al leaderboard en vivo — antes nada llamaba esto y
-    // la sala quedaba 'playing' para siempre, reservando su room_code
-    // indefinidamente (ver migration_005_coop_rooms.sql). No-op si no
-    // hay match activo.
-    if (split.isMultiplayer) {
-      void multiplayerSystem.finishRoomMatch(simonState.score);
+    // Reporta el resultado propio a la sub-partida del lobby — ver
+    // lobbySystem.completeMatch: se marca 'completed' recién cuando
+    // ambos jugadores reportaron el suyo.
+    if (split.isMultiplayer && !split.isSpectating) {
+      void lobbySystem.completeMatch(simonState.score);
     }
   }
 
   function onSimonPress(color: string) {
+    if (split.isSpectating) return;
     if (!simonState.playerTurn) return;
     const button = simonBoard.querySelector(`[data-color="${color}"]`) as HTMLElement;
     if (!button) return;
@@ -259,6 +243,7 @@ export function init(ui: GameUi) {
   }
 
   startSimon.addEventListener('click', () => {
+    if (split.isSpectating) return;
     simonState.colorCount = Math.max(2, Math.min(parseInt((colorCountEl as HTMLInputElement).value, 10) || 4, simonColors.length));
     simonState.baseLength = Math.max(1, parseInt((baseLengthEl as HTMLInputElement).value, 10) || 3);
     simonState.speed = Math.max(200, Math.min(parseInt((simonSpeedEl as HTMLInputElement).value, 10) || 700, 2000));
@@ -272,27 +257,11 @@ export function init(ui: GameUi) {
     (simonBoard as HTMLElement).classList.add('hidden');
     startSimon.disabled = true;
     startSimonRound();
-
-    // El anfitrión es quien decide cuándo arranca la partida: al
-    // apretar Empezar, además de arrancar localmente, persiste la
-    // dificultad final elegida y avisa al servidor — eso es lo que
-    // dispara, vía onRoomUpdate más arriba, que el invitado también
-    // arranque con los mismos valores.
-    if (isHost && activeMatch) {
-      const finalSettings = {
-        colorCount: simonState.colorCount,
-        baseLength: simonState.baseLength,
-        speed: simonState.speed,
-        rounds: simonState.rounds
-      };
-      multiplayerSystem.updateRoomSettings(activeMatch.id, finalSettings)
-        .then(() => multiplayerSystem.startRoomMatch(activeMatch.id))
-        .catch(() => {});
-    }
   });
 
   // Soporte de teclado para Simon
   const onKeyDown = (e: KeyboardEvent) => {
+    if (split.isSpectating) return;
     if (!simonState.playing || !simonState.playerTurn) return;
     const keyMap: Record<string, number> = { '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5 };
     const index = keyMap[e.key];
@@ -310,7 +279,6 @@ export function init(ui: GameUi) {
       simonState.playerTurn = false;
       document.removeEventListener('keydown', onKeyDown);
       split.cleanup();
-      stopRoomWatch?.();
     },
   });
 }

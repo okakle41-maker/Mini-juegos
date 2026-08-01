@@ -310,8 +310,19 @@ class MultiplayerSystem {
    * 4 caracteres).
    *
    * `settings` es la config de dificultad que el creador fija para
-   * ambos jugadores (ver migración 008) — el que se une la recibe de
-   * `joinRoomMatch`, nunca la elige él mismo.
+   * ambos jugadores (ver migración 005/008) — el que se une la recibe
+   * de `joinRoomMatch`, nunca la elige él mismo.
+   *
+   * Nota de alcance (post-lobby grupal): este método, junto con
+   * `joinRoomMatch`/`isRoomHost`/`updateRoomSettings`/`startRoomMatch`/
+   * `finishRoomMatch`/`onRoomUpdate`, hoy solo los usa Caída de Letras
+   * (`js/games/lettersFall.logic.ts`) — un coop asimétrico 1v1 con roles
+   * fijos (viewer/typer) que no encaja en el modelo de lobby grupal de
+   * "cualquiera puede ser rival de cualquiera" (ver js/lobbySystem.ts).
+   * Simon/Arrow/Termita se movieron al lobby grupal y ya no llaman a
+   * ninguno de estos métodos ni pasan por `live_matches` — ver
+   * js/games/simon.logic.ts, arrowGame.logic.ts, termita.logic.ts y el
+   * comentario histórico en js/utils/multiplayerSplitView.ts.
    */
   async createRoomMatch(gameId: string, role: string, settings: Record<string, any> = {}): Promise<Match> {
     await this.waitForInitialization();
@@ -799,9 +810,14 @@ class MultiplayerSystem {
   // Spectator mode
 
   /**
-   * Lista salas activas (esperando o en curso) para mostrar en "Partidas
-   * Activas" — sin esto el contenedor #active-matches en la UI nunca se
-   * llenaba, porque nada hacía un select real contra live_matches.
+   * Lista salas activas (esperando o en curso) de live_matches — hoy
+   * solo Letters Fall crea filas ahí (Simon/Arrow/Termita se juegan
+   * desde el lobby grupal, ver js/lobbySystem.ts, tablas separadas).
+   * Ya no hay UI que llame a este método (la sección "Partidas Activas"
+   * de la vista multiplayer se quitó junto con el resto del flujo de
+   * sala 1v1 suelta genérico), pero se deja disponible como parte de la
+   * API pública de MultiplayerSystem por si se agrega spectating de
+   * Letters Fall más adelante.
    */
   async listActiveMatches(gameId?: string): Promise<Match[]> {
     if (!this.supabaseClient || !this.isConnected) return [];

@@ -15,66 +15,75 @@ export function template(): string {
         </div>
       </div>
 
-      <!-- Salas por código -->
-      <div class="matchmaking-section">
-        <h3 class="section-title">🚪 Salas por Código</h3>
+      <!-- Lobby grupal: hasta 8 jugadores, sub-partidas 1v1 de Simon/
+           Arrow/Termita dentro del mismo grupo -->
+      <div class="lobby-section" id="lobby-section">
+        <h3 class="section-title">👥 Lobby Grupal (hasta 8 jugadores)</h3>
         <div class="section-decorative">
-          <span>🎮</span><span>⚔️</span><span>🏆</span>
-        </div>
-        <div class="matchmaking-form">
-          <div class="form-group">
-            <label for="room-game-select">Juego</label>
-            <select id="room-game-select">
-              <option value="simon">Simon Dice</option>
-              <option value="arrow">Desafío Flechas</option>
-              <option value="termita">Termita</option>
-              <option value="letters">Caída de Letras</option>
-            </select>
-          </div>
-          <button class="match-btn" id="create-room-btn">🆕 Crear Sala</button>
+          <span>👥</span><span>🎮</span><span>🏆</span>
         </div>
 
-        <div class="matchmaking-status" id="room-created-status" style="display: none;">
-          <div class="queue-info">
-            <span>Código de sala: </span>
-            <span id="room-code-display" style="font-weight:bold; letter-spacing:2px;"></span>
+        <div id="lobby-entry" class="lobby-entry">
+          <div class="matchmaking-form">
+            <button class="match-btn" id="lobby-create-btn">🆕 Crear Lobby</button>
           </div>
-          <span>Compartí este código con la otra persona para que se una.</span>
+          <div class="matchmaking-form">
+            <div class="form-group">
+              <label for="lobby-join-code">Código de lobby</label>
+              <input type="text" id="lobby-join-code" placeholder="Ej: AB3C" maxlength="4">
+            </div>
+            <button class="match-btn" id="lobby-join-btn">🔑 Unirse a Lobby</button>
+          </div>
+          <div class="lobby-error hidden" id="lobby-error" role="alert"></div>
         </div>
-        <div class="matchmaking-form">
-          <div class="form-group">
-            <label for="join-room-code">Código de sala</label>
-            <input type="text" id="join-room-code" placeholder="Ej: AB3C" maxlength="4">
+
+        <div id="lobby-active" class="lobby-active hidden">
+          <div class="lobby-code-banner">
+            <span>Código del lobby: </span>
+            <span id="lobby-code-display" style="font-weight:bold; letter-spacing:2px;"></span>
+            <button class="lobby-leave-btn" id="lobby-leave-btn">🚪 Salir del lobby</button>
           </div>
-          <button class="match-btn" id="join-room-btn">🔑 Unirse a Sala</button>
+
+          <div class="lobby-players-section">
+            <h4 class="subsection-title">Jugadores (<span id="lobby-player-count">0</span>/8)</h4>
+            <div class="lobby-players-list" id="lobby-players-list"></div>
+          </div>
+
+          <div class="lobby-new-match-section">
+            <h4 class="subsection-title">Crear partida</h4>
+            <div class="matchmaking-form">
+              <div class="form-group">
+                <label for="lobby-game-select">Juego</label>
+                <select id="lobby-game-select">
+                  <option value="simon">Simon Dice</option>
+                  <option value="arrow">Desafío Flechas</option>
+                  <option value="termita">Termita</option>
+                </select>
+              </div>
+              <button class="match-btn" id="lobby-create-match-btn">🆚 Crear Partida</button>
+            </div>
+          </div>
+
+          <div class="lobby-matches-section">
+            <h4 class="subsection-title">Partidas en el lobby</h4>
+            <div class="lobby-matches-list" id="lobby-matches-list">
+              <p class="no-matches">Todavía no hay partidas. ¡Creá una!</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Current Match -->
-      <div class="current-match-section" id="current-match-section" style="display: none;">
-        <h3 class="section-title">⚔️ Partida en Curso</h3>
-        <div class="match-info">
-          <div class="match-players">
-            <div class="player-card">
-              <span class="player-avatar" id="player1-avatar">👤</span>
-              <span class="player-name" id="player1-name">Jugador 1</span>
-              <span class="player-score" id="player1-score">0</span>
-            </div>
-            <div class="vs-divider">VS</div>
-            <div class="player-card">
-              <span class="player-avatar" id="player2-avatar">👤</span>
-              <span class="player-name" id="player2-name">Jugador 2</span>
-              <span class="player-score" id="player2-score">0</span>
-            </div>
-          </div>
-          <div class="match-timer">
-            <span class="timer-icon">⏱️</span>
-            <span class="timer-value" id="match-timer">00:00</span>
-          </div>
+      <!-- Salas 1v1 sueltas: hoy solo Letters Fall (coop asimétrico,
+           roles viewer/typer) las usa — Simon/Arrow/Termita se juegan
+           desde el Lobby Grupal de arriba. -->
+      <div class="matchmaking-section">
+        <h3 class="section-title">🔤 Caída de Letras (coop 1v1)</h3>
+        <div class="section-decorative">
+          <span>🎮</span><span>⚔️</span><span>🏆</span>
         </div>
-        <div class="match-actions">
-          <button class="match-action-btn" id="ready-btn">✅ Listo</button>
-          <button class="match-action-btn danger" id="leave-match-btn">🚪 Abandonar</button>
+        <p class="section-hint">Caída de Letras es cooperativo entre dos: usá el botón de abajo para crear o unirte a su propia sala.</p>
+        <div class="matchmaking-form">
+          <button class="match-btn" id="letters-room-btn">🔤 Ir a Caída de Letras</button>
         </div>
       </div>
 
@@ -108,27 +117,6 @@ export function template(): string {
           <div class="chat-input-container">
             <input type="text" class="chat-input" id="chat-input" placeholder="Escribe un mensaje..." aria-label="Mensaje de chat">
             <button class="chat-send-btn" id="chat-send-btn">Enviar</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Spectator Mode -->
-      <div class="spectator-section">
-        <h3 class="section-title">👁️ Modo Espectador</h3>
-        <div class="section-decorative">
-          <span>👁️</span><span>🎥</span><span>📺</span>
-        </div>
-        <div class="spectator-form">
-          <div class="form-group">
-            <label for="spectator-match-id">ID de Partida</label>
-            <input type="text" id="spectator-match-id" placeholder="Ingresa el ID de la partida">
-          </div>
-          <button class="spectator-btn" id="spectate-btn">👁️ Ver Partida</button>
-        </div>
-        <div class="active-matches" id="active-matches">
-          <h4 class="subsection-title">Partidas Activas</h4>
-          <div class="matches-list">
-            <!-- Las partidas activas se generan dinámicamente -->
           </div>
         </div>
       </div>

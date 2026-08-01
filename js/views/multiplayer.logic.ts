@@ -1,10 +1,20 @@
 /**
  * Multiplayer View Logic
  * Lógica para la vista de multiplayer en tiempo real
+ *
+ * Dos sistemas conviven acá, cada uno con su propia sección en el
+ * template (ver multiplayer.ts):
+ *   - lobbySystem: lobby grupal de hasta 8 jugadores por código, con
+ *     sub-partidas 1v1 de Simon/Arrow/Termita dentro (crear, listar,
+ *     unirse como rival o espectador).
+ *   - multiplayerSystem: Caída de Letras sigue siendo una sala 1v1
+ *     suelta coop asimétrica (roles viewer/typer) — no tiene sentido
+ *     dentro de un lobby de "quién juega contra quién", así que
+ *     mantiene su propio flujo nativo dentro de la vista del juego.
  */
 
 import { multiplayerSystem } from '../multiplayerSystem.js';
-import type { ScoreEventDetail } from '../types/game';
+import { lobbySystem, type LobbyGameId, type LobbyPlayer } from '../lobbySystem.js';
 import { template } from './multiplayer.js';
 import { escapeHtml } from '../security.js';
 
@@ -22,6 +32,19 @@ function clearCache(): void {
   cachedElements = {};
 }
 
+const GAME_LABELS: Record<LobbyGameId, string> = {
+  simon: 'Simon Dice',
+  arrow: 'Desafío Flechas',
+  termita: 'Termita'
+};
+
+const STATUS_LABELS: Record<LobbyPlayer['status'], string> = {
+  idle: 'En el lobby',
+  waiting_match: 'Esperando rival',
+  playing: 'Jugando',
+  spectating: 'Especteando'
+};
+
 export function init(): void {
   const container = document.getElementById('multiplayer');
   if (!container) return;
@@ -29,12 +52,22 @@ export function init(): void {
   container.innerHTML = template();
   renderConnectionStatus();
   renderLeaderboards();
-  setupEventListeners();
+  setupLettersSection();
+  setupLobbySection();
+  setupChatSection();
   setupMultiplayerListeners();
+  setupLobbyListeners();
+
+  // Si ya había un lobby activo (p.ej. se navegó a jugar una sub-partida
+  // y se volvió acá), se re-renderiza en vez de mostrar la pantalla de
+  // "crear/unirse" de nuevo.
+  if (lobbySystem.getCurrentLobby()) {
+    showLobbyActive();
+  }
 }
 
 function renderConnectionStatus(): void {
-  const status = document.getElementById('connection-status');
+  const status = getElement('connection-status');
   if (status) {
     const isConnected = multiplayerSystem.isConnectedToServer();
     status.innerHTML = `
@@ -45,12 +78,12 @@ function renderConnectionStatus(): void {
 }
 
 function renderLeaderboards(): void {
-  const leaderboardList = document.getElementById('leaderboard-list');
+  const leaderboardList = getElement('leaderboard-list');
   if (leaderboardList) {
     const leaderboards = multiplayerSystem.getAllLeaderboards();
     const firstGame = leaderboards.keys().next().value;
     const entries = firstGame ? leaderboards.get(firstGame) || [] : [];
-    
+
     leaderboardList.innerHTML = entries.slice(0, 10).map((entry, index) => `
       <div class="leaderboard-entry ${index < 3 ? 'leaderboard-entry--top' : ''}">
         <span class="entry-rank">#${index + 1}</span>
@@ -61,94 +94,220 @@ function renderLeaderboards(): void {
   }
 }
 
-/**
- * true mientras navegamos deliberadamente hacia el juego porque se
- * creó/unió una sala — en ese caso stop() no debe abandonar la sala que
- * el juego está a punto de usar (el propio juego gestiona su ciclo de
- * vida vía startRoomMatch/finishRoomMatch, ver simon.logic.ts etc.).
- * Se resetea apenas se sale.
- */
-let leavingToPlay = false;
-
-function navigateToGame(gameId: string): void {
-  leavingToPlay = true;
-  window.showView?.(gameId);
+function renderLeaderboardForGame(gameId: string): void {
+  const leaderboardList = getElement('leaderboard-list');
+  if (leaderboardList) {
+    const entries = multiplayerSystem.getLeaderboard(gameId);
+    leaderboardList.innerHTML = entries.slice(0, 10).map((entry, index) => `
+      <div class="leaderboard-entry ${index < 3 ? 'leaderboard-entry--top' : ''}">
+        <span class="entry-rank">#${index + 1}</span>
+        <span class="entry-name">${escapeHtml(entry.playerName)}</span>
+        <span class="entry-score">${entry.score}</span>
+      </div>
+    `).join('');
+  }
 }
 
-function setupEventListeners(): void {
-  // Crear sala: la dificultad y el botón de arranque viven dentro del
-  // juego mismo (ver simon.logic.ts/arrowGame.logic.ts/termita.logic.ts)
-  // — acá solo se genera el código y se navega directo a jugar.
-  document.getElementById('create-room-btn')?.addEventListener('click', async () => {
-    const gameId = (document.getElementById('room-game-select') as HTMLSelectElement).value;
+// ── Sección Caída de Letras (sala 1v1 suelta, sin cambios de fondo) ────
 
-    // Letters Fall es coop asimétrico (roles viewer/typer, no "player"
-    // genérico) y ya tiene su propia pantalla de crear/unirse sala
-    // dentro del juego. Crear una sala genérica desde esta vista
-    // generaría una fila de live_matches incompatible con lo que espera
-    // lettersFall.logic.ts (sin rol asignado) — mejor redirigir al
-    // flujo nativo que duplicar la lógica de sala.
-    if (gameId === 'letters') {
-      window.showView?.('letters');
-      return;
-    }
+function setupLettersSection(): void {
+  getElement('letters-room-btn')?.addEventListener('click', () => {
+    window.showView?.('letters');
+  });
+}
 
+// ── Sección Lobby Grupal ────────────────────────────────────────────
+
+/**
+ * true mientras navegamos deliberadamente hacia un juego porque se creó
+ * o unió a una sub-partida — en ese caso stop() no debe abandonar el
+ * lobby (el jugador va a volver a esta vista al terminar/salir del
+ * juego). Se resetea apenas se sale.
+ */
+let leavingToPlayLobbyMatch = false;
+
+function showLobbyEntry(): void {
+  getElement('lobby-entry')?.classList.remove('hidden');
+  getElement('lobby-active')?.classList.add('hidden');
+}
+
+function showLobbyActive(): void {
+  getElement('lobby-entry')?.classList.add('hidden');
+  getElement('lobby-active')?.classList.remove('hidden');
+  const lobby = lobbySystem.getCurrentLobby();
+  if (lobby) {
+    const codeDisplay = getElement('lobby-code-display');
+    if (codeDisplay) codeDisplay.textContent = lobby.roomCode;
+  }
+  renderLobbyPlayers();
+  renderLobbyMatches();
+}
+
+function showLobbyError(message: string): void {
+  const el = getElement('lobby-error');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+function clearLobbyError(): void {
+  getElement('lobby-error')?.classList.add('hidden');
+}
+
+function setupLobbySection(): void {
+  getElement('lobby-create-btn')?.addEventListener('click', async () => {
+    clearLobbyError();
     try {
-      await multiplayerSystem.createRoomMatch(gameId, 'player');
-      navigateToGame(gameId);
+      await lobbySystem.createLobby();
+      showLobbyActive();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo crear la sala');
+      showLobbyError(e instanceof Error ? e.message : 'No se pudo crear el lobby.');
     }
   });
 
-  // Unirse a sala
-  document.getElementById('join-room-btn')?.addEventListener('click', async () => {
-    const gameId = (document.getElementById('room-game-select') as HTMLSelectElement).value;
-    const code = (document.getElementById('join-room-code') as HTMLInputElement).value;
-
-    if (gameId === 'letters') {
-      window.showView?.('letters');
-      return;
-    }
-
-    if (!code.trim()) return;
+  getElement('lobby-join-btn')?.addEventListener('click', async () => {
+    clearLobbyError();
+    const codeInput = getElement('lobby-join-code') as HTMLInputElement | null;
+    const code = codeInput?.value.trim();
+    if (!code) return;
     try {
-      // autoStart=false: la sala queda en 'waiting' hasta que el
-      // anfitrión la arranque desde el botón "Empezar" del juego — ver
-      // startRoomMatch en multiplayerSystem.ts y su uso en
-      // simon.logic.ts/arrowGame.logic.ts/termita.logic.ts.
-      await multiplayerSystem.joinRoomMatch(gameId, code, 'player', false);
-      navigateToGame(gameId);
+      await lobbySystem.joinLobby(code);
+      showLobbyActive();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'No se pudo unir a la sala');
+      showLobbyError(e instanceof Error ? e.message : 'No se pudo unir al lobby.');
     }
   });
 
-  // Enviar mensaje de chat
-  document.getElementById('chat-send-btn')?.addEventListener('click', () => {
-    const input = document.getElementById('chat-input') as HTMLInputElement;
-    const message = input.value.trim();
+  getElement('lobby-leave-btn')?.addEventListener('click', async () => {
+    await lobbySystem.leaveLobby();
+    showLobbyEntry();
+  });
+
+  getElement('lobby-create-match-btn')?.addEventListener('click', async () => {
+    clearLobbyError();
+    const select = getElement('lobby-game-select') as HTMLSelectElement | null;
+    const gameId = (select?.value ?? 'simon') as LobbyGameId;
+    try {
+      await lobbySystem.createMatch(gameId);
+      leavingToPlayLobbyMatch = true;
+      window.showView?.(gameId);
+    } catch (e) {
+      showLobbyError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
+    }
+  });
+}
+
+function renderLobbyPlayers(): void {
+  const lobby = lobbySystem.getCurrentLobby();
+  const list = getElement('lobby-players-list');
+  const countEl = getElement('lobby-player-count');
+  if (!lobby || !list) return;
+
+  if (countEl) countEl.textContent = String(lobby.players.length);
+
+  list.innerHTML = lobby.players.map((p) => `
+    <div class="lobby-player-item">
+      <span class="lobby-player-name">${escapeHtml(p.username)}${p.id === lobby.hostId ? ' 👑' : ''}</span>
+      <span class="lobby-player-status">${STATUS_LABELS[p.status]}</span>
+    </div>
+  `).join('');
+}
+
+function renderLobbyMatches(): void {
+  const list = getElement('lobby-matches-list');
+  if (!list) return;
+  const matches = lobbySystem.getMatches();
+  const myId = lobbySystem.currentPlayerId();
+  const lobby = lobbySystem.getCurrentLobby();
+
+  if (matches.length === 0) {
+    list.innerHTML = '<p class="no-matches">Todavía no hay partidas. ¡Creá una!</p>';
+    return;
+  }
+
+  const usernameById = new Map((lobby?.players ?? []).map((p) => [p.id, p.username]));
+
+  list.innerHTML = matches.map((m) => {
+    const p1Name = usernameById.get(m.player1Id) ?? 'Jugador';
+    const p2Name = m.player2Id ? (usernameById.get(m.player2Id) ?? 'Jugador') : null;
+    const iAmPlayer = m.player1Id === myId || m.player2Id === myId;
+    const canJoinAsPlayer = m.status === 'waiting' && !m.player2Id && !iAmPlayer;
+    const canSpectate = m.status === 'playing' && !iAmPlayer;
+    const canResume = iAmPlayer && (m.status === 'waiting' || m.status === 'playing');
+
+    return `
+      <div class="lobby-match-item" data-match-id="${escapeHtml(m.id)}">
+        <span class="lobby-match-game">${GAME_LABELS[m.gameId]}</span>
+        <span class="lobby-match-players">${escapeHtml(p1Name)}${p2Name ? ` vs ${escapeHtml(p2Name)}` : ' (esperando rival)'}</span>
+        <span class="lobby-match-status">${m.status === 'waiting' ? '⏳ Esperando' : '▶️ En curso'}</span>
+        ${canResume ? `<button class="lobby-match-resume-btn" data-action="resume" data-game="${m.gameId}">▶️ Volver a mi partida</button>` : ''}
+        ${canJoinAsPlayer ? `<button class="lobby-match-join-btn" data-action="join" data-match-id="${m.id}" data-game="${m.gameId}">🆚 Unirse como rival</button>` : ''}
+        ${canSpectate ? `<button class="lobby-match-spectate-btn" data-action="spectate" data-match-id="${m.id}" data-game="${m.gameId}">👁️ Espectar</button>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('button[data-action]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const el = btn as HTMLElement;
+      const action = el.dataset.action;
+      const gameId = el.dataset.game as LobbyGameId;
+      const matchId = el.dataset.matchId;
+
+      try {
+        if (action === 'resume') {
+          leavingToPlayLobbyMatch = true;
+          window.showView?.(gameId);
+        } else if (action === 'join' && matchId) {
+          await lobbySystem.joinMatchAsPlayer(matchId);
+          leavingToPlayLobbyMatch = true;
+          window.showView?.(gameId);
+        } else if (action === 'spectate' && matchId) {
+          await lobbySystem.spectateMatch(matchId);
+          leavingToPlayLobbyMatch = true;
+          window.showView?.(gameId);
+        }
+      } catch (e) {
+        showLobbyError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
+      }
+    });
+  });
+}
+
+function setupLobbyListeners(): void {
+  const playersHandler = () => renderLobbyPlayers();
+  const matchesHandler = () => renderLobbyMatches();
+  const hostChangedHandler = () => renderLobbyPlayers();
+
+  window.addEventListener('lobby:players_changed', playersHandler);
+  window.addEventListener('lobby:matches_changed', matchesHandler);
+  window.addEventListener('lobby:match_created', matchesHandler);
+  window.addEventListener('lobby:match_joined', matchesHandler);
+  window.addEventListener('lobby:match_left', matchesHandler);
+  window.addEventListener('lobby:host_changed', hostChangedHandler);
+
+  eventListeners.push(() => {
+    window.removeEventListener('lobby:players_changed', playersHandler);
+    window.removeEventListener('lobby:matches_changed', matchesHandler);
+    window.removeEventListener('lobby:match_created', matchesHandler);
+    window.removeEventListener('lobby:match_joined', matchesHandler);
+    window.removeEventListener('lobby:match_left', matchesHandler);
+    window.removeEventListener('lobby:host_changed', hostChangedHandler);
+  });
+}
+
+// ── Chat global (sin cambios de fondo) ──────────────────────────────
+
+function setupChatSection(): void {
+  getElement('chat-send-btn')?.addEventListener('click', () => {
+    const input = getElement('chat-input') as HTMLInputElement | null;
+    const message = input?.value.trim();
     if (message) {
       multiplayerSystem.sendMatchMessage(message);
-      input.value = '';
+      input!.value = '';
     }
   });
 
-  // Espectador
-  document.getElementById('spectate-btn')?.addEventListener('click', async () => {
-    const matchId = (document.getElementById('spectator-match-id') as HTMLInputElement).value;
-    if (matchId) {
-      const match = await multiplayerSystem.spectateMatch(matchId);
-      if (!match) {
-        alert('No se encontró esa partida.');
-      }
-    }
-  });
-
-  // Actualizar listado de partidas activas al abrir la vista
-  renderActiveMatches();
-
-  // Leaderboard tabs
   document.querySelectorAll('.leaderboard-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.leaderboard-tab').forEach(t => t.classList.remove('leaderboard-tab--active'));
@@ -158,115 +317,36 @@ function setupEventListeners(): void {
   });
 }
 
-async function renderActiveMatches(): Promise<void> {
-  const container = document.getElementById('active-matches');
-  if (!container) return;
-  const list = container.querySelector('.matches-list') || container;
-
-  const matches = await multiplayerSystem.listActiveMatches();
-  if (matches.length === 0) {
-    list.innerHTML = '<p class="no-matches">No hay partidas activas ahora mismo</p>';
-    return;
-  }
-
-  list.innerHTML = matches.map(m => `
-    <div class="match-list-item">
-      <span class="match-list-game">${escapeHtml(m.gameId)}</span>
-      <span class="match-list-status">${m.status === 'waiting' ? '⏳ Esperando' : '▶️ En curso'}</span>
-      <span class="match-list-players">${m.players.length}/2 jugadores</span>
-      <button class="spectate-list-btn" data-match-id="${escapeHtml(m.id)}">👁️ Ver</button>
-    </div>
-  `).join('');
-
-  list.querySelectorAll('.spectate-list-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const matchId = (btn as HTMLElement).dataset.matchId;
-      if (matchId) await multiplayerSystem.spectateMatch(matchId);
-    });
-  });
-}
-
-function renderLeaderboardForGame(gameId: string): void {
-  const leaderboardList = document.getElementById('leaderboard-list');
-  if (leaderboardList) {
-    const entries = multiplayerSystem.getLeaderboard(gameId);
-    
-    leaderboardList.innerHTML = entries.slice(0, 10).map((entry, index) => `
-      <div class="leaderboard-entry ${index < 3 ? 'leaderboard-entry--top' : ''}">
-        <span class="entry-rank">#${index + 1}</span>
-        <span class="entry-name">${escapeHtml(entry.playerName)}</span>
-        <span class="entry-score">${entry.score}</span>
-      </div>
-    `).join('');
-  }
-}
-
 function setupMultiplayerListeners(): void {
-  const scoreUpdatedHandler = (e: any) => {
-    updateMatchScores(e.detail);
-  };
   const leaderboardUpdatedHandler = () => {
     renderLeaderboards();
   };
-  const spectatingStartedHandler = (e: any) => {
-    document.getElementById('current-match-section')!.style.display = 'block';
-    renderCurrentMatch(e.detail.match);
-  };
 
-  window.addEventListener('multiplayer:score_updated', scoreUpdatedHandler);
   window.addEventListener('multiplayer:leaderboard_updated', leaderboardUpdatedHandler);
-  window.addEventListener('multiplayer:spectating_started', spectatingStartedHandler);
 
   eventListeners.push(() => {
-    window.removeEventListener('multiplayer:score_updated', scoreUpdatedHandler);
     window.removeEventListener('multiplayer:leaderboard_updated', leaderboardUpdatedHandler);
-    window.removeEventListener('multiplayer:spectating_started', spectatingStartedHandler);
   });
 }
 
-function renderCurrentMatch(match: any): void {
-  document.getElementById('player1-name')!.textContent = match.players[0]?.name || 'Jugador 1';
-  document.getElementById('player2-name')!.textContent = match.players[1]?.name || 'Esperando...';
-  document.getElementById('player1-avatar')!.textContent = match.players[0]?.avatar || '👤';
-  document.getElementById('player2-avatar')!.textContent = match.players[1]?.avatar || '⏳';
-}
-
-function updateMatchScores(data: ScoreEventDetail): void {
-  // multiplayer:score_updated siempre trae el id real del jugador que
-  // reportó el score (multiplayerSystem.playerStatus.id, del estilo
-  // `player_<timestamp>_<random>`) — nunca el literal 'current_player'
-  // (eso no existe en ningún punto de multiplayerSystem.ts). Comparar
-  // contra ese literal hacía que el propio score nunca actualizara
-  // player1-score y siempre cayera en player2-score.
-  const ownId = multiplayerSystem.getPlayerStatus()?.id;
-  if (ownId && data.playerId === ownId) {
-    document.getElementById('player1-score')!.textContent = data.score.toString();
-  } else {
-    document.getElementById('player2-score')!.textContent = data.score.toString();
-  }
-}
-
 export function stop(): void {
-  // Limpiar event listeners
   eventListeners.forEach(cleanup => cleanup());
   eventListeners = [];
-  
-  // Limpiar caché de elementos
   clearCache();
 
-  // Si el jugador creó o se unió a una sala desde esta vista y la deja
-  // sin ir a jugar (navega a otra sección del menú), la sala quedaba
-  // "waiting"/"playing" para siempre — nadie más la marcaba abandonada.
-  // No se toca si estamos saliendo porque se creó/unió una sala y se
-  // está navegando al juego (ver navigateToGame) ni si el juego real ya
-  // tomó la sala (lettersFall.logic.ts gestiona su propio
-  // leaveRoomMatch() al terminar la partida).
-  if (!leavingToPlay && multiplayerSystem.getCurrentMatch()) {
-    multiplayerSystem.leaveRoomMatch().catch(() => {});
-  }
-  leavingToPlay = false;
-  
-  // Limpiar contenido del contenedor
+  // Si el jugador está navegando deliberadamente a jugar una sub-partida
+  // del lobby, no lo sacamos del lobby — solo si realmente se está
+  // yendo de la vista sin ir a jugar nada (navegó a otra sección del
+  // menú). El lobby en sí (a diferencia de la sub-partida, que cada
+  // juego gestiona con lobbySystem.leaveCurrentMatch/completeMatch)
+  // sigue activo del lado del servidor aunque el cliente cierre esta
+  // vista — solo se abandona explícitamente con el botón "Salir del
+  // lobby" (lobbySystem.leaveLobby no se llama acá a propósito:
+  // abandonar el lobby automáticamente al salir de la vista sería
+  // agresivo y perdería el lugar en un lobby con amigos por
+  // simplemente mirar otra pantalla del menú un momento).
+  leavingToPlayLobbyMatch = false;
+
   const container = document.getElementById('multiplayer');
   if (container) {
     container.innerHTML = '';
