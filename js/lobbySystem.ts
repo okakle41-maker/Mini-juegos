@@ -525,8 +525,24 @@ class LobbySystem {
 
     if (client && this.isConnected) {
       try {
-        if (wasPlayer && this.currentMatch.status !== 'completed') {
-          await client.from('lobby_matches').update({ status: 'abandoned' }).eq('id', matchId);
+        if (wasPlayer) {
+          // No confiar en this.currentMatch.status (estado local en
+          // memoria): completeMatch() no lo actualiza sincrónicamente
+          // tras su propio update — la única vía es la actualización de
+          // Realtime, que puede no haber llegado todavía si esto se
+          // llama justo después de completeMatch() en el mismo flujo de
+          // salida (ver stop() en simon/arrow/termita .logic.ts). Sin
+          // releer, un 'completed' recién escrito por completeMatch()
+          // podía pisarse acá mismo con 'abandoned' por una condición de
+          // carrera, perdiendo el resultado ya reportado.
+          const { data: row } = await client
+            .from('lobby_matches')
+            .select('status')
+            .eq('id', matchId)
+            .maybeSingle();
+          if (row && row.status !== 'completed' && row.status !== 'abandoned') {
+            await client.from('lobby_matches').update({ status: 'abandoned' }).eq('id', matchId);
+          }
         }
         await client.from('lobby_players')
           .update({ status: 'idle', current_match_id: null })
