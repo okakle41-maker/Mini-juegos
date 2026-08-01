@@ -118,6 +118,14 @@ function setupLettersSection(): void {
 
 // ── Sección Lobby Grupal ────────────────────────────────────────────
 
+/**
+ * true mientras navegamos deliberadamente hacia un juego porque se creó
+ * o unió a una sub-partida — en ese caso stop() no debe abandonar el
+ * lobby (el jugador va a volver a esta vista al terminar/salir del
+ * juego). Se resetea apenas se sale.
+ */
+let leavingToPlayLobbyMatch = false;
+
 function showLobbyEntry(): void {
   getElement('lobby-entry')?.classList.remove('hidden');
   getElement('lobby-active')?.classList.add('hidden');
@@ -181,6 +189,7 @@ function setupLobbySection(): void {
     const gameId = (select?.value ?? 'simon') as LobbyGameId;
     try {
       await lobbySystem.createMatch(gameId);
+      leavingToPlayLobbyMatch = true;
       window.showView?.(gameId);
     } catch (e) {
       showLobbyError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
@@ -247,12 +256,15 @@ function renderLobbyMatches(): void {
 
       try {
         if (action === 'resume') {
+          leavingToPlayLobbyMatch = true;
           window.showView?.(gameId);
         } else if (action === 'join' && matchId) {
           await lobbySystem.joinMatchAsPlayer(matchId);
+          leavingToPlayLobbyMatch = true;
           window.showView?.(gameId);
         } else if (action === 'spectate' && matchId) {
           await lobbySystem.spectateMatch(matchId);
+          leavingToPlayLobbyMatch = true;
           window.showView?.(gameId);
         }
       } catch (e) {
@@ -322,14 +334,18 @@ export function stop(): void {
   eventListeners = [];
   clearCache();
 
-  // El lobby en sí (a diferencia de la sub-partida, que cada juego
-  // libera con lobbySystem.leaveCurrentMatch/completeMatch en su propio
-  // stop() — ver simon/arrow/termita .logic.ts) sigue activo del lado
-  // del servidor aunque el cliente cierre esta vista — solo se abandona
-  // explícitamente con el botón "Salir del lobby" (lobbySystem.leaveLobby
-  // no se llama acá a propósito: abandonar el lobby automáticamente al
-  // salir de la vista sería agresivo y perdería el lugar en un lobby
-  // con amigos por simplemente mirar otra pantalla del menú un momento).
+  // Si el jugador está navegando deliberadamente a jugar una sub-partida
+  // del lobby, no lo sacamos del lobby — solo si realmente se está
+  // yendo de la vista sin ir a jugar nada (navegó a otra sección del
+  // menú). El lobby en sí (a diferencia de la sub-partida, que cada
+  // juego gestiona con lobbySystem.leaveCurrentMatch/completeMatch)
+  // sigue activo del lado del servidor aunque el cliente cierre esta
+  // vista — solo se abandona explícitamente con el botón "Salir del
+  // lobby" (lobbySystem.leaveLobby no se llama acá a propósito:
+  // abandonar el lobby automáticamente al salir de la vista sería
+  // agresivo y perdería el lugar en un lobby con amigos por
+  // simplemente mirar otra pantalla del menú un momento).
+  leavingToPlayLobbyMatch = false;
 
   const container = document.getElementById('multiplayer');
   if (container) {

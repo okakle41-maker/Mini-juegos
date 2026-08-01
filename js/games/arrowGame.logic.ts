@@ -22,7 +22,7 @@ import { lobbySystem } from '../lobbySystem.js';
 import { setupSplitView, type SplitViewHandle } from '../utils/multiplayerSplitView.js';
 
 interface ArrowClickerInstance {
-  stop: (showResult: boolean, isExit?: boolean) => void;
+  stop: (showResult: boolean) => void;
 }
 
 interface ArrowOptions {
@@ -185,21 +185,8 @@ export function init(ui: GameUi) {
       return true;
     }
 
-    stop(success: boolean, isExit = false) {
-      // isExit: true cuando stop() se llama desde afuera para forzar el
-      // cierre (stop() global del módulo, al salir de la vista), no
-      // porque la secuencia realmente terminó por sí sola (ganó o falló
-      // en el juego). success=false en ese caso es solo para completar
-      // la animación visual de "fin de intento" — no es un resultado
-      // real que deba reportarse a completeMatch(). Antes no existía
-      // esta distinción: salir de la vista de Arrow a mitad de una
-      // sub-partida del lobby reportaba ese resultado parcial forzado
-      // como si el jugador hubiese fallado la secuencia intencionalmente,
-      // en vez de dejarla resumible (la UI del lobby sí ofrece "Volver a
-      // mi partida" mientras la sub-partida siga 'playing') o marcarla
-      // abandoned vía leaveCurrentMatch() (ver stop() global más abajo).
+    stop(success: boolean) {
       if (!this.state.active) return success === true;
-      const wasForcedExit = isExit;
       this.state.active = false;
       this.cleanup.cleanup();
       startArrow.disabled = false;
@@ -226,11 +213,8 @@ export function init(ui: GameUi) {
       // lobbySystem.completeMatch: se marca 'completed' recién cuando
       // ambos jugadores reportaron el suyo. No aplica si se está
       // especteando (un espectador no tiene resultado propio que
-      // reportar — su "stop" solo limpia estado visual local), ni si
-      // wasForcedExit es true: en ese caso es leaveCurrentMatch(),
-      // llamado desde el mismo stop() global, quien decide si
-      // corresponde marcar la sub-partida abandoned.
-      if (split.isMultiplayer && !split.isSpectating && !wasForcedExit) {
+      // reportar — su "stop" solo limpia estado visual local).
+      if (split.isMultiplayer && !split.isSpectating) {
         void lobbySystem.completeMatch(finalPercent);
       }
       return success === true;
@@ -475,7 +459,7 @@ let arrowSplitCleanup: (() => void) | null = null;
 
 export function stop() {
   const clicker = GameInstanceRegistry.get<ArrowClickerInstance>('arrow');
-  if (clicker) clicker.stop(false, true);
+  if (clicker) clicker.stop(false);
   if (arrowKeyDownHandler) {
     document.removeEventListener('keydown', arrowKeyDownHandler);
     arrowKeyDownHandler = null;
@@ -484,14 +468,5 @@ export function stop() {
     arrowSplitCleanup();
     arrowSplitCleanup = null;
   }
-  // Libera el estado del lobby si el jugador sale de la vista sin
-  // haber terminado su sub-partida (o si estaba especteando): sin
-  // esto, lobby_players quedaba con status:'playing'/'spectating' y
-  // current_match_id apuntando a una sub-partida en curso para
-  // siempre, y lobby_matches nunca se marcaba 'abandoned' — nada
-  // limpiaba ese estado hasta ahora. No-op si no hay match activo
-  // (currentMatch null) o si ya se reportó completeMatch arriba
-  // (leaveCurrentMatch no hace nada si currentMatch ya es null).
-  void lobbySystem.leaveCurrentMatch();
   GameInstanceRegistry.clear('arrow');
 }
