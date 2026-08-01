@@ -1,0 +1,182 @@
+/* ── Data Recall Grid — Memory Recall ── */
+
+#datarecallgrid .grid-display {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 20px 0;
+  padding: 16px;
+  min-height: 120px;
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.06), rgba(9, 4, 0, 0.7));
+  border: 1px solid rgba(249, 115, 22, 0.22);
+  border-radius: 16px;
+  box-shadow: inset 0 0 60px rgba(249, 115, 22, 0.04);
+  position: relative;
+}
+#datarecallgrid .grid-display::before,
+#datarecallgrid .grid-display::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--accent-orange);
+  opacity: 0.45;
+  pointer-events: none;
+}
+#datarecallgrid .grid-display::before { top: 8px; left: 8px; border-right: none; border-bottom: none; border-radius: 3px 0 0 0; }
+#datarecallgrid .grid-display::after { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 3px 0; }
+
+#datarecallgrid .grid-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(249, 115, 22, 0.22);
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  transition: transform 0.15s ease, background 0.15s ease, opacity 0.2s ease;
+}
+
+#datarecallgrid .grid-item:hover {
+  background: rgba(249, 115, 22, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.15);
+}
+
+#datarecallgrid .grid-item.hidden {
+  opacity: 0.35;
+  filter: blur(1px);
+}
+
+#datarecallgrid .item-icon { font-size: 1.4rem; }
+
+#datarecallgrid .item-name {
+  flex: 1;
+  font-weight: 700;
+  color: #ff9a3c;
+  text-shadow: 0 0 10px rgba(255, 145, 0, 0.35);
+}
+
+#datarecallgrid .item-arrow {
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
+#datarecallgrid .item-color {
+  font-weight: 700;
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+#datarecallgrid .question-display {
+  margin: 16px 0;
+  padding: 14px 16px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ff9a3c;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(249, 115, 22, 0.22);
+  border-radius: 10px;
+  text-shadow: 0 0 12px rgba(255, 145, 0, 0.45);
+}
+
+#datarecallgrid .answer-section {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0;
+  align-items: stretch;
+}
+
+#datarecallgrid input[data-ui="answerInput"] {
+  flex: 1;
+  background: rgba(249, 115, 22, 0.05);
+  border: 2px solid rgba(249, 115, 22, 0.22);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#datarecallgrid input[data-ui="answerInput"]:focus {
+  border-color: rgba(249, 115, 22, 0.55);
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.2);
+}
+
+#datarecallgrid input[data-ui="answerInput"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#datarecallgrid .message {
+  text-align: center;
+  padding: 12px;
+  margin: 14px 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border-radius: 10px;
+  min-height: 38px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  color: var(--text-muted);
+}
+
+#datarecallgrid .message.warning {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.08);
+  box-shadow: 0 0 18px rgba(251, 191, 36, 0.15);
+}
+
+#datarecallgrid .message.success {
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.12);
+  box-shadow: 0 0 18px rgba(34, 197, 94, 0.15);
+}
+
+#datarecallgrid .message.error {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.15);
+}
+
+#datarecallgrid .game-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+
+#datarecallgrid .game-stats span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(249, 115, 22, 0.22);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+#datarecallgrid .game-stats span strong {
+  color: #ff9a3c;
+  font-size: 1.1rem;
+  text-shadow: 0 0 10px rgba(255, 145, 0, 0.45);
+}

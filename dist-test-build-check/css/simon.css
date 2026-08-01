@@ -1,0 +1,127 @@
+/* ── Simón Dice — Sequence Memory ── */
+.simon-board {
+  display: grid;
+  gap: 16px;
+  max-width: 480px;
+  margin: 24px auto;
+  padding: 24px;
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.06), rgba(9, 4, 0, 0.7));
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  border-radius: 24px;
+  box-shadow: inset 0 0 60px rgba(249, 115, 22, 0.04), 0 24px 70px -35px rgba(0, 0, 0, 0.75);
+  position: relative;
+}
+.simon-board::before,
+.simon-board::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--accent-orange);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.simon-board::before { top: 10px; left: 10px; border-right: none; border-bottom: none; border-radius: 4px 0 0 0; }
+.simon-board::after { bottom: 10px; right: 10px; border-left: none; border-top: none; border-radius: 0 0 4px 0; }
+
+.simon-button {
+  aspect-ratio: 1;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.18s ease, filter 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+.simon-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.25), transparent 55%);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.simon-button.red    { background: linear-gradient(160deg, #b91c1c, #450a0a); box-shadow: inset 0 -8px 28px rgba(0, 0, 0, 0.5); }
+.simon-button.blue   { background: linear-gradient(160deg, #1d4ed8, #0c1e4e); box-shadow: inset 0 -8px 28px rgba(0, 0, 0, 0.5); }
+.simon-button.green  { background: linear-gradient(160deg, #15803d, #052e16); box-shadow: inset 0 -8px 28px rgba(0, 0, 0, 0.5); }
+.simon-button.yellow { background: linear-gradient(160deg, #ca8a04, #422006); box-shadow: inset 0 -8px 28px rgba(0, 0, 0, 0.5); }
+.simon-button.orange { background: linear-gradient(160deg, #ea580c, #431407); box-shadow: inset 0 -8px 28px rgba(0, 0, 0, 0.5); }
+.simon-button.purple { background: linear-gradient(160deg, #7e22ce, #2e1065); box-shadow: inset 0 -8px 28px rgba(0, 0, 0, 0.5); }
+
+.simon-button:hover:not(.disabled) {
+  transform: translateY(-3px);
+  filter: brightness(1.15);
+}
+.simon-button.disabled {
+  cursor: not-allowed;
+  filter: saturate(0.4) brightness(0.55);
+}
+
+.simon-button.active {
+  filter: brightness(1.8) saturate(1.4);
+  color: #fff;
+  transform: scale(0.96);
+  animation: simon-pulse 0.25s ease;
+}
+.simon-button.active.red    { box-shadow: 0 0 45px #ef4444, inset 0 0 35px rgba(255, 255, 255, 0.3); }
+.simon-button.active.blue   { box-shadow: 0 0 45px #3b82f6, inset 0 0 35px rgba(255, 255, 255, 0.3); }
+.simon-button.active.green  { box-shadow: 0 0 45px #22c55e, inset 0 0 35px rgba(255, 255, 255, 0.3); }
+.simon-button.active.yellow { box-shadow: 0 0 45px #facc15, inset 0 0 35px rgba(255, 255, 255, 0.3); }
+.simon-button.active.orange { box-shadow: 0 0 45px #fb923c, inset 0 0 35px rgba(255, 255, 255, 0.3); }
+.simon-button.active.purple { box-shadow: 0 0 45px #a855f7, inset 0 0 35px rgba(255, 255, 255, 0.3); }
+
+@keyframes simon-pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(0.92); }
+  100% { transform: scale(0.96); }
+}
+
+/* ── Split screen multiplayer: "Vos" | "Rival" ──
+ * .simon-split envuelve el .simon-board propio (mitad izquierda) y un
+ * segundo contenedor .simon-rival (mitad derecha, tablero de solo
+ * lectura del oponente) — ver js/utils/multiplayerSplitView.ts. Oculto
+ * por defecto (.hidden, definido globalmente en css/styles.css); se
+ * muestra solo cuando hay una sala activa para este juego.
+ */
+.simon-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.simon-split-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.simon-split-label {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.55);
+}
+/* El tablero rival reutiliza .simon-board/.simon-button tal cual (no
+ * scoped a ningún id), pero se atenúa levemente y no acepta puntero,
+ * para que quede claro que es solo observación. */
+.simon-rival {
+  pointer-events: none;
+  opacity: 0.85;
+}
+.simon-rival .simon-button.disabled {
+  filter: saturate(0.4) brightness(0.55);
+}
+
+@media (max-width: 640px) {
+  .simon-split {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,33 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#150a03"/>
+      <stop offset="100%" stop-color="#090400"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff9200"/>
+      <stop offset="100%" stop-color="#ff6b00"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- anillo exterior tipo "target/reactor", eco del estilo circuito de los íconos de juegos -->
+  <circle cx="256" cy="256" r="168" fill="none" stroke="url(#accent)" stroke-width="14" opacity="0.9"/>
+  <circle cx="256" cy="256" r="130" fill="none" stroke="#ff6b00" stroke-width="4" opacity="0.35"/>
+
+  <!-- 4 nodos de circuito en los ejes cardinales -->
+  <circle cx="256" cy="88"  r="12" fill="#ff9200"/>
+  <circle cx="256" cy="424" r="12" fill="#ff9200"/>
+  <circle cx="88"  cy="256" r="12" fill="#ff9200"/>
+  <circle cx="424" cy="256" r="12" fill="#ff9200"/>
+
+  <!-- líneas de conexión sutiles -->
+  <line x1="256" y1="88"  x2="256" y2="128" stroke="#ff6b00" stroke-width="6" opacity="0.7"/>
+  <line x1="256" y1="384" x2="256" y2="424" stroke="#ff6b00" stroke-width="6" opacity="0.7"/>
+  <line x1="88"  y1="256" x2="128" y2="256" stroke="#ff6b00" stroke-width="6" opacity="0.7"/>
+  <line x1="384" y1="256" x2="424" y2="256" stroke="#ff6b00" stroke-width="6" opacity="0.7"/>
+
+  <!-- núcleo central: play/cursor estilizado, referencia a "juego" -->
+  <polygon points="216,176 216,336 356,256" fill="url(#accent)"/>
+</svg>

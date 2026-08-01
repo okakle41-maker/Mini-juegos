@@ -1,0 +1,2 @@
+var a=()=>'\n  <div class="game-view-inner">\n    <button class="back-btn" data-back-to="skillchecks"></button>\n    <div id="bouncebar-root"></div>\n  </div>\n';export{a as default};
+//# sourceMappingURL=bouncebar-CXEH-wOG.js.map
