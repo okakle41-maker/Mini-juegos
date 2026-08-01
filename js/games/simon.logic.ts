@@ -26,24 +26,52 @@ export function init(ui: GameUi) {
 
   const simonColors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple'];
 
-  // Si hay una sala activa para este juego, la dificultad la fija quien
-  // la creó (ver readRoomSettings en multiplayer.logic.ts) — se
-  // deshabilitan los controles locales y se prellenan con esos valores
-  // para que no haya ambigüedad de cuál dificultad se está jugando.
+  // Si hay una sala activa para este juego: el anfitrión (isRoomHost)
+  // usa los controles normalmente — son los mismos inputs/botón de
+  // siempre, sin ningún panel aparte — y su click en "Empezar" además
+  // arranca la sala en el servidor (startRoomMatch) para que el
+  // invitado también arranque. El invitado ve esos mismos controles
+  // bloqueados y su "Empezar" deshabilitado hasta que eso ocurra.
   const activeMatch = multiplayerSystem.getCurrentMatch();
-  const roomSettings = activeMatch?.gameId === 'simon' ? activeMatch.settings : null;
-  const isMultiplayer = !!roomSettings;
+  const isMultiplayer = activeMatch?.gameId === 'simon';
+  const isHost = isMultiplayer && multiplayerSystem.isRoomHost(activeMatch!);
+  let stopRoomWatch: (() => void) | null = null;
 
-  if (isMultiplayer) {
-    (colorCountEl as HTMLSelectElement).value = String(roomSettings!.colorCount ?? 4);
-    (baseLengthEl as HTMLInputElement).value = String(roomSettings!.baseLength ?? 3);
-    (simonSpeedEl as HTMLInputElement).value = String(roomSettings!.speed ?? 700);
-    (simonRoundsEl as HTMLInputElement).value = String(roomSettings!.rounds ?? 5);
+  if (isMultiplayer && !isHost) {
+    // Invitado: valores del anfitrión (prellenados, no editables) y
+    // arranque bloqueado hasta que llegue el startRoomMatch real.
+    const s = activeMatch!.settings || {};
+    (colorCountEl as HTMLSelectElement).value = String(s.colorCount ?? 4);
+    (baseLengthEl as HTMLInputElement).value = String(s.baseLength ?? 3);
+    (simonSpeedEl as HTMLInputElement).value = String(s.speed ?? 700);
+    (simonRoundsEl as HTMLInputElement).value = String(s.rounds ?? 5);
     [colorCountEl, baseLengthEl, simonSpeedEl, simonRoundsEl].forEach(el => {
       if (el) (el as HTMLInputElement | HTMLSelectElement).disabled = true;
     });
+    startSimon.disabled = true;
     const info = simonInfo as HTMLElement;
-    if (info) info.textContent = 'Modo multiplayer: dificultad fijada por quien creó la sala.';
+    if (info) info.textContent = 'Esperando a que el anfitrión inicie la partida...';
+
+    stopRoomWatch = multiplayerSystem.onRoomUpdate(activeMatch!.id, (updated) => {
+      // Mientras se espera, seguir reflejando los cambios de dificultad
+      // que el anfitrión vaya haciendo (todavía no arrancó nada local).
+      if (updated.status === 'waiting' && updated.settings) {
+        const us = updated.settings;
+        (colorCountEl as HTMLSelectElement).value = String(us.colorCount ?? 4);
+        (baseLengthEl as HTMLInputElement).value = String(us.baseLength ?? 3);
+        (simonSpeedEl as HTMLInputElement).value = String(us.speed ?? 700);
+        (simonRoundsEl as HTMLInputElement).value = String(us.rounds ?? 5);
+      }
+      if (updated.status === 'playing') {
+        stopRoomWatch?.();
+        stopRoomWatch = null;
+        startSimon.disabled = false;
+        startSimon.click();
+      }
+    });
+  } else if (isHost) {
+    const info = simonInfo as HTMLElement;
+    if (info) info.textContent = 'Sos el anfitrión: ajustá la dificultad y presioná Empezar cuando quieras.';
   }
 
   let simonState = {
@@ -244,6 +272,23 @@ export function init(ui: GameUi) {
     (simonBoard as HTMLElement).classList.add('hidden');
     startSimon.disabled = true;
     startSimonRound();
+
+    // El anfitrión es quien decide cuándo arranca la partida: al
+    // apretar Empezar, además de arrancar localmente, persiste la
+    // dificultad final elegida y avisa al servidor — eso es lo que
+    // dispara, vía onRoomUpdate más arriba, que el invitado también
+    // arranque con los mismos valores.
+    if (isHost && activeMatch) {
+      const finalSettings = {
+        colorCount: simonState.colorCount,
+        baseLength: simonState.baseLength,
+        speed: simonState.speed,
+        rounds: simonState.rounds
+      };
+      multiplayerSystem.updateRoomSettings(activeMatch.id, finalSettings)
+        .then(() => multiplayerSystem.startRoomMatch(activeMatch.id))
+        .catch(() => {});
+    }
   });
 
   // Soporte de teclado para Simon
@@ -265,6 +310,7 @@ export function init(ui: GameUi) {
       simonState.playerTurn = false;
       document.removeEventListener('keydown', onKeyDown);
       split.cleanup();
+      stopRoomWatch?.();
     },
   });
 }

@@ -18,20 +18,46 @@ export function init(ui: GameUi) {
 
     if (!startTermita) return;
 
-    // Si hay una sala activa para este juego, la dificultad la fija
-    // quien la creó (ver readRoomSettings en multiplayer.logic.ts).
+    // Si hay una sala activa: el anfitrión usa los controles normales
+    // (sin panel aparte) y su click en "Empezar" también arranca la
+    // sala en el servidor; el invitado ve esos mismos controles
+    // bloqueados hasta que eso ocurra — ver mismo patrón en
+    // simon.logic.ts.
     const activeMatch = multiplayerSystem.getCurrentMatch();
-    const roomSettings = activeMatch?.gameId === 'termita' ? activeMatch.settings : null;
-    if (roomSettings) {
-      (gridSizeEl as HTMLSelectElement).value = String(roomSettings.size ?? 5);
-      (targetsEl as HTMLInputElement).value = String(roomSettings.targets ?? 4);
-      (showTimeEl as HTMLInputElement).value = String(roomSettings.showTime ?? 800);
-      (roundsEl as HTMLInputElement).value = String(roomSettings.rounds ?? 5);
+    const isMultiplayer = activeMatch?.gameId === 'termita';
+    const isHost = isMultiplayer && multiplayerSystem.isRoomHost(activeMatch!);
+    let stopRoomWatch: (() => void) | null = null;
+
+    const applySettingsToInputs = (s: Record<string, any>) => {
+      (gridSizeEl as HTMLSelectElement).value = String(s.size ?? 5);
+      (targetsEl as HTMLInputElement).value = String(s.targets ?? 4);
+      (showTimeEl as HTMLInputElement).value = String(s.showTime ?? 800);
+      (roundsEl as HTMLInputElement).value = String(s.rounds ?? 5);
+    };
+
+    if (isMultiplayer && !isHost) {
+      applySettingsToInputs(activeMatch!.settings || {});
       [gridSizeEl, targetsEl, showTimeEl, roundsEl].forEach(el => {
         if (el) (el as HTMLInputElement | HTMLSelectElement).disabled = true;
       });
+      startTermita.disabled = true;
       const info = termitaInfo as HTMLElement;
-      if (info) info.textContent = 'Modo multiplayer: dificultad fijada por quien creó la sala.';
+      if (info) info.textContent = 'Esperando a que el anfitrión inicie la partida...';
+
+      stopRoomWatch = multiplayerSystem.onRoomUpdate(activeMatch!.id, (updated) => {
+        if (updated.status === 'waiting' && updated.settings) {
+          applySettingsToInputs(updated.settings);
+        }
+        if (updated.status === 'playing') {
+          stopRoomWatch?.();
+          stopRoomWatch = null;
+          startTermita.disabled = false;
+          startTermita.click();
+        }
+      });
+    } else if (isHost) {
+      const info = termitaInfo as HTMLElement;
+      if (info) info.textContent = 'Sos el anfitrión: ajustá la dificultad y presioná Empezar cuando quieras.';
     }
 
     let state = {
@@ -229,6 +255,22 @@ export function init(ui: GameUi) {
       startTermita.disabled = true;
       const totalDuration = (state.showTime + 2000) * state.rounds;
       setTimeout(() => { startTermita.disabled = false; }, totalDuration);
+
+      // El anfitrión decide cuándo arranca: al apretar Empezar, además
+      // de arrancar localmente, persiste la dificultad final elegida y
+      // avisa al servidor para que el invitado también arranque (ver
+      // onRoomUpdate más arriba).
+      if (isHost && activeMatch) {
+        const finalSettings = {
+          size: state.size,
+          targets: state.targets,
+          showTime: state.showTime,
+          rounds: state.rounds
+        };
+        multiplayerSystem.updateRoomSettings(activeMatch.id, finalSettings)
+          .then(() => multiplayerSystem.startRoomMatch(activeMatch.id))
+          .catch(() => {});
+      }
     });
 
     // Soporte de teclado para navegación por la cuadrícula
@@ -281,14 +323,20 @@ export function init(ui: GameUi) {
     });
 
     termitaSplitCleanup = split.cleanup;
+    termitaRoomWatchCleanup = stopRoomWatch;
 }
 
 let termitaSplitCleanup: (() => void) | null = null;
+let termitaRoomWatchCleanup: (() => void) | null = null;
 
 export function stop() {
   // El juego no usa timers persistentes fuera de una ronda en curso
   if (termitaSplitCleanup) {
     termitaSplitCleanup();
     termitaSplitCleanup = null;
+  }
+  if (termitaRoomWatchCleanup) {
+    termitaRoomWatchCleanup();
+    termitaRoomWatchCleanup = null;
   }
 }

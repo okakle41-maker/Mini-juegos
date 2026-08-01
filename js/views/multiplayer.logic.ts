@@ -4,7 +4,7 @@
  */
 
 import { multiplayerSystem } from '../multiplayerSystem.js';
-import type { MatchEventDetail, ScoreEventDetail } from '../types/game';
+import type { ScoreEventDetail } from '../types/game';
 import { template } from './multiplayer.js';
 import { escapeHtml } from '../security.js';
 
@@ -62,70 +62,30 @@ function renderLeaderboards(): void {
 }
 
 /**
- * Lee del panel de dificultad correspondiente los valores que el
- * creador de la sala fija para ambos jugadores. Los clamps replican los
- * mismos límites que cada juego ya aplica en single-player (ver
- * simon.logic.ts/arrowGame.logic.ts/termita.logic.ts/lettersFall.logic.ts)
- * para que una sala nunca quede con parámetros que el juego rechazaría.
+ * true mientras navegamos deliberadamente hacia el juego porque se
+ * creó/unió una sala — en ese caso stop() no debe abandonar la sala que
+ * el juego está a punto de usar (el propio juego gestiona su ciclo de
+ * vida vía startRoomMatch/finishRoomMatch, ver simon.logic.ts etc.).
+ * Se resetea apenas se sale.
  */
-function readRoomSettings(gameId: string): Record<string, any> {
-  const num = (id: string, fallback: number) => {
-    const el = document.getElementById(id) as HTMLInputElement | null;
-    const v = parseFloat(el?.value ?? '');
-    return Number.isFinite(v) ? v : fallback;
-  };
+let leavingToPlay = false;
 
-  switch (gameId) {
-    case 'simon':
-      return {
-        colorCount: Math.max(4, Math.min(num('room-simon-colors', 4), 6)),
-        baseLength: Math.max(1, num('room-simon-baselength', 3)),
-        speed: Math.max(200, Math.min(num('room-simon-speed', 700), 2000)),
-        rounds: Math.max(1, Math.min(num('room-simon-rounds', 5), 20))
-      };
-    case 'arrow':
-      return {
-        steps: Math.max(10, Math.min(num('room-arrow-steps', 20), 30)),
-        time: Math.max(5, Math.min(num('room-arrow-time', 15), 30))
-      };
-    case 'termita': {
-      const validSizes = [4, 5, 6, 8, 10];
-      const rawSize = num('room-termita-size', 5);
-      const size = validSizes.includes(rawSize) ? rawSize : 5;
-      return {
-        size,
-        targets: Math.max(1, num('room-termita-targets', 4)),
-        showTime: Math.max(100, num('room-termita-showtime', 800)),
-        rounds: Math.max(1, num('room-termita-rounds', 5))
-      };
-    }
-    default:
-      return {};
-  }
+function navigateToGame(gameId: string): void {
+  leavingToPlay = true;
+  window.showView?.(gameId);
 }
 
 function setupEventListeners(): void {
-  // Mostrar el panel de dificultad del juego elegido
-  const roomGameSelect = document.getElementById('room-game-select') as HTMLSelectElement | null;
-  const toggleRoomSettings = () => {
-    const gameId = roomGameSelect?.value || 'simon';
-    ['simon', 'arrow', 'termita', 'letters'].forEach(g => {
-      const panel = document.getElementById(`room-settings-${g}`);
-      if (panel) panel.style.display = g === gameId ? 'block' : 'none';
-    });
-  };
-  roomGameSelect?.addEventListener('change', toggleRoomSettings);
-  toggleRoomSettings();
-
-  // Crear sala
+  // Crear sala: la dificultad y el botón de arranque viven dentro del
+  // juego mismo (ver simon.logic.ts/arrowGame.logic.ts/termita.logic.ts)
+  // — acá solo se genera el código y se navega directo a jugar.
   document.getElementById('create-room-btn')?.addEventListener('click', async () => {
     const gameId = (document.getElementById('room-game-select') as HTMLSelectElement).value;
 
     // Letters Fall es coop asimétrico (roles viewer/typer, no "player"
     // genérico) y ya tiene su propia pantalla de crear/unirse sala
-    // dentro del juego, donde el viewer fija la dificultad para ambos
-    // igual que acá. Crear una sala genérica desde esta vista generaría
-    // una fila de live_matches incompatible con lo que espera
+    // dentro del juego. Crear una sala genérica desde esta vista
+    // generaría una fila de live_matches incompatible con lo que espera
     // lettersFall.logic.ts (sin rol asignado) — mejor redirigir al
     // flujo nativo que duplicar la lógica de sala.
     if (gameId === 'letters') {
@@ -134,24 +94,8 @@ function setupEventListeners(): void {
     }
 
     try {
-      const settings = readRoomSettings(gameId);
-      const match = await multiplayerSystem.createRoomMatch(gameId, 'player', settings);
-      document.getElementById('room-code-display')!.textContent = match.roomCode || '';
-      document.getElementById('room-created-status')!.style.display = 'block';
-      document.getElementById('current-match-section')!.style.display = 'block';
-      renderCurrentMatch(match);
-
-      // Los juegos con vista propia (simon/arrow/termita) solo saben
-      // leer el match activo al arrancar su init() — hay que navegar a
-      // esa vista recién cuando se une el segundo jugador, no antes
-      // (si el creador entrara ya, quedaría esperando dentro del juego
-      // sin feedback de "esperando rival" que sí tiene esta vista).
-      const stopWatching = multiplayerSystem.onRoomUpdate(match.id, (updated) => {
-        if (updated.players.length >= 2) {
-          stopWatching();
-          window.showView?.(gameId);
-        }
-      });
+      await multiplayerSystem.createRoomMatch(gameId, 'player');
+      navigateToGame(gameId);
     } catch (e) {
       alert(e instanceof Error ? e.message : 'No se pudo crear la sala');
     }
@@ -169,10 +113,12 @@ function setupEventListeners(): void {
 
     if (!code.trim()) return;
     try {
-      const match = await multiplayerSystem.joinRoomMatch(gameId, code, 'player');
-      document.getElementById('current-match-section')!.style.display = 'block';
-      renderCurrentMatch(match);
-      window.showView?.(gameId);
+      // autoStart=false: la sala queda en 'waiting' hasta que el
+      // anfitrión la arranque desde el botón "Empezar" del juego — ver
+      // startRoomMatch en multiplayerSystem.ts y su uso en
+      // simon.logic.ts/arrowGame.logic.ts/termita.logic.ts.
+      await multiplayerSystem.joinRoomMatch(gameId, code, 'player', false);
+      navigateToGame(gameId);
     } catch (e) {
       alert(e instanceof Error ? e.message : 'No se pudo unir a la sala');
     }
@@ -256,9 +202,6 @@ function renderLeaderboardForGame(gameId: string): void {
 }
 
 function setupMultiplayerListeners(): void {
-  const matchStartedHandler = () => {
-    alert('¡La partida ha comenzado!');
-  };
   const scoreUpdatedHandler = (e: any) => {
     updateMatchScores(e.detail);
   };
@@ -270,13 +213,11 @@ function setupMultiplayerListeners(): void {
     renderCurrentMatch(e.detail.match);
   };
 
-  window.addEventListener('multiplayer:match_started', matchStartedHandler);
   window.addEventListener('multiplayer:score_updated', scoreUpdatedHandler);
   window.addEventListener('multiplayer:leaderboard_updated', leaderboardUpdatedHandler);
   window.addEventListener('multiplayer:spectating_started', spectatingStartedHandler);
 
   eventListeners.push(() => {
-    window.removeEventListener('multiplayer:match_started', matchStartedHandler);
     window.removeEventListener('multiplayer:score_updated', scoreUpdatedHandler);
     window.removeEventListener('multiplayer:leaderboard_updated', leaderboardUpdatedHandler);
     window.removeEventListener('multiplayer:spectating_started', spectatingStartedHandler);
@@ -316,13 +257,14 @@ export function stop(): void {
   // Si el jugador creó o se unió a una sala desde esta vista y la deja
   // sin ir a jugar (navega a otra sección del menú), la sala quedaba
   // "waiting"/"playing" para siempre — nadie más la marcaba abandonada.
-  // No se toca si el juego real ya tomó la sala (lettersFall.logic.ts
-  // gestiona su propio leaveRoomMatch() al terminar la partida): acá
-  // solo limpiamos si currentMatch sigue siendo la sala que se ve en
-  // esta pantalla, no una en curso dentro de un juego.
-  if (multiplayerSystem.getCurrentMatch()) {
+  // No se toca si estamos saliendo porque se creó/unió una sala y se
+  // está navegando al juego (ver navigateToGame) ni si el juego real ya
+  // tomó la sala (lettersFall.logic.ts gestiona su propio
+  // leaveRoomMatch() al terminar la partida).
+  if (!leavingToPlay && multiplayerSystem.getCurrentMatch()) {
     multiplayerSystem.leaveRoomMatch().catch(() => {});
   }
+  leavingToPlay = false;
   
   // Limpiar contenido del contenedor
   const container = document.getElementById('multiplayer');

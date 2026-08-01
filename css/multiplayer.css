@@ -395,21 +395,6 @@
   margin: 0 0 15px 0;
 }
 
-.room-settings {
-  display: grid;
-  gap: 10px;
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  background: var(--color-surface, rgba(255,255,255,0.04));
-}
-
-.room-settings-title {
-  font-size: 13px;
-  opacity: 0.75;
-  margin: 0 0 4px 0;
-}
-
 .matches-list {
   display: grid;
   gap: 10px;

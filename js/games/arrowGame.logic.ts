@@ -50,20 +50,46 @@ export function init(ui: GameUi) {
 
   if (!startArrow) return;
 
-  // Si hay una sala activa para este juego, la dificultad la fija quien
-  // la creó (ver readRoomSettings en multiplayer.logic.ts).
+  // Si hay una sala activa: el anfitrión usa los controles normales
+  // (sin panel aparte) y su click en "Empezar" también arranca la sala
+  // en el servidor; el invitado ve esos mismos controles bloqueados
+  // hasta que eso ocurra — ver mismo patrón en simon.logic.ts.
   const activeMatch = multiplayerSystem.getCurrentMatch();
-  const roomSettings = activeMatch?.gameId === 'arrow' ? activeMatch.settings : null;
-  if (roomSettings && arrowLengthEl && arrowTimeInput) {
-    arrowLengthEl.value = String(roomSettings.steps ?? 20);
-    arrowTimeInput.value = String(roomSettings.time ?? 15);
+  const isMultiplayer = activeMatch?.gameId === 'arrow';
+  const isHost = isMultiplayer && multiplayerSystem.isRoomHost(activeMatch!);
+  let stopRoomWatch: (() => void) | null = null;
+
+  const applyArrowSettings = (s: Record<string, any>) => {
+    if (!arrowLengthEl || !arrowTimeInput) return;
+    arrowLengthEl.value = String(s.steps ?? 20);
+    arrowTimeInput.value = String(s.time ?? 15);
+  };
+
+  if (isMultiplayer && !isHost) {
+    applyArrowSettings(activeMatch!.settings || {});
     [arrowLevelEl, arrowLengthEl, arrowTimeInput].forEach(el => {
       if (el) el.disabled = true;
     });
+    startArrow.disabled = true;
     if (arrowMessage) {
-      arrowMessage.textContent = 'Modo multiplayer: dificultad fijada por quien creó la sala.';
+      arrowMessage.textContent = 'Esperando a que el anfitrión inicie la partida...';
       arrowMessage.classList.remove('hidden');
     }
+
+    stopRoomWatch = multiplayerSystem.onRoomUpdate(activeMatch!.id, (updated) => {
+      if (updated.status === 'waiting' && updated.settings) {
+        applyArrowSettings(updated.settings);
+      }
+      if (updated.status === 'playing') {
+        stopRoomWatch?.();
+        stopRoomWatch = null;
+        startArrow.disabled = false;
+        startArrow.click();
+      }
+    });
+  } else if (isHost && arrowMessage) {
+    arrowMessage.textContent = 'Sos el anfitrión: ajustá la dificultad y presioná Empezar cuando quieras.';
+    arrowMessage.classList.remove('hidden');
   }
 
   // Split screen "Vos"/"Rival" (ver js/utils/multiplayerSplitView.ts):
@@ -402,6 +428,16 @@ export function init(ui: GameUi) {
     const steps = Math.max(1, Math.min(parseInt(arrowLengthEl.value, 10) || 20, 30));
     const time = Math.max(5, Math.min(parseFloat(arrowTimeInput.value) || 15, 30));
     clicker.start({ steps, time });
+
+    // El anfitrión decide cuándo arranca: al apretar Empezar, además de
+    // arrancar localmente, persiste la dificultad final elegida y avisa
+    // al servidor para que el invitado también arranque (ver
+    // onRoomUpdate más arriba).
+    if (isHost && activeMatch) {
+      multiplayerSystem.updateRoomSettings(activeMatch.id, { steps, time })
+        .then(() => multiplayerSystem.startRoomMatch(activeMatch.id))
+        .catch(() => {});
+    }
   });
 
   // ARIA labels para accesibilidad
@@ -431,10 +467,12 @@ export function init(ui: GameUi) {
   GameInstanceRegistry.set<ArrowClickerInstance>('arrow', clicker);
   arrowKeyDownHandler = onKeyDown;
   arrowSplitCleanup = split.cleanup;
+  arrowRoomWatchCleanup = stopRoomWatch;
 }
 
 let arrowKeyDownHandler: ((event: KeyboardEvent) => void) | null = null;
 let arrowSplitCleanup: (() => void) | null = null;
+let arrowRoomWatchCleanup: (() => void) | null = null;
 
 export function stop() {
   const clicker = GameInstanceRegistry.get<ArrowClickerInstance>('arrow');
@@ -446,6 +484,10 @@ export function stop() {
   if (arrowSplitCleanup) {
     arrowSplitCleanup();
     arrowSplitCleanup = null;
+  }
+  if (arrowRoomWatchCleanup) {
+    arrowRoomWatchCleanup();
+    arrowRoomWatchCleanup = null;
   }
   GameInstanceRegistry.clear('arrow');
 }
