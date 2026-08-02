@@ -8,6 +8,7 @@ export function template(): string {
   return `
     <div class="social-view">
       <div class="social-header">
+        <button class="back-btn" data-back-to="home"></button>
         <h2 class="social-title">👥 Social</h2>
         <div class="social-stats">
           <div class="stat-item">

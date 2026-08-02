@@ -6,6 +6,7 @@
 import { achievementManager } from '../achievements.js';
 import { template } from './logros.js';
 import type { Achievement, AchievementEventDetail, Reward } from '../types/game';
+import { hydrateBackButtons } from '../utils/backButton.js';
 
 let eventListeners: Array<() => void> = [];
 let cachedElements: Record<string, HTMLElement | null> = {};
@@ -27,6 +28,7 @@ export function init(): void {
 
   // Renderizar template
   container.innerHTML = template();
+  hydrateBackButtons(container);
 
   // Inicializar datos
   renderAchievements();

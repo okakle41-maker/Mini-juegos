@@ -8,6 +8,7 @@ export function template(): string {
   return `
     <div class="achievements-view">
       <div class="achievements-header">
+        <button class="back-btn" data-back-to="home"></button>
         <h2 class="achievements-title">🏆 Logros y Trofeos</h2>
         <div class="achievements-summary">
           <div class="summary-card">

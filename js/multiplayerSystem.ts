@@ -149,21 +149,73 @@ class MultiplayerSystem {
             : { id: p.id, name: 'Jugador', avatar: '👤', level: 1, status: 'online', role: p.role };
         });
 
+        // Restaura también `scores` de la fila real (JSON.stringify de
+        // un Map, ver updateScore) — sin esto, el jugador que NO originó
+        // el cambio (el rival) nunca se entera del score que el otro
+        // lado reportó, y su propio winner/ownScore se calcula más
+        // adelante con datos incompletos.
+        let mergedScores = this.currentMatch.scores;
+        if (typeof newRecord.scores === 'string') {
+          try {
+            mergedScores = new Map(JSON.parse(newRecord.scores));
+          } catch {
+            // fila corrupta o vacía: conservar el Map local tal cual.
+          }
+        }
+
+        const wasStarted = !!this.currentMatch.startedAt;
+        const wasCompleted = this.currentMatch.status === 'completed';
+
         this.currentMatch = {
           ...this.currentMatch,
           status: newRecord.status ?? this.currentMatch.status,
           players: mergedPlayers,
-          settings: newRecord.settings ?? this.currentMatch.settings
+          settings: newRecord.settings ?? this.currentMatch.settings,
+          scores: mergedScores
         };
 
-        if (newRecord.status === 'playing' && !this.currentMatch.startedAt) {
+        // A partir de acá solo se REFLEJA el estado que ya llegó por la
+        // red — nunca se vuelve a escribir a Supabase ni se reinvoca
+        // startMatch()/endMatch() (esos dos SON quienes originan el
+        // update que dispara este mismo handler; volver a llamarlos acá
+        // los hace re-entrar sobre su propio eco, con riesgo real de
+        // loop si el broadcast de Realtime llega antes de que el efecto
+        // local del primer llamado haya terminado de aplicarse — ver
+        // test de regresión). `wasStarted`/`wasCompleted` se leen del
+        // estado ANTERIOR a la reasignación de arriba, así que la
+        // transición solo se procesa una vez por cliente, sin importar
+        // cuántos eventos de Realtime repitan el mismo status.
+        if (newRecord.status === 'playing' && !wasStarted) {
           this.currentMatch.startedAt = Date.now();
-          this.startMatch();
+          window.dispatchEvent(new CustomEvent('multiplayer:match_started', {
+            detail: { match: this.currentMatch }
+          }));
         }
-        
-        if (newRecord.status === 'completed') {
+
+        if (newRecord.status === 'completed' && !wasCompleted) {
           this.currentMatch.completedAt = Date.now();
-          this.endMatch();
+          const finishedMatch = this.currentMatch;
+          window.dispatchEvent(new CustomEvent('multiplayer:match_ended', {
+            detail: { match: finishedMatch, winner: newRecord.winner_id || undefined }
+          }));
+          // A diferencia de startMatch (donde ambos lados siguen usando
+          // currentMatch durante el resto de la partida), acá sí se
+          // limpia: una vez 'completed' llegó por la red, ya no hay
+          // ninguna acción pendiente sobre esta sala — y-lo más
+          // importante-, si ESTE cliente todavía no llamó a su propio
+          // finishRoomMatch (p.ej. el rival cerró la sala primero
+          // mientras este jugador seguía jugando), currentMatch NO debe
+          // ponerse en null todavía: haría que su propio
+          // finishRoomMatch/updateScore posterior sea un no-op
+          // silencioso y su resultado se pierda (ver bug histórico y
+          // test de regresión). Solo se limpia si este cliente ya no
+          // tiene nada pendiente que reportar (su propio score, si
+          // corresponde, ya está en `scores`).
+          const myId = this.playerStatus?.id;
+          const ownScoreAlreadyReported = !myId || mergedScores.has(myId);
+          if (ownScoreAlreadyReported) {
+            this.currentMatch = null;
+          }
         }
       }
     }

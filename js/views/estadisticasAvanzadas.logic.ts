@@ -5,6 +5,7 @@
 
 import { advancedStatsSystem } from '../advancedStats.js';
 import { template } from './estadisticasAvanzadas.js';
+import { hydrateBackButtons } from '../utils/backButton.js';
 
 let cachedElements: Record<string, HTMLElement | null> = {};
 
@@ -24,6 +25,7 @@ export function init(): void {
   if (!container) return;
 
   container.innerHTML = template();
+  hydrateBackButtons(container);
   renderMetrics();
   renderCognitiveProfile();
   renderWeaknessAnalysis();

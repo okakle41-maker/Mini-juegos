@@ -5,6 +5,7 @@
 
 import { customizationSystem } from '../customizationSystem.js';
 import { template } from './personalizacion.js';
+import { hydrateBackButtons } from '../utils/backButton.js';
 
 let eventListeners: Array<() => void> = [];
 let cachedElements: Record<string, HTMLElement | null> = {};
@@ -25,6 +26,7 @@ export function init(): void {
   if (!container) return;
 
   container.innerHTML = template();
+  hydrateBackButtons(container);
   renderAvatars();
   renderSkins();
   renderSoundPacks();

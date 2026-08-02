@@ -8,6 +8,7 @@ export function template(): string {
   return `
     <div class="advanced-stats-view">
       <div class="stats-header">
+        <button class="back-btn" data-back-to="home"></button>
         <h2 class="stats-title">📊 Estadísticas Avanzadas</h2>
       </div>
 

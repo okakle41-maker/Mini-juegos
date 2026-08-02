@@ -12,10 +12,16 @@
 
 import LobbyRenderer from '../lobbyRenderer.js';
 import GameRegistry from '../core/gameRegistry.js';
+import { lobbySystem } from '../lobbySystem.js';
+import template from './onlineLobby.js';
+import { hydrateBackButtons } from '../utils/backButton.js';
 
 export function init(): void {
   const container = document.getElementById('online-lobby');
   if (!container) return;
+
+  container.innerHTML = template();
+  hydrateBackButtons(container);
 
   LobbyRenderer.render({
     gridId: 'onlineGameList',
@@ -24,10 +30,25 @@ export function init(): void {
     headerCountIds: ['onlineModsCountPill'],
     games: GameRegistry.visibleOnline()
   });
+
+  renderLobbyCodeBadge();
+}
+
+function renderLobbyCodeBadge(): void {
+  const badge = document.getElementById('onlineLobbyCodeBadge');
+  const valueEl = document.getElementById('onlineLobbyCodeValue');
+  if (!badge || !valueEl) return;
+
+  const lobby = lobbySystem.getCurrentLobby();
+  if (lobby) {
+    valueEl.textContent = lobby.roomCode;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
 }
 
 export function stop(): void {
-  // No hay estado propio que limpiar más allá de lo que ya maneja
-  // LobbyRenderer (bindThemeChangeOnce se registra una sola vez y
-  // sigue siendo válido para la próxima vez que se entre acá).
+  const container = document.getElementById('online-lobby');
+  if (container) container.innerHTML = '';
 }

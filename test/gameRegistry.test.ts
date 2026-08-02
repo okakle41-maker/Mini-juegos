@@ -38,11 +38,11 @@ const MAX_DIFFICULTY = 5;
  * por comparación con esta lista conocida, en vez de perderse entre
  * "siempre fue así".
  *
- * Nota: 'estadisticas-avanzadas', 'logros', 'multiplayer',
+ * Nota: 'estadisticas-avanzadas', 'logros', 'multiplayer', 'online-lobby',
  * 'personalizacion', 'social' y 'torneos' NO aparecen acá ni como
  * huérfanas: no tienen (ni deben tener) entrada en viewTemplates.ts en
  * absoluto, así que `orphanViews` (que solo recorre las keys de
- * viewTemplates.ts) nunca las va a encontrar. Estas 6 vistas de sistema
+ * viewTemplates.ts) nunca las va a encontrar. Estas 7 vistas de sistema
  * están registradas en GameRegistry como juegos ocultos (`hidden: true`,
  * vía registerSystemViews.ts) con su propio `init`/`stop` en
  * *.logic.ts, que inyecta su HTML directamente en el contenedor — sin

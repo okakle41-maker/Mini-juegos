@@ -52,6 +52,7 @@ function fakeUi(): any {
 
 beforeEach(() => {
   setTestState({ currentMatch: null, currentPlayerId: 'player-1', lastSentEvent: null });
+  (lobbySystem.sendGameEvent as ReturnType<typeof vi.fn>).mockClear();
 });
 
 describe('setupSplitView: isHost', () => {
@@ -113,6 +114,9 @@ describe('setupSplitView: broadcastStart / onStart', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(rivalStartHandler).toHaveBeenCalledTimes(1);
+
+    hostSplit.cleanup();
+    rivalSplit.cleanup();
   });
 
   it('broadcastStart no hace nada si quien lo llama no es host (no-op silencioso)', async () => {
@@ -126,6 +130,8 @@ describe('setupSplitView: broadcastStart / onStart', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(lobbySystem.sendGameEvent).not.toHaveBeenCalled();
+
+    rivalSplit.cleanup();
   });
 
   it('la señal de arranque no se confunde con onRivalEvent de otros tipos', async () => {
@@ -148,6 +154,9 @@ describe('setupSplitView: broadcastStart / onStart', () => {
 
     expect(rivalStartHandler).toHaveBeenCalledTimes(1);
     expect(rivalFlashHandler).not.toHaveBeenCalled();
+
+    hostSplit.cleanup();
+    rivalSplit.cleanup();
   });
 
   it('cleanup() vacía los handlers de onStart registrados', async () => {
@@ -167,5 +176,7 @@ describe('setupSplitView: broadcastStart / onStart', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(rivalStartHandler).not.toHaveBeenCalled();
+
+    hostSplit.cleanup();
   });
 });

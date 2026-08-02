@@ -45,6 +45,13 @@ export interface LobbyMatch {
   player2Id: string | null;
   settings: Record<string, any>;
   spectatorIds: string[];
+  /**
+   * Puntaje reportado por cada jugador (player_id -> score), ver
+   * completeMatch(). Puede tener 0, 1 o 2 entradas según cuántos
+   * jugadores ya reportaron el suyo — nunca asumir que ambas claves
+   * están presentes.
+   */
+  scores: Record<string, number>;
 }
 
 const MAX_LOBBY_PLAYERS = 8;
@@ -341,7 +348,8 @@ class LobbySystem {
       // lobby_players ya identifica quién especta qué) — se deriva vía
       // getSpectatorsFor() a partir de this.currentLobby, no se guarda
       // acá para no duplicar la fuente de verdad.
-      spectatorIds: []
+      spectatorIds: [],
+      scores: row.scores ?? {}
     };
   }
 
@@ -443,7 +451,7 @@ class LobbySystem {
 
     const match: LobbyMatch = {
       id: matchId, lobbyId: this.currentLobby.id, gameId, status: 'waiting',
-      player1Id: playerId, player2Id: null, settings, spectatorIds: []
+      player1Id: playerId, player2Id: null, settings, spectatorIds: [], scores: {}
     };
     this.matches.set(matchId, match);
     this.currentMatch = match;
@@ -496,7 +504,8 @@ class LobbySystem {
 
     const match: LobbyMatch = {
       id: matchId, lobbyId: row.lobby_id, gameId: row.game_id, status: 'playing',
-      player1Id: row.player1_id, player2Id: playerId, settings: row.settings ?? {}, spectatorIds: []
+      player1Id: row.player1_id, player2Id: playerId, settings: row.settings ?? {}, spectatorIds: [],
+      scores: row.scores ?? {}
     };
     this.matches.set(matchId, match);
     this.currentMatch = match;
@@ -751,7 +760,18 @@ class LobbySystem {
         // leyendo el resultado final (status/scores) hasta que termine
         // de mostrar la pantalla de fin de partida; leaveCurrentMatch()
         // es quien realmente lo desengancha.
-        this.currentMatch = { ...this.currentMatch, status: newRow?.status ?? 'abandoned' };
+        //
+        // scores: newRow?.scores (no this.currentMatch.scores) —
+        // completeMatch() persiste el score de CADA jugador por
+        // separado (ver comentario ahí); sin tomar el valor real de la
+        // fila acá, el jugador que no originó este UPDATE (el rival)
+        // seguía viendo currentMatch.scores vacío/desactualizado justo
+        // cuando el juego necesita mostrar el resultado final de ambos.
+        this.currentMatch = {
+          ...this.currentMatch,
+          status: newRow?.status ?? 'abandoned',
+          scores: newRow?.scores ?? this.currentMatch.scores
+        };
       }
     } else {
       const match = this.rowToMatch(newRow);

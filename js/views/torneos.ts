@@ -8,6 +8,7 @@ export function template(): string {
   return `
     <div class="tournaments-view">
       <div class="tournaments-header">
+        <button class="back-btn" data-back-to="home"></button>
         <h2 class="tournaments-title">🏆 Torneos y Eventos</h2>
       </div>
 

@@ -8,6 +8,7 @@ export function template(): string {
   return `
     <div class="customization-view">
       <div class="customization-header">
+        <button class="back-btn" data-back-to="home"></button>
         <h2 class="customization-title">🎨 Personalización</h2>
       </div>
 

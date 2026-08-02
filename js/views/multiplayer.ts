@@ -8,6 +8,7 @@ export function template(): string {
   return `
     <div class="multiplayer-view">
       <div class="multiplayer-header">
+        <button class="back-btn" data-back-to="home"></button>
         <h2 class="multiplayer-title">🎮 Multiplayer</h2>
         <div class="connection-status" id="connection-status">
           <span class="status-dot"></span>
@@ -43,6 +44,10 @@ export function template(): string {
             <span id="lobby-code-display" style="font-weight:bold; letter-spacing:2px;"></span>
             <button class="lobby-leave-btn" id="lobby-leave-btn">🚪 Salir del lobby</button>
           </div>
+          <div class="lobby-code-hint" style="margin: 0.5rem 0; opacity: 0.85;">
+            Compartí este código con tus amigos para que se unan.
+          </div>
+          <button class="match-btn" id="lobby-go-online-btn">🌐 Ir a elegir juego</button>
 
           <div class="lobby-players-section">
             <h4 class="subsection-title">Jugadores (<span id="lobby-player-count">0</span>/8)</h4>

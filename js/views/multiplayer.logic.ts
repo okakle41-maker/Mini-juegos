@@ -18,6 +18,7 @@ import { multiplayerSystem } from '../multiplayerSystem.js';
 import { lobbySystem, type LobbyGameId, type LobbyPlayer } from '../lobbySystem.js';
 import { template } from './multiplayer.js';
 import { escapeHtml } from '../security.js';
+import { hydrateBackButtons } from '../utils/backButton.js';
 
 let eventListeners: Array<() => void> = [];
 let cachedElements: Record<string, HTMLElement | null> = {};
@@ -51,6 +52,7 @@ export function init(): void {
   if (!container) return;
 
   container.innerHTML = template();
+  hydrateBackButtons(container);
   renderConnectionStatus();
   renderLeaderboards();
   setupLobbySection();
@@ -141,15 +143,13 @@ function setupLobbySection(): void {
     clearLobbyError();
     try {
       await lobbySystem.createLobby();
-      // Redirige a la grilla filtrada de juegos multiplayer en vez de
-      // quedarse en la pantalla lobby-active de esta pestaña — ver
-      // comentario del encabezado del archivo y views/onlineLobby.logic.ts.
-      // showLobbyActive() igual se llama antes de navegar: puebla
-      // lobby-active (código de sala, jugadores) para que, si el
-      // usuario vuelve acá con el botón "Volver a Multiplayer", la
-      // vea ya actualizada en vez de en blanco.
+      // Se queda en esta vista mostrando el código de sala (lobby-active)
+      // en vez de navegar de inmediato a "Lobby Online" — antes eso hacía
+      // que el usuario nunca llegara a ver el código, porque la
+      // navegación era instantánea y esa otra vista no lo muestra en
+      // ningún lado. Ahora el usuario decide cuándo avanzar con el botón
+      // "Ir a elegir juego" (ver lobby-go-online-btn más abajo).
       showLobbyActive();
-      window.showView?.('online-lobby');
     } catch (e) {
       showLobbyError(e instanceof Error ? e.message : 'No se pudo crear el lobby.');
     }
@@ -164,7 +164,6 @@ function setupLobbySection(): void {
       await lobbySystem.joinLobby(code);
       // Ver comentario equivalente en lobby-create-btn más arriba.
       showLobbyActive();
-      window.showView?.('online-lobby');
     } catch (e) {
       showLobbyError(e instanceof Error ? e.message : 'No se pudo unir al lobby.');
     }
@@ -173,6 +172,10 @@ function setupLobbySection(): void {
   getElement('lobby-leave-btn')?.addEventListener('click', async () => {
     await lobbySystem.leaveLobby();
     showLobbyEntry();
+  });
+
+  getElement('lobby-go-online-btn')?.addEventListener('click', () => {
+    window.showView?.('online-lobby');
   });
 
   getElement('lobby-create-match-btn')?.addEventListener('click', async () => {

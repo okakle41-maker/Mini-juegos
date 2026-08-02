@@ -28,6 +28,9 @@ const template = (): string => {
               <span class="lobby-label-bar"></span>
               LOBBY ONLINE
             </div>
+            <div class="online-lobby-code-badge hidden" id="onlineLobbyCodeBadge">
+              Código de sala: <strong id="onlineLobbyCodeValue"></strong>
+            </div>
             <h2 class="lobby-title">Elegí con qué jugar</h2>
             <p class="lobby-sub">Estos son los módulos con soporte multiplayer. Elegí uno para entrar a su sala.</p>
             <div class="lobby-pills">

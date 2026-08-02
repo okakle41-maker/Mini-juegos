@@ -7,6 +7,7 @@ import { tournamentSystem } from '../tournamentSystem.js';
 import { template } from './torneos.js';
 import type { TournamentEvent, EventChallenge } from '../types/game';
 import { escapeHtml } from '../security.js';
+import { hydrateBackButtons } from '../utils/backButton.js';
 
 let eventListeners: Array<() => void> = [];
 let cachedElements: Record<string, HTMLElement | null> = {};
@@ -27,6 +28,7 @@ export function init(): void {
   if (!container) return;
 
   container.innerHTML = template();
+  hydrateBackButtons(container);
   renderTournaments();
   renderEvents();
   setupEventListeners();
