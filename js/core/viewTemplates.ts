@@ -48,6 +48,7 @@ export const viewTemplates: Record<string, ViewTemplateLoader> = {
   'rhythmclick': () => import('../views/rhythmclick.js'),
   'ring-puzzle': () => import('../views/ring-puzzle.js'),
   'sequence-game': () => import('../views/sequence-game.js'),
+  'ship_control': () => import('../views/shipControl.js'),
   'signal_triangulation': () => import('../views/signalTriangulation.js'),
   'simon': () => import('../views/simon.js'),
   'skillchecks': () => import('../views/skillchecks.js'),

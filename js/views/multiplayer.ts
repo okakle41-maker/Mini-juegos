@@ -95,6 +95,29 @@ export function template(): string {
               <p class="no-matches">Todavía no hay partidas de Signal Triangulation. ¡Creá una!</p>
             </div>
           </div>
+
+          <!-- Centro de Control: coop de EXACTAMENTE 4 jugadores con
+               roles fijos y asimétricos (a diferencia de las 4 antenas
+               intercambiables de SigTri, acá el jugador elige QUÉ rol
+               quiere jugar al crear/unirse) — ver shipControlSystem.ts. -->
+          <div class="lobby-sc-section" id="lobby-sc-section">
+            <h4 class="subsection-title">🚀 Centro de Control (4 jugadores)</h4>
+            <p class="lobby-sc-hint" style="margin: 0.25rem 0 0.75rem; opacity: 0.85; font-size: 0.85em;">
+              Cooperativo puro — cuatro roles asimétricos (Navegación, Sensores, Energía, Comunicaciones), cada uno ve una pantalla distinta. Requiere sesión iniciada.
+            </p>
+            <div id="lobby-sc-login-required" class="lobby-error hidden" role="alert">
+              Necesitás iniciar sesión para crear o unirte a una partida de Centro de Control.
+            </div>
+            <div class="lobby-sc-create-role-picker" id="lobby-sc-create-role-picker">
+              <button class="match-btn lobby-sc-role-create-btn" data-role="navigation">🧭 Navegación</button>
+              <button class="match-btn lobby-sc-role-create-btn" data-role="sensors">📡 Sensores</button>
+              <button class="match-btn lobby-sc-role-create-btn" data-role="energy">⚡ Energía</button>
+              <button class="match-btn lobby-sc-role-create-btn" data-role="comms">📻 Comunicaciones</button>
+            </div>
+            <div class="lobby-sc-matches-list" id="lobby-sc-matches-list">
+              <p class="no-matches">Todavía no hay partidas de Centro de Control. ¡Creá una eligiendo tu rol!</p>
+            </div>
+          </div>
         </div>
       </div>
 

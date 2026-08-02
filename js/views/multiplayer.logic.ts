@@ -17,6 +17,7 @@
 import { multiplayerSystem } from '../multiplayerSystem.js';
 import { lobbySystem, type LobbyGameId, type LobbyPlayer } from '../lobbySystem.js';
 import { signalTriangulationSystem, type STMatch, type STSlot } from '../signalTriangulationSystem.js';
+import { shipControlSystem, type SCMatch, type SCRole } from '../shipControlSystem.js';
 import Auth from '../authManager.js';
 import { template } from './multiplayer.js';
 import { escapeHtml } from '../security.js';
@@ -128,6 +129,7 @@ function showLobbyActive(): void {
   renderLobbyPlayers();
   renderLobbyMatches();
   setupSignalTriangulationSection();
+  setupShipControlSection();
 }
 
 function showLobbyError(message: string): void {
@@ -313,6 +315,131 @@ function renderSignalTriangulationMatches(): void {
   });
 }
 
+// ── Centro de Control (coop 4 jugadores, roles asimétricos) ─────────
+
+const SC_ROLE_LABELS: Record<SCRole, string> = {
+  navigation: '🧭 Navegación',
+  sensors: '📡 Sensores',
+  energy: '⚡ Energía',
+  comms: '📻 Comunicaciones'
+};
+const ALL_SC_ROLES: SCRole[] = ['navigation', 'sensors', 'energy', 'comms'];
+
+function showScError(message: string): void {
+  const el = getElement('lobby-sc-login-required');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+function clearScError(): void {
+  const el = getElement('lobby-sc-login-required');
+  el?.classList.add('hidden');
+}
+
+/**
+ * Análoga a setupSignalTriangulationSection, pero el botón de "crear"
+ * es en realidad un selector de 4 (uno por rol) — acá el creador elige
+ * explícitamente qué rol jugar, a diferencia de SigTri donde crear
+ * siempre ocupa el slot 1 (ver shipControlSystem.createMatch).
+ */
+function setupShipControlSection(): void {
+  const picker = getElement('lobby-sc-create-role-picker');
+  if (picker && !picker.dataset.bound) {
+    picker.dataset.bound = '1';
+    picker.addEventListener('click', async (event) => {
+      const btn = (event.target as HTMLElement).closest('.lobby-sc-role-create-btn') as HTMLButtonElement | null;
+      if (!btn) return;
+      clearScError();
+      if (!shipControlSystem.isPlayerEligible()) {
+        showScError('Necesitás iniciar sesión para crear una partida de Centro de Control.');
+        return;
+      }
+      const role = btn.dataset.role as SCRole;
+      try {
+        await shipControlSystem.createMatch(role);
+        window.showView?.('ship_control');
+      } catch (e) {
+        showScError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
+      }
+    });
+  }
+
+  if (!shipControlSystem.isPlayerEligible()) {
+    showScError('Necesitás iniciar sesión para crear o unirte a una partida de Centro de Control.');
+  } else {
+    clearScError();
+  }
+
+  void shipControlSystem.loadLobbyMatches().then(() => renderShipControlMatches());
+}
+
+function renderShipControlMatches(): void {
+  const list = getElement('lobby-sc-matches-list');
+  if (!list) return;
+  const matches = shipControlSystem.getMatches();
+  const lobby = lobbySystem.getCurrentLobby();
+  const myId = Auth.getUser()?.id ?? null;
+
+  if (matches.length === 0) {
+    list.innerHTML = '<p class="no-matches">Todavía no hay partidas de Centro de Control. ¡Creá una eligiendo tu rol!</p>';
+    return;
+  }
+
+  const usernameById = new Map((lobby?.players ?? []).map((p) => [p.id, p.username]));
+
+  list.innerHTML = matches.map((m: SCMatch) => {
+    const filledCount = ALL_SC_ROLES.filter((r) => !!m.players[r]).length;
+    const myRole = myId !== null ? ALL_SC_ROLES.find((r) => m.players[r] === myId) ?? null : null;
+    const iAmPlayer = myRole !== null;
+    const openRoles = ALL_SC_ROLES.filter((r) => !m.players[r]);
+    const canJoin = m.status === 'waiting' && openRoles.length > 0 && !iAmPlayer && myId !== null;
+    const canResume = iAmPlayer && (m.status === 'waiting' || m.status === 'playing');
+
+    const rolesLine = ALL_SC_ROLES
+      .map((r) => {
+        const pid = m.players[r];
+        const name = pid ? (usernameById.get(pid) ?? 'Jugador') : 'esperando';
+        return `${SC_ROLE_LABELS[r]}: ${pid ? escapeHtml(name) : name}`;
+      })
+      .join(' · ');
+
+    const joinButtons = canJoin
+      ? openRoles.map((r) => `<button class="lobby-match-join-btn" data-action="sc-join" data-match-id="${m.id}" data-role="${r}">${SC_ROLE_LABELS[r]}</button>`).join('')
+      : '';
+
+    return `
+      <div class="lobby-match-item" data-match-id="${escapeHtml(m.id)}">
+        <span class="lobby-match-game">🚀 Centro de Control</span>
+        <span class="lobby-match-players">${rolesLine} (${filledCount}/4)</span>
+        <span class="lobby-match-status">${m.status === 'waiting' ? '⏳ Esperando jugadores' : '▶️ En curso'}</span>
+        ${canResume ? `<button class="lobby-match-resume-btn" data-action="sc-resume">▶️ Volver a mi partida (${SC_ROLE_LABELS[myRole as SCRole]})</button>` : ''}
+        ${joinButtons ? `<div class="lobby-sc-join-roles">${joinButtons}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('button[data-action]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const el = btn as HTMLElement;
+      const action = el.dataset.action;
+      const matchId = el.dataset.matchId;
+      const role = el.dataset.role as SCRole | undefined;
+
+      try {
+        if (action === 'sc-resume') {
+          window.showView?.('ship_control');
+        } else if (action === 'sc-join' && matchId && role) {
+          await shipControlSystem.joinMatch(matchId, role);
+          window.showView?.('ship_control');
+        }
+      } catch (e) {
+        showScError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
+      }
+    });
+  });
+}
+
 function renderLobbyPlayers(): void {
   const lobby = lobbySystem.getCurrentLobby();
   const list = getElement('lobby-players-list');
@@ -392,6 +519,7 @@ function setupLobbyListeners(): void {
   const matchesHandler = () => renderLobbyMatches();
   const hostChangedHandler = () => renderLobbyPlayers();
   const stMatchesHandler = () => renderSignalTriangulationMatches();
+  const scMatchesHandler = () => renderShipControlMatches();
 
   window.addEventListener('lobby:players_changed', playersHandler);
   window.addEventListener('lobby:matches_changed', matchesHandler);
@@ -400,6 +528,7 @@ function setupLobbyListeners(): void {
   window.addEventListener('lobby:match_left', matchesHandler);
   window.addEventListener('lobby:host_changed', hostChangedHandler);
   window.addEventListener('st:matches_changed', stMatchesHandler);
+  window.addEventListener('sc:matches_changed', scMatchesHandler);
 
   eventListeners.push(() => {
     window.removeEventListener('lobby:players_changed', playersHandler);
@@ -409,6 +538,7 @@ function setupLobbyListeners(): void {
     window.removeEventListener('lobby:match_left', matchesHandler);
     window.removeEventListener('lobby:host_changed', hostChangedHandler);
     window.removeEventListener('st:matches_changed', stMatchesHandler);
+    window.removeEventListener('sc:matches_changed', scMatchesHandler);
   });
 }
 
@@ -466,6 +596,7 @@ export function stop(): void {
   // en otras vistas (la vista del juego en sí usa su propio canal
   // filtrado por partida, ver setupMatchRealtimeSubscriptions).
   signalTriangulationSystem.stopWatchingLobbyMatches();
+  shipControlSystem.stopWatchingLobbyMatches();
 
   const container = document.getElementById('multiplayer');
   if (container) {
