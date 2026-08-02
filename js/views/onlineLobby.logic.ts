@@ -21,7 +21,6 @@ import { signalTriangulationSystem } from '../signalTriangulationSystem.js';
 import { shipControlSystem, type SCRole } from '../shipControlSystem.js';
 import template from './onlineLobby.js';
 import { hydrateBackButtons } from '../utils/backButton.js';
-import '../../css/onlineLobbyConfig.css';
 
 export function init(): void {
   const container = document.getElementById('online-lobby');
