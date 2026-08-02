@@ -22,6 +22,7 @@ export { default as neuralfragment } from './neuralfragment.js';
 export { default as termita } from './termita.js';
 export { default as simon } from './simon.js';
 export { default as arrowGame } from './arrowGame.js';
+export { default as signalTriangulation } from './signalTriangulation.js';
 export { default as lettersFall } from './lettersFall.js';
 export { default as hackingDevice } from './hackingDevice.js';
 export { default as holematch } from './holematch.js';

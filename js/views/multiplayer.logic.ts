@@ -16,6 +16,8 @@
 
 import { multiplayerSystem } from '../multiplayerSystem.js';
 import { lobbySystem, type LobbyGameId, type LobbyPlayer } from '../lobbySystem.js';
+import { signalTriangulationSystem, type STMatch, type STSlot } from '../signalTriangulationSystem.js';
+import Auth from '../authManager.js';
 import { template } from './multiplayer.js';
 import { escapeHtml } from '../security.js';
 import { hydrateBackButtons } from '../utils/backButton.js';
@@ -125,6 +127,7 @@ function showLobbyActive(): void {
   }
   renderLobbyPlayers();
   renderLobbyMatches();
+  setupSignalTriangulationSection();
 }
 
 function showLobbyError(message: string): void {
@@ -188,6 +191,125 @@ function setupLobbySection(): void {
     } catch (e) {
       showLobbyError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
     }
+  });
+}
+
+// ── Signal Triangulation (coop 4 jugadores) ─────────────────────────
+
+const ST_ANTENNA_LABEL: Record<STSlot, string> = {
+  1: '(0,0)',
+  2: '(9,0)',
+  3: '(9,9)',
+  4: '(0,9)'
+};
+
+function showStError(message: string): void {
+  const el = getElement('lobby-st-login-required');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+function clearStError(): void {
+  const el = getElement('lobby-st-login-required');
+  el?.classList.add('hidden');
+}
+
+/**
+ * Registra el botón de crear partida y arranca la carga + suscripción
+ * Realtime a la lista de partidas de Signal Triangulation del lobby
+ * actual. Se llama cada vez que se entra a 'lobby-active' (igual que
+ * renderLobbyMatches para lobby_matches) — signalTriangulationSystem.
+ * loadLobbyMatches() es idempotente (limpia y vuelve a poblar su Map
+ * interno), así que no hay problema en llamarla de nuevo si el usuario
+ * sale y vuelve a esta vista sin recargar la página.
+ */
+function setupSignalTriangulationSection(): void {
+  const createBtn = getElement('lobby-st-create-btn') as HTMLButtonElement | null;
+  if (createBtn && !createBtn.dataset.bound) {
+    createBtn.dataset.bound = '1';
+    createBtn.addEventListener('click', async () => {
+      clearStError();
+      if (!signalTriangulationSystem.isPlayerEligible()) {
+        showStError('Necesitás iniciar sesión para crear una partida de Signal Triangulation.');
+        return;
+      }
+      try {
+        await signalTriangulationSystem.createMatch();
+        window.showView?.('signal_triangulation');
+      } catch (e) {
+        showStError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
+      }
+    });
+  }
+
+  if (!signalTriangulationSystem.isPlayerEligible()) {
+    showStError('Necesitás iniciar sesión para crear o unirte a una partida de Signal Triangulation.');
+  } else {
+    clearStError();
+  }
+
+  void signalTriangulationSystem.loadLobbyMatches().then(() => renderSignalTriangulationMatches());
+}
+
+function renderSignalTriangulationMatches(): void {
+  const list = getElement('lobby-st-matches-list');
+  if (!list) return;
+  const matches = signalTriangulationSystem.getMatches();
+  const lobby = lobbySystem.getCurrentLobby();
+  const myId = Auth.getUser()?.id ?? null;
+
+  if (matches.length === 0) {
+    list.innerHTML = '<p class="no-matches">Todavía no hay partidas de Signal Triangulation. ¡Creá una!</p>';
+    return;
+  }
+
+  const usernameById = new Map((lobby?.players ?? []).map((p) => [p.id, p.username]));
+
+  list.innerHTML = matches.map((m: STMatch) => {
+    const slots: STSlot[] = [1, 2, 3, 4];
+    const filledCount = slots.filter((s) => !!m.players[s]).length;
+    const iAmPlayer = myId !== null && slots.some((s) => m.players[s] === myId);
+    const canJoin = m.status === 'waiting' && filledCount < 4 && !iAmPlayer && myId !== null;
+    const canResume = iAmPlayer && (m.status === 'waiting' || m.status === 'playing');
+
+    const namesLine = slots
+      .map((s) => {
+        const pid = m.players[s];
+        if (!pid) return `J${s} ${ST_ANTENNA_LABEL[s]}: esperando`;
+        const name = usernameById.get(pid) ?? 'Jugador';
+        return `J${s} ${ST_ANTENNA_LABEL[s]}: ${escapeHtml(name)}`;
+      })
+      .join(' · ');
+
+    return `
+      <div class="lobby-match-item" data-match-id="${escapeHtml(m.id)}">
+        <span class="lobby-match-game">📡 Signal Triangulation</span>
+        <span class="lobby-match-players">${namesLine} (${filledCount}/4)</span>
+        <span class="lobby-match-status">${m.status === 'waiting' ? '⏳ Esperando jugadores' : '▶️ En curso'}</span>
+        ${canResume ? `<button class="lobby-match-resume-btn" data-action="st-resume">▶️ Volver a mi partida</button>` : ''}
+        ${canJoin ? `<button class="lobby-match-join-btn" data-action="st-join" data-match-id="${m.id}">🆚 Unirse</button>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('button[data-action]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const el = btn as HTMLElement;
+      const action = el.dataset.action;
+      const matchId = el.dataset.matchId;
+
+      try {
+        if (action === 'st-resume') {
+          window.showView?.('signal_triangulation');
+        } else if (action === 'st-join' && matchId) {
+          await signalTriangulationSystem.joinMatch(matchId);
+          window.showView?.('signal_triangulation');
+        }
+      } catch (e) {
+        showStError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
+      }
+    });
   });
 }
 
@@ -269,6 +391,7 @@ function setupLobbyListeners(): void {
   const playersHandler = () => renderLobbyPlayers();
   const matchesHandler = () => renderLobbyMatches();
   const hostChangedHandler = () => renderLobbyPlayers();
+  const stMatchesHandler = () => renderSignalTriangulationMatches();
 
   window.addEventListener('lobby:players_changed', playersHandler);
   window.addEventListener('lobby:matches_changed', matchesHandler);
@@ -276,6 +399,7 @@ function setupLobbyListeners(): void {
   window.addEventListener('lobby:match_joined', matchesHandler);
   window.addEventListener('lobby:match_left', matchesHandler);
   window.addEventListener('lobby:host_changed', hostChangedHandler);
+  window.addEventListener('st:matches_changed', stMatchesHandler);
 
   eventListeners.push(() => {
     window.removeEventListener('lobby:players_changed', playersHandler);
@@ -284,6 +408,7 @@ function setupLobbyListeners(): void {
     window.removeEventListener('lobby:match_joined', matchesHandler);
     window.removeEventListener('lobby:match_left', matchesHandler);
     window.removeEventListener('lobby:host_changed', hostChangedHandler);
+    window.removeEventListener('st:matches_changed', stMatchesHandler);
   });
 }
 
@@ -333,6 +458,14 @@ export function stop(): void {
   // no se llama acá a propósito: abandonar el lobby automáticamente al
   // salir de la vista sería agresivo y perdería el lugar en un lobby
   // con amigos por simplemente mirar otra pantalla del menú un momento).
+  //
+  // La suscripción Realtime a la LISTA de partidas de Signal
+  // Triangulation sí se detiene acá (a diferencia del lobby mismo): es
+  // un canal aparte que solo tiene sentido mientras se está mirando
+  // esta lista — signalTriangulationSystem no necesita mantenerlo vivo
+  // en otras vistas (la vista del juego en sí usa su propio canal
+  // filtrado por partida, ver setupMatchRealtimeSubscriptions).
+  signalTriangulationSystem.stopWatchingLobbyMatches();
 
   const container = document.getElementById('multiplayer');
   if (container) {

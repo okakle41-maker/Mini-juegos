@@ -75,6 +75,26 @@ export function template(): string {
               <p class="no-matches">Todavía no hay partidas. ¡Creá una!</p>
             </div>
           </div>
+
+          <!-- Signal Triangulation: coop de EXACTAMENTE 4 jugadores, sin
+               modo solo, sin selector de juego (es el único juego de este
+               tipo) — lista aparte de lobby-matches-section porque su
+               forma de partida es distinta (4 slots en vez de 1v1) y
+               porque requiere sesión iniciada (ver
+               signalTriangulationSystem.ts). -->
+          <div class="lobby-st-section" id="lobby-st-section">
+            <h4 class="subsection-title">📡 Signal Triangulation (4 jugadores)</h4>
+            <p class="lobby-st-hint" style="margin: 0.25rem 0 0.75rem; opacity: 0.85; font-size: 0.85em;">
+              Cooperativo puro — cada jugador ve solo su propia distancia a una señal oculta y deben coordinarse por voz. Requiere sesión iniciada.
+            </p>
+            <div id="lobby-st-login-required" class="lobby-error hidden" role="alert">
+              Necesitás iniciar sesión para crear o unirte a una partida de Signal Triangulation.
+            </div>
+            <button class="match-btn" id="lobby-st-create-btn">📡 Crear partida de Signal Triangulation</button>
+            <div class="lobby-st-matches-list" id="lobby-st-matches-list">
+              <p class="no-matches">Todavía no hay partidas de Signal Triangulation. ¡Creá una!</p>
+            </div>
+          </div>
         </div>
       </div>
 
