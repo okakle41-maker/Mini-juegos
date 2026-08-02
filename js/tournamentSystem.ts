@@ -4,6 +4,7 @@
  */
 
 import type { SupabasePayload, WindowSystems } from './types/game';
+import Auth from './authManager.js';
 
 interface Tournament {
   id: string;
@@ -148,6 +149,24 @@ class TournamentSystem {
       console.error('[Tournament] Failed to initialize Supabase:', e);
       this.isConnected = false;
     }
+  }
+
+  /**
+   * Id real del jugador autenticado, o null sin sesión. Antes,
+   * register/unregisterFromTournament usaban el string literal
+   * 'current_player' para TODOS los usuarios — eso hacía que un mismo
+   * placeholder representara a cualquier cantidad de inscriptos
+   * distintos en la misma fila lógica de tournament_participants, y
+   * que unregisterFromTournament (filtrando por ese mismo placeholder)
+   * pudiera borrar la inscripción de otro jugador en vez de la propia.
+   * Mismo patrón que socialSystem.currentPlayerId().
+   */
+  private currentPlayerId(): string | null {
+    return Auth.getUser()?.id ?? null;
+  }
+
+  private currentPlayerName(): string {
+    return Auth.getUser()?.username ?? 'Jugador';
   }
 
   private setupRealtimeSubscriptions(): void {
@@ -490,13 +509,20 @@ class TournamentSystem {
     if (tournament.status !== 'registration') throw new Error('Registration closed');
     if (tournament.currentParticipants >= tournament.maxParticipants) throw new Error('Tournament full');
 
+    const myId = this.currentPlayerId();
+    if (!myId) {
+      console.error('[Tournament] Cannot register: no session');
+      throw new Error('Necesitás iniciar sesión para inscribirte a un torneo.');
+    }
+
     if (this.supabaseClient && this.isConnected) {
       try {
         await this.supabaseClient
           .from('tournament_participants')
           .insert({
             tournament_id: tournamentId,
-            player_id: 'current_player',
+            player_id: myId,
+            player_name: this.currentPlayerName(),
             registered_at: new Date().toISOString()
           });
 
@@ -523,13 +549,19 @@ class TournamentSystem {
     const tournament = this.tournaments.get(tournamentId);
     if (!tournament) return;
 
+    const myId = this.currentPlayerId();
+    if (!myId) {
+      console.error('[Tournament] Cannot unregister: no session');
+      return;
+    }
+
     if (this.supabaseClient && this.isConnected) {
       try {
         await this.supabaseClient
           .from('tournament_participants')
           .delete()
           .eq('tournament_id', tournamentId)
-          .eq('player_id', 'current_player');
+          .eq('player_id', myId);
 
         await this.supabaseClient
           .from('tournaments')

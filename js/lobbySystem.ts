@@ -430,6 +430,15 @@ class LobbySystem {
    */
   async createMatch(gameId: LobbyGameId, settings: Record<string, any> = {}): Promise<LobbyMatch> {
     if (!this.currentLobby) throw new Error('No estás en ningún lobby.');
+    // Evita que un mismo jugador quede como player1Id de dos sub-partidas
+    // a la vez: sin este guard, this.currentMatch se pisa con la nueva
+    // partida y la anterior (todavía 'playing' en la fila real) queda
+    // huérfana — nadie vuelve a llamar completeMatch/leaveCurrentMatch
+    // sobre ella porque el cliente ya perdió la referencia. Ver auditoría
+    // de roles: mismo problema que joinMatchAsPlayer más abajo.
+    if (this.currentMatch && (this.currentMatch.status === 'playing' || this.currentMatch.status === 'waiting')) {
+      throw new Error('Ya tenés una partida activa. Salí de ella antes de crear otra.');
+    }
     const client = this.requireClient();
     const playerId = this.currentPlayerId();
     const matchId = crypto.randomUUID();
@@ -442,7 +451,19 @@ class LobbySystem {
       player1_id: playerId,
       settings
     });
-    if (error) throw new Error(`No se pudo crear la partida: ${error.message}`);
+    if (error) {
+      // 'player_already_in_active_match' es el error custom del trigger
+      // de migration_011 — mismo patrón que 'lobby_full' más arriba:
+      // mensaje amigable en vez del texto crudo de Postgres. El guard
+      // de this.currentMatch al principio de este método ya cubre el
+      // flujo normal de la UI; esto es la red de seguridad del servidor
+      // para cuando ese guard se salta (dos pestañas, cliente
+      // modificado, condición de carrera).
+      if (error.message?.includes('player_already_in_active_match')) {
+        throw new Error('Ya tenés una partida activa. Salí de ella antes de crear otra.');
+      }
+      throw new Error(`No se pudo crear la partida: ${error.message}`);
+    }
 
     await client.from('lobby_players')
       .update({ status: 'waiting_match', current_match_id: matchId })
@@ -468,6 +489,21 @@ class LobbySystem {
    */
   async joinMatchAsPlayer(matchId: string): Promise<LobbyMatch> {
     if (!this.currentLobby) throw new Error('No estás en ningún lobby.');
+    // Mismo guard que createMatch: sin esto, un jugador que ya es
+    // player1Id/player2Id de una partida 'playing' o 'waiting' puede
+    // unirse a una segunda como player2, this.currentMatch se
+    // sobreescribe con la nueva, y la primera queda huérfana en memoria
+    // (su completeMatch/leaveCurrentMatch terminaría actuando sobre la
+    // partida equivocada). No cubre doble-click sobre la MISMA partida
+    // (matchId === this.currentMatch.id) porque ese caso ya lo maneja
+    // sin problema el .is('player2_id', null) de abajo.
+    if (
+      this.currentMatch &&
+      this.currentMatch.id !== matchId &&
+      (this.currentMatch.status === 'playing' || this.currentMatch.status === 'waiting')
+    ) {
+      throw new Error('Ya tenés una partida activa. Salí de ella antes de unirte a otra.');
+    }
     const client = this.requireClient();
     const playerId = this.currentPlayerId();
 
@@ -494,7 +530,14 @@ class LobbySystem {
       .select()
       .maybeSingle();
 
-    if (updateError) throw new Error(`No se pudo unir a la partida: ${updateError.message}`);
+    if (updateError) {
+      // Ver comentario equivalente en createMatch: mismo trigger de
+      // migration_011 protegiendo este UPDATE (rellena player2_id).
+      if (updateError.message?.includes('player_already_in_active_match')) {
+        throw new Error('Ya tenés una partida activa. Salí de ella antes de unirte a otra.');
+      }
+      throw new Error(`No se pudo unir a la partida: ${updateError.message}`);
+    }
     if (!updated) throw new Error('Otro jugador se unió justo antes que vos. Probá con otra partida.');
 
     await client.from('lobby_players')

@@ -1010,10 +1010,15 @@ async function connectAndWait(
     room = await Promise.race([connectPromise, timeoutPromise]);
   } catch (error) {
     ErrorLogger.log('lettersFall.connectAndWait', error, { mode, role, code });
-    setRoomStatus(
-      ui,
-      'No se pudo conectar a la sala. Puede ser tu conexión, o que el proyecto no tenga Realtime habilitado. Probá de nuevo o volvé atrás.'
-    );
+    // 'Ese rol ya está ocupado...' es el mensaje explícito de
+    // joinRoomMatch (multiplayerSystem.ts) cuando el otro jugador de la
+    // sala ya tomó el mismo rol — vale la pena mostrárselo tal cual en
+    // vez del genérico de conexión, porque acá sí hay algo concreto que
+    // el jugador puede hacer (volver y elegir el otro rol).
+    const message = error instanceof Error && error.message.includes('Ese rol ya está ocupado')
+      ? error.message
+      : 'No se pudo conectar a la sala. Puede ser tu conexión, o que el proyecto no tenga Realtime habilitado. Probá de nuevo o volvé atrás.';
+    setRoomStatus(ui, message);
     return;
   }
 

@@ -469,6 +469,18 @@ class MultiplayerSystem {
 
     const existingPlayers: Array<{ id: string; role: string; joined_at: number }> = existing.players || [];
     const alreadyIn = existingPlayers.some((p) => p.id === playerId);
+    // Evita que dos jugadores terminen con el mismo rol dentro de la
+    // misma sala (p.ej. dos 'viewer' y ningún 'typer' en Letters Fall
+    // coop, o dos 'p1' en el modo 1v1) — antes, joinRoomMatch aceptaba
+    // el rol elegido en la UI sin comparar contra los roles ya
+    // ocupados, así que el segundo jugador podía romper el juego
+    // asimétrico en silencio con solo tocar el mismo botón que el
+    // primero. No aplica a alreadyIn: si el propio jugador ya está en
+    // la sala (reconexión), no está "compitiendo" por el rol consigo
+    // mismo.
+    if (!alreadyIn && existingPlayers.some((p) => p.role === role)) {
+      throw new Error('Ese rol ya está ocupado en esta sala. Elegí el otro.');
+    }
     const nextPlayers = alreadyIn
       ? existingPlayers
       : [...existingPlayers, { id: playerId, role, joined_at: Date.now() }];
@@ -861,48 +873,23 @@ class MultiplayerSystem {
 
   // Spectator mode
 
-  /**
-   * Lista salas activas (esperando o en curso) de live_matches — hoy
-   * solo Letters Fall crea filas ahí (Simon/Arrow/Termita se juegan
-   * desde el lobby grupal, ver js/lobbySystem.ts, tablas separadas).
-   * Ya no hay UI que llame a este método (la sección "Partidas Activas"
-   * de la vista multiplayer se quitó junto con el resto del flujo de
-   * sala 1v1 suelta genérico), pero se deja disponible como parte de la
-   * API pública de MultiplayerSystem por si se agrega spectating de
-   * Letters Fall más adelante.
-   */
-  async listActiveMatches(gameId?: string): Promise<Match[]> {
-    if (!this.supabaseClient || !this.isConnected) return [];
-    try {
-      let query = this.supabaseClient
-        .from('live_matches')
-        .select('*')
-        .in('status', ['waiting', 'playing'])
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (gameId) query = query.eq('game_id', gameId);
-
-      const { data, error } = await query;
-      if (error || !data) return [];
-
-      return data.map((row: any) => ({
-        id: row.id,
-        gameId: row.game_id,
-        roomCode: row.room_code,
-        players: (row.players || []).map((p: any) => ({
-          id: p.id, name: 'Jugador', avatar: '👤', level: 1, status: 'online', role: p.role
-        })),
-        status: row.status,
-        createdAt: new Date(row.created_at).getTime(),
-        scores: new Map(),
-        settings: row.settings || {}
-      }));
-    } catch (e) {
-      console.error('[Multiplayer] Failed to list active matches:', e);
-      return [];
-    }
-  }
+  // Nota: existía acá un listActiveMatches(gameId?) que hacía
+  // `select('*') .in('status', [...])` sobre TODA la tabla live_matches
+  // sin filtrar por room_code — es decir, listaba todas las salas
+  // activas de todos los usuarios, no solo la que alguien ya conoce por
+  // código. live_matches_select_all (migration_005) es using(true) a
+  // propósito (salas efímeras sin sesión, protegidas por "conocer el
+  // código", no por auth.uid() — ver esa migración para el criterio
+  // completo), pero ese diseño asume que el cliente siempre filtra por
+  // el código que la persona ya tiene, nunca que enumera todo. Este
+  // método no tenía ningún llamador en el código (comentario original:
+  // "ya no hay UI que lo llame") ni en los tests — se quitó en vez de
+  // dejarlo como superficie sin usar que expondría el listado completo
+  // el día que alguien lo conecte a un botón sin pensar en esta
+  // distinción. Si en el futuro hace falta listar salas (p.ej.
+  // spectating de Letters Fall), la forma correcta es un RPC
+  // security definer que reciba un room_code puntual y devuelva esa
+  // sala, no un select abierto de toda la tabla.
 
   async spectateMatch(matchId: string): Promise<Match | null> {
     if (!this.supabaseClient || !this.isConnected) return null;
