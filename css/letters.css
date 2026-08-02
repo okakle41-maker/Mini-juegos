@@ -333,3 +333,55 @@
 .letters-card[data-role="viewer"] .letters-input-row input {
   display: none;
 }
+
+/* ── Split screen 1v1: "Vos" | "Rival" ──
+ * .letters-split envuelve siempre .letters-area (lado propio, Solo y
+ * Coop lo usan igual que antes, en una sola columna) — en 1v1
+ * (ver wireVersusMode en lettersFall.logic.ts) se le agrega la clase
+ * modificadora `letters-split--active`, que pasa a grid de dos
+ * columnas y revela `lettersRivalSide` (panel de solo lectura con las
+ * vidas del rival, ver `versus:state`/`versus:gameover`). No se clona
+ * el tablero del rival (a diferencia de Simon/Termita): en Letters
+ * Fall ambos ven el mismo pool de palabras cayendo en su propia área
+ * (ver spawnWord/spawnReceivedWord), así que alcanza con mostrar el
+ * puntaje/vidas del otro lado en vez de una copia visual completa.
+ */
+.letters-split--active {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.letters-split-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.letters-split-label {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.55);
+}
+/* Panel del rival: mismo look que .letters-area pero de solo lectura
+ * y sin danger zone visible (el rival no comparte posición vertical
+ * exacta de las palabras, solo el texto/spawn — ver spawnReceivedWord),
+ * así que se muestra un resumen simple de vidas en vez de duplicar el
+ * área de caída completa. */
+.letters-rival {
+  pointer-events: none;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+@media (max-width: 720px) {
+  .letters-split--active {
+    grid-template-columns: 1fr;
+  }
+}

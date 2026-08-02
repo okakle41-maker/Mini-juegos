@@ -60,6 +60,14 @@ function buildLettersUi() {
     <div data-ui="lettersControls"></div>
     <div data-ui="lettersRoleBadge" class="hidden"></div>
     <div data-ui="roleChooserLabel"></div>
+    <button data-ui="modeVersus"></button>
+    <div data-ui="versusChooser" class="hidden"></div>
+    <button data-ui="versusCreate"></button>
+    <button data-ui="versusJoin"></button>
+    <div data-ui="versusJoinCodeRow" class="hidden"></div>
+    <input data-ui="versusJoinCodeInput" />
+    <button data-ui="versusJoinConfirm" disabled></button>
+    <button data-ui="versusBack"></button>
   `;
 
   const ui: any = {};
@@ -69,7 +77,9 @@ function buildLettersUi() {
     'joinCodeInput', 'roleConfirm', 'roleBack', 'roomCancel', 'start', 'lettersInput',
     'lettersArea', 'lettersMessage', 'lettersDifficulty', 'lettersDifficultySelect',
     'lettersScore', 'lettersBest', 'lettersLives', 'lettersCard', 'lettersControls',
-    'lettersRoleBadge', 'roleChooserLabel'
+    'lettersRoleBadge', 'roleChooserLabel',
+    'modeVersus', 'versusChooser', 'versusCreate', 'versusJoin', 'versusJoinCodeRow',
+    'versusJoinCodeInput', 'versusJoinConfirm', 'versusBack'
   ]) {
     ui[selector] = document.querySelector(`[data-ui="${selector}"]`);
   }

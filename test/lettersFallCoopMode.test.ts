@@ -31,6 +31,14 @@ function buildLettersUi() {
     <div data-ui="lettersControls"></div>
     <div data-ui="lettersRoleBadge"></div>
     <div data-ui="roleChooserLabel"></div>
+    <button data-ui="modeVersus"></button>
+    <div data-ui="versusChooser" class="hidden"></div>
+    <button data-ui="versusCreate"></button>
+    <button data-ui="versusJoin"></button>
+    <div data-ui="versusJoinCodeRow" class="hidden"></div>
+    <input data-ui="versusJoinCodeInput" />
+    <button data-ui="versusJoinConfirm" disabled></button>
+    <button data-ui="versusBack"></button>
   `;
 
   const ui: any = {};
@@ -62,7 +70,15 @@ function buildLettersUi() {
     'lettersCard',
     'lettersControls',
     'lettersRoleBadge',
-    'roleChooserLabel'
+    'roleChooserLabel',
+    'modeVersus',
+    'versusChooser',
+    'versusCreate',
+    'versusJoin',
+    'versusJoinCodeRow',
+    'versusJoinCodeInput',
+    'versusJoinConfirm',
+    'versusBack'
   ]) {
     ui[selector] = document.querySelector(`[data-ui="${selector}"]`);
   }
@@ -112,12 +128,21 @@ describe('Letters Fall coop mode', () => {
           <button data-ui="roleConfirm" disabled></button>
           <button data-ui="roleBack"></button>
         </div>
+        <div data-ui="versusChooser" class="letters-role-chooser hidden">
+          <button data-ui="versusCreate"></button>
+          <button data-ui="versusJoin"></button>
+          <div data-ui="versusJoinCodeRow" class="hidden"></div>
+          <input data-ui="versusJoinCodeInput" />
+          <button data-ui="versusJoinConfirm" disabled></button>
+          <button data-ui="versusBack"></button>
+        </div>
         <div data-ui="roomStatus" class="letters-room-status hidden">
           <p data-ui="roomStatusText"></p>
           <p data-ui="roomCodeDisplay"></p>
           <button data-ui="roomCancel"></button>
         </div>
       </div>
+      <button data-ui="modeVersus"></button>
       <button data-ui="start"></button>
       <input data-ui="lettersInput" />
       <div data-ui="lettersArea"></div>

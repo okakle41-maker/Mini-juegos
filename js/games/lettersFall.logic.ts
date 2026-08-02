@@ -126,11 +126,32 @@ interface DifficultyConfig {
  * 'typer' tiene el input pero el área de palabras queda vacía/oculta
  * (ver data-role en css/letters.css). 'solo' es el comportamiento
  * original de un solo dispositivo, sin sala ni Realtime de por medio.
+ *
+ * Modo 1v1 ('p1'/'p2'): ambos jugadores ven caer el mismo pool de
+ * palabras (generado y transmitido por 'p1', ver GENERATOR_ROLE más
+ * abajo) en pantalla dividida (Vos | Rival, mismo patrón que
+ * Simon/Arrow/Termita — ver multiplayerSplitView.ts), pero cada uno
+ * corre su propio motor de físicas/vidas de forma independiente: si
+ * una palabra se le escapa a un jugador, solo él pierde una vida (ver
+ * checkDangerZone/loseLife) — no hay "dueño" por palabra, cualquiera
+ * de los dos puede escribir cualquiera de las palabras que ve caer en
+ * su propio lado.
  */
-type CoopRole = 'solo' | 'viewer' | 'typer';
+type CoopRole = 'solo' | 'viewer' | 'typer' | 'p1' | 'p2';
+
+/** Roles que participan del modo 1v1 (por oposición a 'solo'/'viewer'/'typer'). */
+function isVersusRole(role: CoopRole): role is 'p1' | 'p2' {
+  return role === 'p1' || role === 'p2';
+}
+
+/** En el modo 1v1, 'p1' (quien crea la sala) es quien genera y
+ *  transmite cada palabra nueva — 'p2' nunca llama a spawnWord() por
+ *  su cuenta, solo agrega al tablero lo que recibe. Ver
+ *  comentario largo en CoopRole más arriba. */
+const VERSUS_GENERATOR_ROLE: CoopRole = 'p1';
 
 interface LettersFallUi {
-  start: HTMLElement;
+  start: HTMLButtonElement;
   lettersInput: HTMLInputElement;
   lettersArea: HTMLElement;
   lettersMessage: HTMLElement;
@@ -159,6 +180,21 @@ interface LettersFallUi {
   roomStatusText: HTMLElement;
   roomCodeDisplay: HTMLElement;
   roomCancel: HTMLElement;
+  // ── Modo 1v1 (ver CoopRole) ──
+  modeVersus: HTMLElement;
+  versusChooser: HTMLElement;
+  versusCreate: HTMLElement;
+  versusJoin: HTMLElement;
+  versusJoinCodeRow: HTMLElement;
+  versusJoinCodeInput: HTMLInputElement;
+  versusJoinConfirm: HTMLButtonElement;
+  versusBack: HTMLElement;
+  lettersSplit?: HTMLElement;
+  lettersSplitLabel?: HTMLElement;
+  lettersRivalSide?: HTMLElement;
+  lettersRival?: HTMLElement;
+  lettersRivalLabel?: HTMLElement;
+  lettersRivalLives?: HTMLElement;
   [key: string]: HTMLElement | null | undefined;
 }
 
@@ -215,13 +251,22 @@ class LettersFallGame {
   private lastSentState: { score: number; best: number; lives: number } | null = null;
 
   /**
-   * Modo coop. En 'solo' (default) el juego funciona exactamente
-   * igual que antes de agregar salas — `room` queda null y nada de
-   * la lógica de sincronización se activa. En modo coop, el viewer
-   * es la única instancia que corre `update()`/`spawnWord()` (motor
-   * único de físicas, para que las dos pantallas nunca vean palabras
-   * distintas); ver protocolo de eventos en `connectRoom` más abajo.
-   * El typer nunca instancia `LettersFallGame`, ver `initTyperMode`.
+   * Modo coop/versus. En 'solo' (default) el juego funciona
+   * exactamente igual que antes de agregar salas — `room` queda null
+   * y nada de la lógica de sincronización se activa. En coop, el
+   * viewer es la única instancia que corre `update()`/`spawnWord()`
+   * (motor único de físicas, para que las dos pantallas nunca vean
+   * palabras distintas); ver protocolo de eventos en `connectRoom`
+   * más abajo. El typer nunca instancia `LettersFallGame`, ver
+   * `initTyperMode`.
+   *
+   * En 1v1 ('p1'/'p2'), a diferencia del coop, AMBOS instancian
+   * `LettersFallGame` y corren su propio `update()` — pero solo 'p1'
+   * (VERSUS_GENERATOR_ROLE) llama a `spawnWord()` por su cuenta; 'p2'
+   * solo agrega al tablero las palabras que recibe vía
+   * `versus:word` (ver `spawnWord`/`receiveVersusWord` más abajo),
+   * así ambos ven el mismo pool de palabras aunque cada uno controle
+   * sus propias vidas de forma independiente.
    */
   role: CoopRole = 'solo';
   room: RoomSession | null = null;
@@ -258,6 +303,25 @@ class LettersFallGame {
     ];
     this.loadBest();
     this.updateUI();
+
+    // Modo 1v1, lado no-generador ('p2'): agrega al tablero cada
+    // palabra que recibe de 'p1' en vez de generar las suyas propias
+    // (ver comentario largo sobre `role` más arriba). El generador
+    // ('p1') nunca se suscribe a este evento — es él quien lo emite,
+    // ver spawnWord().
+    if (isVersusRole(this.role) && this.role !== VERSUS_GENERATOR_ROLE && this.room) {
+      this.room.on('versus:word', (payload) => {
+        const { text, x } = payload as { text: string; x: number };
+        this.spawnReceivedWord(text, x);
+      });
+      // 'p2' no tiene su propio botón "Empezar" activo en 1v1 (ver
+      // wireVersusStartButton) — arranca reaccionando a la señal que
+      // 'p1' emite en su propio start() (ver más abajo), así ambos
+      // arrancan en el mismo instante.
+      this.room.on('versus:start', () => {
+        this.start();
+      });
+    }
   }
 
   loadBest() {
@@ -275,6 +339,17 @@ class LettersFallGame {
     this.state.nextSpawnTime = performance.now() + this.state.spawnInterval;
     this.ui.lettersInput.focus();
     requestAnimationFrame(this.update.bind(this));
+    // En 1v1, solo 'p1' llama a start() desde el click de "Empezar"
+    // (el guard vive en wireDifficultyAndInput, y el botón además
+    // queda oculto/deshabilitado para 'p2' en wireVersusMode) — 'p2'
+    // llega acá reaccionando al 'versus:start' que 'p1' emite. Se
+    // restringe explícitamente el envío al generador para no depender
+    // de esos otros dos guards.
+    if (this.role === VERSUS_GENERATOR_ROLE && this.room) {
+      this.room.send('versus:start', {}).catch((error) => {
+        ErrorLogger.log('lettersFall.start.broadcastVersusStart', error);
+      });
+    }
   }
 
   reset() {
@@ -380,6 +455,34 @@ class LettersFallGame {
     this.state.words.push(word);
     this.ui.lettersArea.appendChild(word.createElement());
     this.updateUI();
+    // En 1v1, el generador ('p1') transmite cada palabra nueva para
+    // que 'p2' vea exactamente el mismo pool (ver comentario largo
+    // sobre `role` en el constructor) — no aplica a coop ('viewer'/
+    // 'typer' ya comparten un único motor de físicas, no hace falta
+    // este mecanismo ahí) ni a 'solo'.
+    if (this.role === VERSUS_GENERATOR_ROLE && this.room) {
+      this.room.send('versus:word', { text, x }).catch((error) => {
+        ErrorLogger.log('lettersFall.spawnWord.broadcast', error, { text });
+      });
+    }
+  }
+
+  /**
+   * Lado no-generador del modo 1v1 ('p2'): agrega al tablero una
+   * palabra recibida de 'p1' en vez de generarla localmente — mismo
+   * texto/posición x que ve el generador, con la velocidad ya
+   * calculada localmente (wordSpeed depende de la dificultad, que es
+   * la misma para ambos porque la fija quien crea la sub-partida,
+   * igual que Simon/Arrow/Termita — ver applyVersusSettings). Cada
+   * cliente sigue corriendo su propio update()/checkDangerZone sobre
+   * su copia local de la palabra, así que las vidas quedan
+   * independientes aunque el contenido sea idéntico.
+   */
+  spawnReceivedWord(text: string, x: number) {
+    const word = new Word(text, x, 20, this.state.wordSpeed);
+    this.state.words.push(word);
+    this.ui.lettersArea.appendChild(word.createElement());
+    this.updateUI();
   }
 
   getRandomWord(minLength: number, maxLength: number): string {
@@ -404,7 +507,13 @@ class LettersFallGame {
 
     if (now >= this.state.nextSpawnTime) {
       const enoughSpace = this.state.words.every(word => word.y >= config.minVerticalSpacing);
-      if (enoughSpace || this.state.words.length === 0) {
+      // En 1v1, solo el generador ('p1') decide cuándo aparece cada
+      // palabra nueva — el lado no-generador ('p2') solo reacciona a
+      // `versus:word` (ver spawnReceivedWord/constructor), nunca
+      // dispara su propio spawnWord() por temporizador local, o
+      // vería el doble de palabras que su rival.
+      const canAutoSpawn = !isVersusRole(this.role) || this.role === VERSUS_GENERATOR_ROLE;
+      if (canAutoSpawn && (enoughSpace || this.state.words.length === 0)) {
         this.spawnWord();
         this.state.nextSpawnTime = now + this.state.spawnInterval;
       } else {
@@ -511,6 +620,23 @@ class LettersFallGame {
         ErrorLogger.log('lettersFall.gameOver.notifyPeer', error);
       });
     }
+    if (isVersusRole(this.role) && this.room) {
+      // Avisa al rival de que este lado terminó (su propio juego sigue
+      // corriendo de forma independiente — vidas separadas, ver
+      // comentario largo sobre `role` en el constructor). El panel
+      // rival del split-screen usa esto para mostrar "Rival: GAME
+      // OVER" en vez de solo dejar de recibir versus:state.
+      this.room.send('versus:gameover', { score: this.state.score }).catch((error) => {
+        ErrorLogger.log('lettersFall.gameOver.notifyVersusPeer', error);
+      });
+      // Reporta el score final a multiplayerSystem para que decida el
+      // ganador (mismo mecanismo que finishRoomMatch/endMatch ya usan
+      // para el resto de la sala — ver multiplayerSystem.ts) cuando
+      // ambos lados hayan reportado el suyo.
+      void multiplayerSystem.finishRoomMatch(this.state.score).catch((error: unknown) => {
+        ErrorLogger.log('lettersFall.gameOver.finishRoomMatch', error);
+      });
+    }
   }
 
   showMessage(text: string, type: string) {
@@ -539,8 +665,14 @@ class LettersFallGame {
     // frame anterior (que es la inmensa mayoría de los frames, ya que
     // solo cambian en eventos puntuales: acierto, fallo, o récord
     // nuevo). Eso podía saturar la conexión o el rate limit de
-    // Supabase en cualquier partida coop mínimamente larga.
-    if (this.role === 'viewer' && this.room) {
+    // Supabase en cualquier partida coop/1v1 mínimamente larga.
+    //
+    // En coop, solo 'viewer' envía (el typer no tiene su propio
+    // tablero/score que reportar). En 1v1, AMBOS envían: cada jugador
+    // tiene sus propias vidas/score independientes y el split-screen
+    // del rival necesita verlos (ver wireVersusRivalPanel).
+    const shouldSendState = (this.role === 'viewer' || isVersusRole(this.role)) && this.room;
+    if (shouldSendState) {
       const current = { score: this.state.score, best: this.state.best, lives: this.state.lives };
       const changed = !this.lastSentState
         || current.score !== this.lastSentState.score
@@ -548,13 +680,14 @@ class LettersFallGame {
         || current.lives !== this.lastSentState.lives;
       if (changed) {
         this.lastSentState = current;
-        this.room.send('viewer:state', current).catch(() => {
+        const eventType = isVersusRole(this.role) ? 'versus:state' : 'viewer:state';
+        this.room!.send(eventType, current).catch(() => {
           // Silencioso: un fallo puntual de red acá no debe interrumpir
           // el juego. lastSentState ya quedó actualizado arriba a
           // propósito (no se revierte en el catch): si se revirtiera,
           // una racha de fallos de red sostenidos volvería a reintentar
           // el envío en cada frame siguiente, reintroduciendo el mismo
-          // spam que este fix busca evitar. El costo es que el typer
+          // spam que este fix busca evitar. El costo es que el rival
           // puede quedarse con un valor viejo hasta el próximo cambio
           // real de score/best/lives — aceptable frente a eso.
         });
@@ -590,7 +723,16 @@ interface StoppableInstance {
 }
 
 function wireDifficultyAndInput(ui: LettersFallUi, game: LettersFallGame) {
-  ui.start.addEventListener('click', () => game.start());
+  ui.start.addEventListener('click', () => {
+    // En 1v1, 'p2' nunca debe arrancar por click propio — solo
+    // reacciona a 'versus:start' del generador (ver
+    // LettersFallGame.start()/constructor). El botón ya queda oculto/
+    // deshabilitado para 'p2' en wireVersusMode, pero este guard evita
+    // un doble arranque si igual llegara a dispararse (p.ej. Enter
+    // sobre un botón deshabilitado en algunos navegadores/AT).
+    if (isVersusRole(game.role) && game.role !== VERSUS_GENERATOR_ROLE) return;
+    game.start();
+  });
 
   ui.lettersInput.addEventListener('input', (event: Event) => {
     const value = (event.target as HTMLInputElement).value;
@@ -627,14 +769,19 @@ function wireDifficultyAndInput(ui: LettersFallUi, game: LettersFallGame) {
 }
 
 function showRoleBadge(ui: LettersFallUi, role: CoopRole, code: string) {
-  ui.lettersRoleBadge.textContent = role === 'viewer' ? `👀 Viewer · Sala ${code}` : `⌨️ Typer · Sala ${code}`;
+  if (role === 'p1' || role === 'p2') {
+    ui.lettersRoleBadge.textContent = `🆚 1v1 · Sala ${code}`;
+  } else {
+    ui.lettersRoleBadge.textContent = role === 'viewer' ? `👀 Viewer · Sala ${code}` : `⌨️ Typer · Sala ${code}`;
+  }
   ui.lettersRoleBadge.classList.remove('hidden');
 }
 
 /**
- * Arranca el juego en modo 'solo' (comportamiento original, sin sala)
- * o 'viewer' (con sala coop activa) — ambos usan la misma clase
- * `LettersFallGame`, la diferencia es si `room` es null o no.
+ * Arranca el juego en modo 'solo' (comportamiento original, sin sala),
+ * 'viewer' (con sala coop activa), o 'p1'/'p2' (sala 1v1) — todos usan
+ * la misma clase `LettersFallGame`, la diferencia es si `room` es null
+ * o no y qué `role` se le pasa.
  */
 function startGameCard(ui: LettersFallUi, role: CoopRole, room: RoomSession | null) {
   ui.lettersModePanel.classList.add('hidden');
@@ -656,7 +803,54 @@ function startGameCard(ui: LettersFallUi, role: CoopRole, room: RoomSession | nu
     });
   }
 
+  if (isVersusRole(role)) {
+    wireVersusMode(ui, role, room!, game);
+  }
+
   GameInstanceRegistry.set('letters', game);
+}
+
+/**
+ * Cablea las diferencias del modo 1v1 sobre el tablero normal: solo
+ * 'p1' (VERSUS_GENERATOR_ROLE) tiene el botón "Empezar" visible — 'p2'
+ * arranca reaccionando a 'versus:start' (ver LettersFallGame.start()),
+ * no clickeando el suyo — y ambos pintan un panel resumen con el
+ * score/vidas del rival (recibidos vía 'versus:state'/
+ * 'versus:gameover', ver updateUI()/gameOver() en LettersFallGame).
+ */
+function wireVersusMode(ui: LettersFallUi, role: 'p1' | 'p2', room: RoomSession, game: LettersFallGame) {
+  const isHost = role === VERSUS_GENERATOR_ROLE;
+  const rivalLabel = ui.lettersRivalLabel;
+  const rivalLives = ui.lettersRivalLives;
+  // `lettersSplit` está siempre presente (Solo/Coop lo usan como
+  // wrapper de una sola columna alrededor de `lettersArea`, ver
+  // js/views/letters.ts) — en 1v1 se le agrega la clase modificadora
+  // que activa el grid de dos columnas y se revela el lado del rival,
+  // que en el resto de los modos queda oculto (ver css/letters.css).
+  ui.lettersSplit?.classList.add('letters-split--active');
+  ui.lettersSplitLabel?.classList.remove('hidden');
+  ui.lettersRivalSide?.classList.remove('hidden');
+
+  if (!isHost) {
+    ui.start.disabled = true;
+    ui.start.classList.add('hidden');
+    ui.lettersMessage.textContent = 'Esperando a que el anfitrión empiece la partida...';
+  } else {
+    ui.lettersMessage.textContent = '1v1: presioná Empezar cuando quieras. Tu rival arranca junto con vos.';
+  }
+
+  room.on('versus:state', (payload) => {
+    const { score, lives } = payload as { score: number; best: number; lives: number };
+    if (rivalLabel) rivalLabel.textContent = `Rival — ${score} pts`;
+    if (rivalLives) rivalLives.innerHTML = Array.from({ length: Math.max(0, lives) }, () => '<span>❤️</span>').join('');
+  });
+
+  room.on('versus:gameover', (payload) => {
+    const { score } = payload as { score: number };
+    if (rivalLabel) rivalLabel.textContent = `Rival — GAME OVER (${score} pts)`;
+  });
+
+  void game; // reservado por si a futuro hace falta leer estado propio acá
 }
 
 /**
@@ -773,6 +967,24 @@ function hidePanelStep(...steps: HTMLElement[]) {
   steps.forEach((el) => el.classList.add('hidden'));
 }
 
+/** Texto legible del rol contrario para el mensaje de "Esperando a que se una...". */
+function describeRole(role: CoopRole): string {
+  if (role === 'viewer') return 'el viewer';
+  if (role === 'typer') return 'el typer';
+  return 'tu rival'; // p1/p2: 1v1 es simétrico, no hay nombre de rol distinto que mostrar
+}
+
+/** Rol contrario dentro de la misma sala — necesario para saber a
+ *  quién esperar en connectAndWait (el viewer espera al typer y
+ *  viceversa; p1 espera a p2 y viceversa). No tiene sentido para
+ *  'solo', que nunca pasa por acá. */
+function getOtherRole(role: CoopRole): CoopRole {
+  if (role === 'viewer') return 'typer';
+  if (role === 'typer') return 'viewer';
+  if (role === 'p1') return 'p2';
+  return 'p1';
+}
+
 /**
  * Conecta (o crea) la sala y espera a que el otro rol aparezca antes
  * de arrancar el tablero — `onPeersChange` se dispara con el snapshot
@@ -785,7 +997,7 @@ async function connectAndWait(
   role: CoopRole,
   code: string
 ): Promise<void> {
-  const otherRole: CoopRole = role === 'viewer' ? 'typer' : 'viewer';
+  const otherRole: CoopRole = getOtherRole(role);
 
   setRoomStatus(ui, mode === 'create' ? 'Creando sala…' : 'Conectando…');
 
@@ -813,7 +1025,7 @@ async function connectAndWait(
 
   setRoomStatus(
     ui,
-    `Esperando a que se una el ${otherRole === 'viewer' ? 'viewer' : 'typer'}…`,
+    `Esperando a que se una ${describeRole(otherRole)}…`,
     room.code
   );
 
@@ -836,12 +1048,21 @@ async function connectAndWait(
   );
 }
 
+/**
+ * Arranca la partida en la sala una vez que ambos roles están
+ * presentes — coop (viewer/typer) o 1v1 (p1/p2, ambos usan
+ * startGameCard con su propio tablero completo, a diferencia del
+ * typer que no tiene tablero — ver wireVersusMode para las
+ * diferencias de UI/arranque sincronizado del 1v1).
+ */
 function launchCoop(ui: LettersFallUi, role: CoopRole, room: RoomSession) {
   hidePanelStep(ui.roomStatus, ui.roleChooser, ui.lettersModePanel);
   if (role === 'viewer') {
     startGameCard(ui, 'viewer', room);
     const game = GameInstanceRegistry.get<LettersFallGame>('letters');
     if (game) listenForTyperInput(room, game);
+  } else if (role === 'p1' || role === 'p2') {
+    startGameCard(ui, role, room);
   } else {
     startTyperMode(ui, room);
   }
@@ -873,7 +1094,7 @@ export function init(rawUi: GameUi) {
   // esconde también a sus hijos aunque estos no tengan la clase
   // `hidden` puesta, dejando la pantalla en blanco pese a que
   // `roleChooser`/`roomStatus` estén "visibles" en el DOM.
-  const innerSteps = [ui.roleChooser, ui.roomStatus] as const;
+  const innerSteps = [ui.roleChooser, ui.versusChooser, ui.roomStatus] as const;
   const modeOptions = ui.lettersModePanel.querySelector<HTMLElement>('.letters-mode-options');
 
   const showStep = (step: HTMLElement) => {
@@ -910,6 +1131,41 @@ export function init(rawUi: GameUi) {
   });
 
   ui.roleBack.addEventListener('click', () => showStep(ui.lettersModePanel));
+
+  // ── Modo 1v1: a diferencia de coop (roleChooser), es simétrico —
+  // no hay rol que elegir entre 'p1'/'p2'. `versusChooser` solo pide
+  // crear una sala nueva o unirse con un código; el rol ('p1' host /
+  // 'p2' quien se une) queda implícito según qué botón se usó, igual
+  // que el patrón crear/unirse de coop pero sin el paso de rol.
+  ui.modeVersus.addEventListener('click', () => {
+    ui.versusJoinCodeRow.classList.add('hidden');
+    ui.versusJoinCodeInput.value = '';
+    ui.versusJoinConfirm.disabled = true;
+    showStep(ui.versusChooser);
+  });
+
+  ui.versusBack.addEventListener('click', () => showStep(ui.lettersModePanel));
+
+  ui.versusCreate.addEventListener('click', () => {
+    showStep(ui.roomStatus);
+    connectAndWait(ui, 'create', 'p1', '');
+  });
+
+  ui.versusJoin.addEventListener('click', () => {
+    ui.versusJoinCodeRow.classList.remove('hidden');
+    ui.versusJoinCodeInput.focus();
+  });
+
+  ui.versusJoinCodeInput.addEventListener('input', () => {
+    ui.versusJoinCodeInput.value = ui.versusJoinCodeInput.value.toUpperCase().slice(0, 4);
+    ui.versusJoinConfirm.disabled = ui.versusJoinCodeInput.value.trim().length !== 4;
+  });
+
+  ui.versusJoinConfirm.addEventListener('click', () => {
+    if (ui.versusJoinCodeInput.value.trim().length !== 4) return;
+    showStep(ui.roomStatus);
+    connectAndWait(ui, 'join', 'p2', ui.versusJoinCodeInput.value);
+  });
 
   let selectedRole: CoopRole | null = null;
   const selectRole = (role: CoopRole) => {
@@ -954,6 +1210,17 @@ export function stop() {
     ui.lettersModePanel.classList.remove('hidden');
     ui.lettersModePanel.querySelector<HTMLElement>('.letters-mode-options')?.classList.remove('hidden');
     ui.roleChooser.classList.add('hidden');
+    ui.versusChooser?.classList.add('hidden');
     ui.roomStatus.classList.add('hidden');
+
+    // Revierte el split-screen del 1v1 (ver wireVersusMode) para que
+    // la próxima partida (Solo/Coop) no arranque con el grid de dos
+    // columnas ni el panel del rival visible — ver comentario sobre
+    // `lettersSplit` siempre presente en js/views/letters.ts.
+    ui.lettersSplit?.classList.remove('letters-split--active');
+    ui.lettersSplitLabel?.classList.add('hidden');
+    ui.lettersRivalSide?.classList.add('hidden');
+    if (ui.start) (ui.start as HTMLButtonElement).disabled = false;
+    ui.start?.classList.remove('hidden');
   }
 }

@@ -42,6 +42,10 @@ const template = (): string => {
               <strong>Unirse a sala</strong>
               <span>Ingresá el código que te compartieron y elegí tu rol.</span>
             </button>
+            <button data-ui="modeVersus" class="letters-mode-btn">
+              <strong>🆚 1v1</strong>
+              <span>Mismas palabras para los dos, en pantalla dividida. Cada uno con sus propias vidas.</span>
+            </button>
           </div>
 
           <div data-ui="roleChooser" class="letters-role-chooser hidden">
@@ -63,6 +67,27 @@ const template = (): string => {
             </div>
             <button data-ui="roleConfirm" class="letters-start-btn" disabled>Continuar</button>
             <button data-ui="roleBack" class="letters-mode-back">← Volver</button>
+          </div>
+
+          <div data-ui="versusChooser" class="letters-role-chooser hidden">
+            <p>1v1: mismas palabras para los dos, en pantalla dividida. No hay rol que elegir — es simétrico.</p>
+            <div class="letters-mode-options">
+              <button data-ui="versusCreate" class="letters-mode-btn">
+                <strong>Crear sala 1v1</strong>
+                <span>Generá un código y compartilo con tu rival.</span>
+              </button>
+              <button data-ui="versusJoin" class="letters-mode-btn">
+                <strong>Unirse con código</strong>
+                <span>Ingresá el código que te compartieron.</span>
+              </button>
+            </div>
+            <div class="letters-join-code hidden" data-ui="versusJoinCodeRow">
+              <label>Código de sala:
+                <input data-ui="versusJoinCodeInput" type="text" maxlength="4" autocomplete="off" placeholder="Ej: QXWM" aria-label="Código de sala 1v1" />
+              </label>
+              <button data-ui="versusJoinConfirm" class="letters-start-btn" disabled>Continuar</button>
+            </div>
+            <button data-ui="versusBack" class="letters-mode-back">← Volver</button>
           </div>
 
           <div data-ui="roomStatus" class="letters-room-status hidden" role="status" aria-live="polite">
@@ -97,9 +122,20 @@ const template = (): string => {
             </label>
             <button data-ui="start" class="letters-start-btn">Iniciar</button>
           </div>
-          <div data-ui="lettersArea" class="letters-area">
-            <div class="letters-lives" data-ui="lettersLives"></div>
-            <div data-ui="lettersDanger" class="letters-danger"></div>
+          <div data-ui="lettersSplit" class="letters-split">
+            <div class="letters-split-side">
+              <span data-ui="lettersSplitLabel" class="letters-split-label hidden">Vos</span>
+              <div data-ui="lettersArea" class="letters-area">
+                <div class="letters-lives" data-ui="lettersLives"></div>
+                <div data-ui="lettersDanger" class="letters-danger"></div>
+              </div>
+            </div>
+            <div data-ui="lettersRivalSide" class="letters-split-side hidden">
+              <span data-ui="lettersRivalLabel" class="letters-split-label">Rival</span>
+              <div data-ui="lettersRival" class="letters-area letters-rival" aria-hidden="true">
+                <div class="letters-lives" data-ui="lettersRivalLives"></div>
+              </div>
+            </div>
           </div>
           <div class="letters-input-row">
             <input data-ui="lettersInput" type="text" autocomplete="off" placeholder="Escribe aquí..." aria-label="Escribe la palabra que está cayendo" />
