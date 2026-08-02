@@ -18,6 +18,7 @@ const gameConfig: GameConfig = {
   description: 'Repite secuencias de colores en orden exacto. Cada ronda añade un paso más al patrón.',
   difficulty:  3,
   css:         'css/simon.css',
+  online:      true,
 
   init: () => {
     throw new Error('[simon] init directo no debería llamarse: usar logic()');

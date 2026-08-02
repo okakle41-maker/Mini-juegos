@@ -61,6 +61,18 @@ export interface SplitViewHandle {
    */
   isSpectating: boolean;
   /**
+   * true si quien mira la pantalla es player1Id de la sub-partida —
+   * quien la creó (ver lobbySystem.createMatch, siempre asigna
+   * player1Id al creador). Solo tiene sentido cuando isMultiplayer es
+   * true; en modo solo-jugador vale `false` pero no se usa (cada juego
+   * solo debe ramificar sobre esto si isMultiplayer también es true).
+   *
+   * Se usa para restringir el botón "Empezar" al anfitrión: el rival no
+   * arranca por su cuenta, solo reacciona a `onStart` cuando el
+   * anfitrión efectivamente empieza (ver broadcastStart/onStart).
+   */
+  isHost: boolean;
+  /**
    * Transmite un evento de juego al rival. No-op silencioso si no hay
    * match activo o si se está especteando — los puntos de emisión del
    * juego pueden llamarlo incondicionalmente sin chequear nada en cada
@@ -72,6 +84,27 @@ export interface SplitViewHandle {
    * Varios handlers para el mismo `type` se acumulan (todos se llaman).
    */
   onRivalEvent: (type: string, handler: (payload: any) => void) => void;
+  /**
+   * Solo debe llamarlo el anfitrión (isHost === true), justo antes/al
+   * arrancar su propia partida local. Avisa al rival, vía el mismo
+   * canal de eventos de juego, que el anfitrión acaba de empezar — el
+   * rival reacciona con `onStart` para arrancar la suya en el mismo
+   * instante. No transmite ninguna semilla/secuencia: cada lado sigue
+   * generando su propio desafío en el cliente (alcance acordado:
+   * arranque sincronizado, contenido independiente — ver nota en
+   * termita.logic.ts si en el futuro se decide sincronizar también el
+   * contenido). No-op si no es multiplayer o si no es host.
+   */
+  broadcastStart: () => void;
+  /**
+   * Solo tiene efecto para el no-host (isHost === false): registra el
+   * handler que arranca la partida local del rival apenas llega el
+   * `broadcastStart()` del anfitrión. El propio juego sigue siendo
+   * responsable de deshabilitar/ocultar el botón "Empezar" para el
+   * no-host (evitando que dispare su arranque por su cuenta) — este
+   * helper solo cablea la señal de red, no toca la UI del botón.
+   */
+  onStart: (handler: () => void) => void;
   /**
    * Reclona el markup del tablero propio dentro del contenedor rival.
    * Llamar cada vez que el juego reconstruye su tablero desde cero
@@ -151,6 +184,10 @@ export function setupSplitView(
   const isSpectating = isMultiplayer
     && activeMatch!.player1Id !== myId
     && activeMatch!.player2Id !== myId;
+  // player1Id siempre es quien creó la sub-partida — ver
+  // lobbySystem.createMatch(). Un espectador nunca es host (no juega
+  // ningún lado), aunque la comparación de ids ya lo excluye por sí sola.
+  const isHost = isMultiplayer && activeMatch!.player1Id === myId;
 
   const splitEl = ui[`${prefix}Split`] as HTMLElement | undefined;
   const rivalEl = ui[`${prefix}Rival`] as HTMLElement | undefined;
@@ -174,9 +211,20 @@ export function setupSplitView(
 
   const handlers = new Map<string, Array<(payload: any) => void>>();
 
+  const START_EVENT_TYPE = '__match_start__';
+  const startHandlers: Array<() => void> = [];
+
   const listener = (e: Event) => {
     const detail = (e as CustomEvent).detail as { type: string; payload: unknown } | undefined;
     if (!detail) return;
+    if (detail.type === START_EVENT_TYPE) {
+      // Reservado para la señal de arranque del anfitrión — no pasa por
+      // el mapa `handlers` de onRivalEvent (que es de uso libre para
+      // cada juego) para que ningún juego pueda registrar por
+      // accidente un evento con este mismo nombre y pisarlo.
+      startHandlers.forEach((fn) => fn());
+      return;
+    }
     const fns = handlers.get(detail.type);
     if (!fns) return;
     fns.forEach((fn) => fn(detail.payload));
@@ -189,6 +237,7 @@ export function setupSplitView(
   return {
     isMultiplayer,
     isSpectating,
+    isHost,
     sendEvent: (type, payload) => {
       if (!isMultiplayer || isSpectating) return;
       void lobbySystem.sendGameEvent(type, payload);
@@ -197,12 +246,20 @@ export function setupSplitView(
       if (!handlers.has(type)) handlers.set(type, []);
       handlers.get(type)!.push(handler);
     },
+    broadcastStart: () => {
+      if (!isMultiplayer || !isHost) return;
+      void lobbySystem.sendGameEvent(START_EVENT_TYPE, {});
+    },
+    onStart: (handler) => {
+      startHandlers.push(handler);
+    },
     remirror,
     cleanup: () => {
       if (isMultiplayer) {
         window.removeEventListener('multiplayer:game_event', listener);
       }
       handlers.clear();
+      startHandlers.length = 0;
     }
   };
 }

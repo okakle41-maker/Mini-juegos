@@ -2,15 +2,16 @@
  * Multiplayer View Logic
  * Lógica para la vista de multiplayer en tiempo real
  *
- * Dos sistemas conviven acá, cada uno con su propia sección en el
- * template (ver multiplayer.ts):
- *   - lobbySystem: lobby grupal de hasta 8 jugadores por código, con
- *     sub-partidas 1v1 de Simon/Arrow/Termita dentro (crear, listar,
- *     unirse como rival o espectador).
- *   - multiplayerSystem: Caída de Letras sigue siendo una sala 1v1
- *     suelta coop asimétrica (roles viewer/typer) — no tiene sentido
- *     dentro de un lobby de "quién juega contra quién", así que
- *     mantiene su propio flujo nativo dentro de la vista del juego.
+ * Esta vista aloja el Lobby Grupal (hasta 8 jugadores por código, con
+ * sub-partidas 1v1 de Simon/Arrow/Termita dentro: crear, listar,
+ * unirse como rival o espectador) y el chat/leaderboards globales.
+ *
+ * Caída de Letras (coop asimétrico 1v1, roles viewer/typer, su propio
+ * sistema de salas sobre multiplayerSystem.ts) ya no tiene botón
+ * propio acá — se accede, junto con Simon/Arrow/Termita, desde la
+ * vista "Lobby Online" (ver views/onlineLobby.logic.ts), a la que se
+ * redirige automáticamente al crear/unirse a un lobby grupal (ver
+ * showLobbyActive más abajo).
  */
 
 import { multiplayerSystem } from '../multiplayerSystem.js';
@@ -52,7 +53,6 @@ export function init(): void {
   container.innerHTML = template();
   renderConnectionStatus();
   renderLeaderboards();
-  setupLettersSection();
   setupLobbySection();
   setupChatSection();
   setupMultiplayerListeners();
@@ -108,16 +108,6 @@ function renderLeaderboardForGame(gameId: string): void {
   }
 }
 
-// ── Sección Caída de Letras (sala 1v1 suelta, sin cambios de fondo) ────
-
-function setupLettersSection(): void {
-  getElement('letters-room-btn')?.addEventListener('click', () => {
-    window.showView?.('letters');
-  });
-}
-
-// ── Sección Lobby Grupal ────────────────────────────────────────────
-
 function showLobbyEntry(): void {
   getElement('lobby-entry')?.classList.remove('hidden');
   getElement('lobby-active')?.classList.add('hidden');
@@ -151,7 +141,15 @@ function setupLobbySection(): void {
     clearLobbyError();
     try {
       await lobbySystem.createLobby();
+      // Redirige a la grilla filtrada de juegos multiplayer en vez de
+      // quedarse en la pantalla lobby-active de esta pestaña — ver
+      // comentario del encabezado del archivo y views/onlineLobby.logic.ts.
+      // showLobbyActive() igual se llama antes de navegar: puebla
+      // lobby-active (código de sala, jugadores) para que, si el
+      // usuario vuelve acá con el botón "Volver a Multiplayer", la
+      // vea ya actualizada en vez de en blanco.
       showLobbyActive();
+      window.showView?.('online-lobby');
     } catch (e) {
       showLobbyError(e instanceof Error ? e.message : 'No se pudo crear el lobby.');
     }
@@ -164,7 +162,9 @@ function setupLobbySection(): void {
     if (!code) return;
     try {
       await lobbySystem.joinLobby(code);
+      // Ver comentario equivalente en lobby-create-btn más arriba.
       showLobbyActive();
+      window.showView?.('online-lobby');
     } catch (e) {
       showLobbyError(e instanceof Error ? e.message : 'No se pudo unir al lobby.');
     }

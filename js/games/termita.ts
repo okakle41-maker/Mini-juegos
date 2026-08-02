@@ -19,6 +19,7 @@ const gameConfig: GameConfig = {
   description: 'Memoriza la cuadrícula iluminada. Señala las celdas correctas antes de que el sistema las borre.',
   difficulty:  2,
   css:         'css/termita.css',
+  online:      true,
 
   init: () => {
     throw new Error('[termita] init directo no debería llamarse: usar logic()');

@@ -18,6 +18,7 @@ const BACK_ICON_SVG =
 
 const DEFAULT_LABELS: Record<string, string> = {
   home: 'Volver al lobby',
+  multiplayer: 'Volver a Multiplayer',
 };
 const FALLBACK_LABEL = 'Volver';
 

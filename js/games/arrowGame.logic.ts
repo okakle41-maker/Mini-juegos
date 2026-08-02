@@ -84,9 +84,20 @@ export function init(ui: GameUi) {
         arrowMessage.textContent = 'Especteando esta partida.';
         arrowMessage.classList.remove('hidden');
       }
-    } else if (arrowMessage) {
-      arrowMessage.textContent = 'Partida de lobby: presioná Empezar cuando quieras.';
-      arrowMessage.classList.remove('hidden');
+    } else if (split.isHost) {
+      if (arrowMessage) {
+        arrowMessage.textContent = 'Partida de lobby: presioná Empezar cuando quieras. Tu rival arranca junto con vos.';
+        arrowMessage.classList.remove('hidden');
+      }
+    } else {
+      // No-host: espera la señal de arranque del anfitrión (ver
+      // split.onStart más abajo).
+      startArrow.disabled = true;
+      startArrow.classList.add('hidden');
+      if (arrowMessage) {
+        arrowMessage.textContent = 'Esperando a que el anfitrión empiece la partida...';
+        arrowMessage.classList.remove('hidden');
+      }
     }
   }
 
@@ -435,6 +446,24 @@ export function init(ui: GameUi) {
   }
 
   startArrow.addEventListener('click', () => {
+    if (split.isSpectating) return;
+    // En multiplayer, solo el host tiene este botón visible/habilitado
+    // (ver el bloque isMultiplayer más arriba) — el rival arranca
+    // reaccionando a onStart. Se mantiene el guard por si igual
+    // llegara a dispararse.
+    if (split.isMultiplayer && !split.isHost) return;
+    const steps = Math.max(1, Math.min(parseInt(arrowLengthEl.value, 10) || 20, 30));
+    const time = Math.max(5, Math.min(parseFloat(arrowTimeInput.value) || 15, 30));
+    clicker.start({ steps, time });
+    // Avisa al rival para que arranque su partida en el mismo
+    // instante — cada lado sigue generando su propia secuencia
+    // localmente (ver comentario de broadcastStart en
+    // multiplayerSplitView.ts).
+    split.broadcastStart();
+  });
+
+  // No-host: arranca cuando el anfitrión efectivamente empieza.
+  split.onStart(() => {
     if (split.isSpectating) return;
     const steps = Math.max(1, Math.min(parseInt(arrowLengthEl.value, 10) || 20, 30));
     const time = Math.max(5, Math.min(parseFloat(arrowTimeInput.value) || 15, 30));

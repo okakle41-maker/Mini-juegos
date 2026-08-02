@@ -37,6 +37,7 @@ export const viewTemplates: Record<string, ViewTemplateLoader> = {
   'memorygrid': () => import('../views/memorygrid.js'),
   'multipoint': () => import('../views/multipoint.js'),
   'neuralfragment': () => import('../views/neuralfragment.js'),
+  'online-lobby': () => import('../views/onlineLobby.js'),
   'orbitcatch': () => import('../views/orbitcatch.js'),
   'pairs': () => import('../views/pairs.js'),
   'pipealign': () => import('../views/pipealign.js'),

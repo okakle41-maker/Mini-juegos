@@ -58,8 +58,14 @@ export function init(ui: GameUi) {
         startTermita.disabled = true;
         startTermita.classList.add('hidden');
         if (info) info.textContent = 'Especteando esta partida.';
-      } else if (info) {
-        info.textContent = 'Partida de lobby: presioná Empezar cuando quieras.';
+      } else if (split.isHost) {
+        if (info) info.textContent = 'Partida de lobby: presioná Empezar cuando quieras. Tu rival arranca junto con vos.';
+      } else {
+        // No-host: espera la señal de arranque del anfitrión (ver
+        // split.onStart más abajo).
+        startTermita.disabled = true;
+        startTermita.classList.add('hidden');
+        if (info) info.textContent = 'Esperando a que el anfitrión empiece la partida...';
       }
     }
 
@@ -229,8 +235,7 @@ export function init(ui: GameUi) {
       }, state.showTime);
     }
 
-    startTermita.addEventListener('click', () => {
-      if (split.isSpectating) return;
+    function beginTermitaGame() {
       state.size = parseInt((gridSizeEl as HTMLInputElement).value, 10) || 5;
       state.targets = Math.max(1, Math.min(parseInt((targetsEl as HTMLInputElement).value, 10) || 4, state.size * state.size));
       state.showTime = Math.max(100, parseInt((showTimeEl as HTMLInputElement).value, 10) || 800);
@@ -243,9 +248,36 @@ export function init(ui: GameUi) {
       const info = termitaInfo as HTMLElement;
       info.textContent = '';
       playRound();
-      startTermita.disabled = true;
-      const totalDuration = (state.showTime + 2000) * state.rounds;
-      setTimeout(() => { startTermita.disabled = false; }, totalDuration);
+      // El no-host tiene el botón oculto/deshabilitado de entrada (ver
+      // el bloque isMultiplayer más arriba) y nunca debe quedar
+      // reactivado — este bloque solo aplica a modo solo-jugador o al
+      // host en multiplayer.
+      if (!split.isMultiplayer || split.isHost) {
+        startTermita.disabled = true;
+        const totalDuration = (state.showTime + 2000) * state.rounds;
+        setTimeout(() => { startTermita.disabled = false; }, totalDuration);
+      }
+    }
+
+    startTermita.addEventListener('click', () => {
+      if (split.isSpectating) return;
+      // En multiplayer, solo el host tiene este botón visible/habilitado
+      // (ver el bloque isMultiplayer más arriba) — el rival arranca
+      // reaccionando a onStart. Se mantiene el guard por si igual
+      // llegara a dispararse.
+      if (split.isMultiplayer && !split.isHost) return;
+      beginTermitaGame();
+      // Avisa al rival para que arranque su partida en el mismo
+      // instante — cada lado sigue generando sus propios targets
+      // localmente (ver comentario de broadcastStart en
+      // multiplayerSplitView.ts).
+      split.broadcastStart();
+    });
+
+    // No-host: arranca cuando el anfitrión efectivamente empieza.
+    split.onStart(() => {
+      if (split.isSpectating) return;
+      beginTermitaGame();
     });
 
     // Soporte de teclado para navegación por la cuadrícula

@@ -18,6 +18,7 @@ const gameConfig: GameConfig = {
   description: 'Escribe las letras que caen en tiempo real. Si llegan al suelo, el sistema falla.',
   difficulty:  3,
   css:         'css/letters.css',
+  online:      true,
 
   init: () => {
     throw new Error('[letters] init directo no debería llamarse: usar logic()');

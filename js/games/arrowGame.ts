@@ -26,6 +26,7 @@ const gameConfig: GameConfig = {
   description: 'Presiona la tecla de flecha correcta antes de que caduque la señal. Velocidad máxima requerida.',
   difficulty:  2,
   css:         'css/arrow.css',
+  online:      true,
 
   // init/stop directos no se usan (logic tiene prioridad, ver
   // ensureInit en gameRegistry.ts); se dejan como stubs solo porque el

@@ -73,20 +73,6 @@ export function template(): string {
         </div>
       </div>
 
-      <!-- Salas 1v1 sueltas: hoy solo Letters Fall (coop asimétrico,
-           roles viewer/typer) las usa — Simon/Arrow/Termita se juegan
-           desde el Lobby Grupal de arriba. -->
-      <div class="matchmaking-section">
-        <h3 class="section-title">🔤 Caída de Letras (coop 1v1)</h3>
-        <div class="section-decorative">
-          <span>🎮</span><span>⚔️</span><span>🏆</span>
-        </div>
-        <p class="section-hint">Caída de Letras es cooperativo entre dos: usá el botón de abajo para crear o unirte a su propia sala.</p>
-        <div class="matchmaking-form">
-          <button class="match-btn" id="letters-room-btn">🔤 Ir a Caída de Letras</button>
-        </div>
-      </div>
-
       <!-- Live Leaderboards -->
       <div class="leaderboards-section">
         <h3 class="section-title">🏆 Leaderboards en Vivo</h3>

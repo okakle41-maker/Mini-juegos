@@ -18,6 +18,15 @@ export interface GameConfig {
   css?: string;
   hidden?: boolean;
   /**
+   * Marca los juegos con soporte multiplayer real (Simon/Arrow/Termita
+   * vía lobbySystem, Letters Fall vía su propia sala 1v1 en
+   * multiplayerSystem). Usado por LobbyRenderer para armar la grilla
+   * filtrada de la vista "Lobby Online" (ver views/onlineLobby.logic.ts) —
+   * no afecta el lobby principal (#home), que sigue mostrando
+   * GameRegistry.visible() sin filtrar.
+   */
+  online?: boolean;
+  /**
    * Lógica pesada del juego (init/stop) cargada bajo demanda vía import()
    * dinámico, en vez de venir ya resuelta en `init`/`stop`. Preferir esto
    * para juegos nuevos o migrados: separa el módulo que registra los
@@ -43,6 +52,7 @@ export interface GameRegistryInterface {
   register: (config: GameConfig) => void;
   all: () => GameConfig[];
   visible: () => GameConfig[];
+  visibleOnline: () => GameConfig[];
   get: (id: string) => GameConfig | undefined;
   allStopFns: () => Array<{ id: string; stop: () => void }>;
   stopGame: (id: string) => void;
@@ -91,6 +101,16 @@ class GameRegistry implements GameRegistryInterface {
 
   visible(): GameConfig[] {
     return this.all().filter(game => !game.hidden);
+  }
+
+  /**
+   * Subconjunto de `visible()` con soporte multiplayer real (ver
+   * GameConfig.online). Usado por la vista "Lobby Online" para armar
+   * su propia grilla filtrada reusando LobbyRenderer en vez de
+   * duplicar el markup/lógica de tarjetas.
+   */
+  visibleOnline(): GameConfig[] {
+    return this.visible().filter(game => game.online);
   }
 
   get(id: string): GameConfig | undefined {

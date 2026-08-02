@@ -1,10 +1,12 @@
 /**
  * lobbyRenderer.ts — Genera dinámicamente las tarjetas de módulo y la
- * barra de filtros del lobby a partir de GameRegistry.visible().
+ * barra de filtros de una grilla de juegos a partir de GameRegistry.
  *
- * Esta pieza faltaba en la migración: el HTML tenía los contenedores
- * (#gameList, #filterBar) y los comentarios decían "se genera
- * automáticamente", pero ningún módulo TS lo hacía todavía.
+ * Reusado por dos vistas: el lobby principal (#home, todo el catálogo,
+ * opciones por default) y "Lobby Online" (#online-lobby, solo juegos
+ * con soporte multiplayer — ver GameConfig.online y
+ * GameRegistry.visibleOnline() — pasando `games`/ids de contenedores
+ * distintos a `render()`).
  */
 
 import GameRegistry, { GameConfig } from './core/gameRegistry.js';
@@ -32,23 +34,54 @@ const MAX_DIFFICULTY_DOTS = 5;
  *  partidas jugadas (con récord guardado) se considera 100%. */
 const MASTERY_PLAYS_FOR_FULL_RING = 5;
 
+interface RenderOptions {
+  /** id del contenedor de la grilla de tarjetas. Default: 'gameList' (#home). */
+  gridId?: string;
+  /** id de la barra de filtros. Default: 'filterBar' (#home). */
+  filterBarId?: string;
+  /** id del bloque "Módulo del Día". Default: 'moduleOfDay' (#home). Pasar
+   *  `null` explícito para omitir ese bloque por completo (la vista no lo
+   *  tiene en su markup) sin que cuente como "no encontrado". */
+  moduleOfDayId?: string | null;
+  /** ids de contadores de cabecera a sincronizar con games.length. Default:
+   *  los tres contadores de #home (modsCountHeader/Pill/Stats). */
+  headerCountIds?: string[];
+  /** Lista de juegos a pintar. Default: GameRegistry.visible() (catálogo
+   *  completo). Pasar GameRegistry.visibleOnline() para la grilla filtrada
+   *  de la vista "Lobby Online". */
+  games?: GameConfig[];
+}
+
+const DEFAULT_HEADER_COUNT_IDS = ['modsCountHeader', 'modsCountPill', 'modsCountStats'];
+
 class LobbyRenderer {
   private gridEl: HTMLElement | null = null;
   private filterBarEl: HTMLElement | null = null;
   private moduleOfDayEl: HTMLElement | null = null;
+  private headerCountIds: string[] = DEFAULT_HEADER_COUNT_IDS;
   private activeFilter = 'TODOS';
+  private lastOptions: RenderOptions = {};
 
-  render(): void {
-    this.gridEl = document.getElementById('gameList');
-    this.filterBarEl = document.getElementById('filterBar');
-    this.moduleOfDayEl = document.getElementById('moduleOfDay');
+  render(options: RenderOptions = {}): void {
+    this.lastOptions = options;
+    const {
+      gridId = 'gameList',
+      filterBarId = 'filterBar',
+      moduleOfDayId = 'moduleOfDay',
+      headerCountIds = DEFAULT_HEADER_COUNT_IDS,
+      games = GameRegistry.visible()
+    } = options;
+
+    this.gridEl = document.getElementById(gridId);
+    this.filterBarEl = document.getElementById(filterBarId);
+    this.moduleOfDayEl = moduleOfDayId ? document.getElementById(moduleOfDayId) : null;
+    this.headerCountIds = headerCountIds;
+    this.activeFilter = 'TODOS';
 
     if (!this.gridEl) {
-      console.warn('[LobbyRenderer] No se encontró #gameList en el DOM');
+      console.warn(`[LobbyRenderer] No se encontró #${gridId} en el DOM`);
       return;
     }
-
-    const games = GameRegistry.visible();
 
     this.renderModuleOfDay(games);
     this.renderFilterBar(games);
@@ -71,7 +104,7 @@ class LobbyRenderer {
   private bindThemeChangeOnce(): void {
     if (this.themeListenerBound) return;
     this.themeListenerBound = true;
-    document.addEventListener('theme-changed', () => this.render());
+    document.addEventListener('theme-changed', () => this.render(this.lastOptions));
   }
 
   /**
@@ -360,8 +393,7 @@ class LobbyRenderer {
   }
 
   private updateHeaderCounts(total: number): void {
-    const ids = ['modsCountHeader', 'modsCountPill', 'modsCountStats'];
-    ids.forEach(id => {
+    this.headerCountIds.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.textContent = String(total);
     });

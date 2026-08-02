@@ -50,11 +50,18 @@ export function init(ui: GameUi) {
     });
     const info = simonInfo as HTMLElement;
     if (split.isSpectating) {
-      if (info) info.textContent = 'Especteando esta partida.';
+      info.textContent = 'Especteando esta partida.';
       startSimon.disabled = true;
       startSimon.classList.add('hidden');
-    } else if (info) {
-      info.textContent = 'Partida de lobby: presioná Empezar cuando quieras.';
+    } else if (split.isHost) {
+      info.textContent = 'Partida de lobby: presioná Empezar cuando quieras. Tu rival arranca junto con vos.';
+    } else {
+      // No-host: espera la señal de arranque del anfitrión (ver
+      // split.onStart más abajo) en vez de tener su propio botón
+      // activo — evita que cada lado arranque en un momento distinto.
+      info.textContent = 'Esperando a que el anfitrión empiece la partida...';
+      startSimon.disabled = true;
+      startSimon.classList.add('hidden');
     }
   }
 
@@ -242,8 +249,7 @@ export function init(ui: GameUi) {
     }
   }
 
-  startSimon.addEventListener('click', () => {
-    if (split.isSpectating) return;
+  function beginSimonGame() {
     simonState.colorCount = Math.max(2, Math.min(parseInt((colorCountEl as HTMLInputElement).value, 10) || 4, simonColors.length));
     simonState.baseLength = Math.max(1, parseInt((baseLengthEl as HTMLInputElement).value, 10) || 3);
     simonState.speed = Math.max(200, Math.min(parseInt((simonSpeedEl as HTMLInputElement).value, 10) || 700, 2000));
@@ -257,6 +263,28 @@ export function init(ui: GameUi) {
     (simonBoard as HTMLElement).classList.add('hidden');
     startSimon.disabled = true;
     startSimonRound();
+  }
+
+  startSimon.addEventListener('click', () => {
+    if (split.isSpectating) return;
+    // En multiplayer, solo el host tiene este botón visible/habilitado
+    // (ver el bloque isMultiplayer más arriba) — el rival arranca
+    // reaccionando a onStart, no clickeando el suyo propio. Se
+    // mantiene el guard por si igual llegara a dispararse.
+    if (split.isMultiplayer && !split.isHost) return;
+    beginSimonGame();
+    // Avisa al rival para que arranque su partida en el mismo
+    // instante — no transmite la secuencia en sí (ver comentario de
+    // broadcastStart en multiplayerSplitView.ts): cada lado sigue
+    // generando la suya localmente.
+    split.broadcastStart();
+  });
+
+  // No-host: arranca cuando el anfitrión efectivamente empieza, en vez
+  // de tener su propio botón activo.
+  split.onStart(() => {
+    if (split.isSpectating) return;
+    beginSimonGame();
   });
 
   // Soporte de teclado para Simon

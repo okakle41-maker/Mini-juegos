@@ -110,6 +110,27 @@ export function registerSystemViews(): void {
     stop: () => {}
   });
 
+  // Vista de Lobby Online (grilla filtrada a solo juegos multiplayer,
+  // destino tras crear/unirse a un lobby grupal — ver showLobbyActive
+  // en views/multiplayer.logic.ts)
+  GameRegistry.register({
+    id: 'online-lobby',
+    name: 'Lobby Online',
+    tag: 'MULTIPLAYER',
+    accent: '#22c55e',
+    icon: '🌐',
+    num: 'SYS-08',
+    description: 'Selección de módulos con soporte multiplayer',
+    difficulty: 0,
+    hidden: true,
+    logic: async () => {
+      const { init, stop } = await import('./views/onlineLobby.logic.js');
+      return { init, stop };
+    },
+    init: () => {},
+    stop: () => {}
+  });
+
   // Vista Social
   GameRegistry.register({
     id: 'social',
