@@ -1,0 +1,207 @@
+/* ==========================================================================
+   Online Lobby — Modal de configuración previa para cooperativos de 4
+   jugadores (Signal Triangulation y Centro de Control).
+
+   Se abre al hacer click en la card del juego desde la grilla de la
+   vista "Lobby Online" (ver js/views/onlineLobby.logic.ts) — permite
+   crear la partida (eligiendo rol en Centro de Control) antes de
+   navegar a la vista del juego.
+   ========================================================================== */
+
+.ol-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(4, 2, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: ol-modal-fade-in 0.18s ease-out;
+}
+
+.ol-modal-overlay.hidden {
+  display: none;
+}
+
+.ol-modal {
+  position: relative;
+  width: min(520px, 100%);
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  padding: 1.75rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, #161210 0%, #0d0a08 100%);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: ol-modal-slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ol-modal-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ol-modal-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.ol-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-right: 2rem;
+}
+
+.ol-modal-icon {
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ol-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f5f2ee;
+  letter-spacing: 0.02em;
+}
+
+.ol-modal-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.ol-modal-hint {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.ol-modal-error {
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.ol-modal-primary-btn {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #3ad1ff 0%, #1e8ee8 100%);
+  color: #071018;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+  box-shadow: 0 8px 24px rgba(58, 209, 255, 0.25);
+}
+
+.ol-modal-primary-btn:hover {
+  filter: brightness(1.1);
+}
+
+.ol-modal-primary-btn:active {
+  transform: translateY(1px);
+}
+
+.ol-modal-role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.ol-modal-role-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f5f2ee;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.ol-modal-role-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.ol-modal-role-btn:active {
+  transform: translateY(0);
+}
+
+.ol-modal-role-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.ol-modal-role-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+/* ── Animaciones ── */
+
+@keyframes ol-modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes ol-modal-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to   {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Reducir animaciones (accesibilidad) ── */
+
+@media (prefers-reduced-motion: reduce) {
+  .ol-modal-overlay,
+  .ol-modal {
+    animation: none;
+  }
+}

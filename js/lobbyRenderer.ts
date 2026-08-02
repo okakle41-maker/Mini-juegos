@@ -50,6 +50,14 @@ interface RenderOptions {
    *  completo). Pasar GameRegistry.visibleOnline() para la grilla filtrada
    *  de la vista "Lobby Online". */
   games?: GameConfig[];
+  /** Callback opcional que reemplaza el comportamiento por defecto de hacer
+   *  click/Enter en una card (ViewManager.showView(gameId)). Recibe el
+   *  GameConfig de la card clickeada para que el llamador decida qué hacer
+   *  — p.ej. abrir un panel de configuración previo en vez de navegar
+   *  directo al juego (usado por la vista "Lobby Online" para los
+   *  cooperativos de 4 jugadores: Signal Triangulation y Centro de
+   *  Control, que requieren crear/elegir una partida antes de entrar). */
+  onCardClick?: (game: GameConfig) => void;
 }
 
 const DEFAULT_HEADER_COUNT_IDS = ['modsCountHeader', 'modsCountPill', 'modsCountStats'];
@@ -61,6 +69,7 @@ class LobbyRenderer {
   private headerCountIds: string[] = DEFAULT_HEADER_COUNT_IDS;
   private activeFilter = 'TODOS';
   private lastOptions: RenderOptions = {};
+  private onCardClick: ((game: GameConfig) => void) | null = null;
 
   render(options: RenderOptions = {}): void {
     this.lastOptions = options;
@@ -77,6 +86,7 @@ class LobbyRenderer {
     this.moduleOfDayEl = moduleOfDayId ? document.getElementById(moduleOfDayId) : null;
     this.headerCountIds = headerCountIds;
     this.activeFilter = 'TODOS';
+    this.onCardClick = options.onCardClick ?? null;
 
     if (!this.gridEl) {
       console.warn(`[LobbyRenderer] No se encontró #${gridId} en el DOM`);
@@ -199,11 +209,19 @@ class LobbyRenderer {
       const gameId = card.dataset.gameId;
       if (!gameId) return;
 
-      card.addEventListener('click', () => ViewManager.showView(gameId));
+      const gameConfig = GameRegistry.get(gameId);
+      const openCard = () => {
+        if (this.onCardClick && gameConfig) {
+          this.onCardClick(gameConfig);
+        } else {
+          ViewManager.showView(gameId);
+        }
+      };
+      card.addEventListener('click', openCard);
       card.addEventListener('keydown', (e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          ViewManager.showView(gameId);
+          openCard();
         }
       });
 

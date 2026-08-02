@@ -59,7 +59,6 @@ function handleCardClick(game: GameConfig): void {
 
 let cachedModalEls: Record<string, HTMLElement | null> = {};
 let modalBound = false;
-let escapeKeyHandler: ((e: KeyboardEvent) => void) | null = null;
 
 function modalEl(id: string): HTMLElement | null {
   if (!cachedModalEls[id]) {
@@ -113,14 +112,9 @@ function setupConfigModal(): void {
     }
   });
 
-  // Se registra una sola vez en todo el ciclo de vida de la app para no
-  // acumular listeners duplicados cada vez que se entra a la vista.
-  if (!escapeKeyHandler) {
-    escapeKeyHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeConfigModal();
-    };
-    document.addEventListener('keydown', escapeKeyHandler);
-  }
+  document.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Escape') closeConfigModal();
+  });
 }
 
 function openConfigModal(gameId: string): void {
@@ -200,13 +194,6 @@ function renderLobbyCodeBadge(): void {
 export function stop(): void {
   modalBound = false;
   cachedModalEls = {};
-
-  // El listener de Escape se registra una sola vez y se mantiene para
-  // toda la vida de la app — no se elimina acá a propósito: aunque el
-  // usuario salga de la vista, el modal ya no existe en el DOM (se
-  // limpió con container.innerHTML = ''), así que closeConfigModal()
-  // es un no-op seguro (overlay null).
-
   const container = document.getElementById('online-lobby');
   if (container) container.innerHTML = '';
 }
