@@ -24,7 +24,8 @@ import type { GameUi } from '../types/game.js';
 import {
   signalTriangulationSystem,
   ANTENNAS,
-  type STSlot
+  type STSlot,
+  type STMatch
 } from '../signalTriangulationSystem.js';
 import { setupTeamLockView, type TeamLockViewHandle } from '../utils/teamLockView.js';
 
@@ -215,11 +216,33 @@ export function init(ui: GameUi) {
     void team?.refreshTeamStatus(round.id);
   };
 
-  if (waitingPanelEl) waitingPanelEl.classList.add('hidden');
-  if (playPanelEl) playPanelEl.classList.remove('hidden');
+  const startPlayingUi = () => {
+    if (waitingPanelEl) waitingPanelEl.classList.add('hidden');
+    if (playPanelEl) playPanelEl.classList.remove('hidden');
+    renderBoard();
+    void loadRoundState();
+  };
 
-  renderWaitingSlots();
-  renderBoard();
+  const showWaitingForPlayersUi = () => {
+    // Bug corregido en esta revisión: antes se ocultaba
+    // waitingPanelEl incondicionalmente en cuanto currentMatch
+    // existía, sin chequear match.status — así que crear una partida
+    // (quedando solo en el slot 1) mostraba directo el tablero de
+    // juego vacío, sin distancia ni ronda (generate_signal_triangulation_round
+    // recién corre cuando se llenan los 4 slots, ver migración sección
+    // 4), y la lista de jugadores conectados (stSlotsList) nunca se veía
+    // porque vive DENTRO de stWaitingPanel, que ya estaba oculto.
+    if (playPanelEl) playPanelEl.classList.add('hidden');
+    if (waitingPanelEl) waitingPanelEl.classList.remove('hidden');
+    if (waitingMessageEl) waitingMessageEl.textContent = 'Esperando a que se completen los 4 jugadores...';
+    renderWaitingSlots();
+  };
+
+  if (match.status === 'waiting') {
+    showWaitingForPlayersUi();
+  } else {
+    startPlayingUi();
+  }
 
   team = setupTeamLockView(ui);
   team.onRoundResolved((status) => {
@@ -280,8 +303,21 @@ export function init(ui: GameUi) {
     });
   });
 
-  cleanup.addListener(window, 'st:match_changed', () => {
-    renderWaitingSlots();
+  cleanup.addListener(window, 'st:match_changed', (event: Event) => {
+    // Antes solo llamaba renderWaitingSlots() sin importar el status —
+    // eso mantenía la lista de "esperando jugadores" actualizada, pero
+    // nunca transicionaba a la vista de juego cuando el 4to jugador se
+    // unía y generate_signal_triangulation_round ya había corrido del
+    // lado del servidor (ver bug documentado en showWaitingForPlayersUi
+    // más arriba) — quien ya estaba adentro se quedaba mirando la
+    // lista de espera indefinidamente.
+    const updated = (event as CustomEvent<{ match: STMatch | null }>).detail?.match;
+    if (!updated) return;
+    if (updated.status === 'waiting') {
+      renderWaitingSlots();
+    } else if (updated.status === 'playing' && waitingPanelEl && !waitingPanelEl.classList.contains('hidden')) {
+      startPlayingUi();
+    }
   });
 
   GameInstanceRegistry.set<STGameInstance>('signal_triangulation', {
