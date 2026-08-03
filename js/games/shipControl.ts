@@ -28,6 +28,7 @@ const gameConfig: GameConfig = {
   difficulty:  5,
   css:         'css/shipControl.css',
   online:      true,
+  playersRequired: 4,
 
   init: () => {
     throw new Error('[shipControl] init directo no debería llamarse: usar logic()');

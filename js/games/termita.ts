@@ -20,6 +20,7 @@ const gameConfig: GameConfig = {
   difficulty:  2,
   css:         'css/termita.css',
   online:      true,
+  playersRequired: 2,
 
   init: () => {
     throw new Error('[termita] init directo no debería llamarse: usar logic()');

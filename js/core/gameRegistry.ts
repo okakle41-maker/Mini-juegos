@@ -27,6 +27,17 @@ export interface GameConfig {
    */
   online?: boolean;
   /**
+   * Cantidad mínima de jugadores humanos que la sub-partida necesita
+   * antes de arrancar (2 para Simon/Arrow/Termita vía lobbySystem, 4
+   * para Signal Triangulation/Centro de Control). Consumido por la
+   * vista genérica de espera `match-waiting` (ver
+   * views/matchWaiting.logic.ts y utils/matchWaitingAdapter.ts) para
+   * saber cuándo dejar de esperar y navegar al juego real. No aplica a
+   * Letters Fall (queda fuera de este mecanismo a propósito) ni a
+   * juegos sin multiplayer.
+   */
+  playersRequired?: number;
+  /**
    * Lógica pesada del juego (init/stop) cargada bajo demanda vía import()
    * dinámico, en vez de venir ya resuelta en `init`/`stop`. Preferir esto
    * para juegos nuevos o migrados: separa el módulo que registra los

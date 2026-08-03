@@ -19,6 +19,7 @@ const gameConfig: GameConfig = {
   difficulty:  3,
   css:         'css/simon.css',
   online:      true,
+  playersRequired: 2,
 
   init: () => {
     throw new Error('[simon] init directo no debería llamarse: usar logic()');

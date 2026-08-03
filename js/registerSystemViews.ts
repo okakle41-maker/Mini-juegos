@@ -137,6 +137,29 @@ export function registerSystemViews(): void {
     stop: () => {}
   });
 
+  // Vista genérica de espera de partida (Simon/Arrow/Termita/Signal
+  // Triangulation/Centro de Control — ver GameConfig.playersRequired).
+  // Destino intermedio tras crear/unirse a una sub-partida, antes de
+  // navegar a la vista real del juego — ver views/matchWaiting.logic.ts,
+  // utils/matchWaitingAdapter.ts y utils/matchWaitingContext.ts.
+  GameRegistry.register({
+    id: 'match-waiting',
+    name: 'Esperando partida',
+    tag: 'MULTIPLAYER',
+    accent: '#22c55e',
+    icon: '🎮',
+    num: 'SYS-09',
+    description: 'Espera genérica de jugadores antes de arrancar una sub-partida multiplayer',
+    difficulty: 0,
+    hidden: true,
+    logic: async () => {
+      const { init, stop } = await import('./views/matchWaiting.logic.js');
+      return { init, stop };
+    },
+    init: () => {},
+    stop: () => {}
+  });
+
   // Vista Social
   GameRegistry.register({
     id: 'social',

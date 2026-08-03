@@ -415,6 +415,14 @@
 <section id="signal_triangulation" class="view hidden" data-lazy="1"></section>
 <section id="ship_control" class="view hidden" data-lazy="1"></section>
 
+<!-- Vista genérica de espera de partida (ver
+     js/views/matchWaiting.logic.ts). Vista de sistema: sin data-lazy,
+     inyecta su propio HTML desde matchWaiting.logic.ts init() (mismo
+     patrón que logros/progresion/multiplayer/online-lobby/etc, ver
+     comentario en test/gameRegistry.test.ts sobre por qué estas vistas
+     no llevan entrada en viewTemplates.ts). -->
+<section id="match-waiting" class="view hidden"></section>
+
 
 
 <!-- ==========================================================

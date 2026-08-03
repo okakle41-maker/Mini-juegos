@@ -21,6 +21,7 @@ import { signalTriangulationSystem } from '../signalTriangulationSystem.js';
 import { shipControlSystem, type SCRole } from '../shipControlSystem.js';
 import template from './onlineLobby.js';
 import { hydrateBackButtons } from '../utils/backButton.js';
+import { setPending } from '../utils/matchWaitingContext.js';
 
 export function init(): void {
   const container = document.getElementById('online-lobby');
@@ -88,7 +89,8 @@ function setupConfigModal(): void {
     try {
       await signalTriangulationSystem.createMatch();
       closeConfigModal();
-      window.showView?.('signal_triangulation');
+      setPending('signal_triangulation', 'online-lobby');
+      window.showView?.('match-waiting');
     } catch (e) {
       showStConfigError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
     }
@@ -107,7 +109,8 @@ function setupConfigModal(): void {
     try {
       await shipControlSystem.createMatch(role);
       closeConfigModal();
-      window.showView?.('ship_control');
+      setPending('ship_control', 'online-lobby');
+      window.showView?.('match-waiting');
     } catch (e) {
       showScConfigError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
     }

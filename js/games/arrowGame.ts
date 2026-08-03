@@ -27,6 +27,7 @@ const gameConfig: GameConfig = {
   difficulty:  2,
   css:         'css/arrow.css',
   online:      true,
+  playersRequired: 2,
 
   // init/stop directos no se usan (logic tiene prioridad, ver
   // ensureInit en gameRegistry.ts); se dejan como stubs solo porque el

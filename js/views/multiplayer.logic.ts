@@ -22,6 +22,7 @@ import Auth from '../authManager.js';
 import { template } from './multiplayer.js';
 import { escapeHtml } from '../security.js';
 import { hydrateBackButtons } from '../utils/backButton.js';
+import { setPending } from '../utils/matchWaitingContext.js';
 
 let eventListeners: Array<() => void> = [];
 let cachedElements: Record<string, HTMLElement | null> = {};
@@ -189,7 +190,8 @@ function setupLobbySection(): void {
     const gameId = (select?.value ?? 'simon') as LobbyGameId;
     try {
       await lobbySystem.createMatch(gameId);
-      window.showView?.(gameId);
+      setPending(gameId, 'multiplayer');
+      window.showView?.('match-waiting');
     } catch (e) {
       showLobbyError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
     }
@@ -238,7 +240,8 @@ function setupSignalTriangulationSection(): void {
       }
       try {
         await signalTriangulationSystem.createMatch();
-        window.showView?.('signal_triangulation');
+        setPending('signal_triangulation', 'multiplayer');
+        window.showView?.('match-waiting');
       } catch (e) {
         showStError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
       }
@@ -306,7 +309,8 @@ function renderSignalTriangulationMatches(): void {
           window.showView?.('signal_triangulation');
         } else if (action === 'st-join' && matchId) {
           await signalTriangulationSystem.joinMatch(matchId);
-          window.showView?.('signal_triangulation');
+          setPending('signal_triangulation', 'multiplayer');
+          window.showView?.('match-waiting');
         }
       } catch (e) {
         showStError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
@@ -358,7 +362,8 @@ function setupShipControlSection(): void {
       const role = btn.dataset.role as SCRole;
       try {
         await shipControlSystem.createMatch(role);
-        window.showView?.('ship_control');
+        setPending('ship_control', 'multiplayer');
+        window.showView?.('match-waiting');
       } catch (e) {
         showScError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
       }
@@ -431,7 +436,8 @@ function renderShipControlMatches(): void {
           window.showView?.('ship_control');
         } else if (action === 'sc-join' && matchId && role) {
           await shipControlSystem.joinMatch(matchId, role);
-          window.showView?.('ship_control');
+          setPending('ship_control', 'multiplayer');
+          window.showView?.('match-waiting');
         }
       } catch (e) {
         showScError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
@@ -502,7 +508,8 @@ function renderLobbyMatches(): void {
           window.showView?.(gameId);
         } else if (action === 'join' && matchId) {
           await lobbySystem.joinMatchAsPlayer(matchId);
-          window.showView?.(gameId);
+          setPending(gameId, 'multiplayer');
+          window.showView?.('match-waiting');
         } else if (action === 'spectate' && matchId) {
           await lobbySystem.spectateMatch(matchId);
           window.showView?.(gameId);
