@@ -188,31 +188,37 @@ create policy "str_matches_update_all"
 -- "dar select con using(true)" expondría la fuente en claro a
 -- cualquiera con la consola de red abierta, sin importar qué columnas
 -- "debería" pedir el cliente normal. Se bloquea select directo sobre la
--- tabla base por completo para los roles del cliente (vía REVOKE, no
--- vía RLS: ver nota más abajo), y se expone en cambio una vista sin
--- esas dos columnas.
+-- tabla base por completo para los roles del cliente (vía REVOKE), y se
+-- expone en cambio una vista sin esas dos columnas.
 revoke select on public.signal_triangulation_rounds from anon, authenticated;
 
 drop policy if exists "str_rounds_no_direct_select" on public.signal_triangulation_rounds;
+drop policy if exists "str_rounds_select_via_grant_only" on public.signal_triangulation_rounds;
 create policy "str_rounds_select_via_grant_only"
   on public.signal_triangulation_rounds for select
   using (true);
--- using(true), NO using(false) — bug corregido en esta revisión.
--- signal_triangulation_rounds_public más abajo tiene
--- security_invoker=true, lo que significa que sus lecturas se evalúan
--- CON los permisos y policies RLS de quien llama a la vista, no con los
--- del dueño. Con using(false) acá, ese security_invoker heredaba el
--- "false" también dentro de la vista, y CUALQUIER lectura — directa o
--- vía la vista pública — devolvía 0 filas o 403 (permission denied),
--- rompiendo por completo Signal Triangulation en producción: el REVOKE
--- de arriba ya es lo único necesario para bloquear el acceso DIRECTO a
--- la tabla (sin GRANT SELECT, ningún SELECT directo puede ejecutarse,
--- con o sin RLS) — la policy no necesita bloquear nada extra, solo
--- necesita existir porque RLS está enable()ado en la tabla y sin
--- ninguna policy de SELECT el default también sería denegar. El
--- control real de qué columnas se exponen lo hace la vista pública
--- (select explícito de columnas, sin source_x/source_y) más abajo, no
--- esta policy.
+-- using(true): esta policy en sí misma no es la barrera de seguridad —
+-- el REVOKE de arriba ya bloquea cualquier SELECT directo a la tabla
+-- sin importar qué diga la policy (sin privilegio de tabla, RLS nunca
+-- llega a evaluarse). La barrera real contra acceso directo es el
+-- REVOKE; esta policy solo necesita existir porque RLS está enable()ado
+-- y sin ninguna policy de SELECT el default sería denegar incluso para
+-- quien sí tiene el privilegio (el dueño de la vista _public, ver
+-- abajo). El control de qué columnas se exponen lo hace la vista
+-- pública (select explícito, sin source_x/source_y), no esta policy.
+--
+-- HISTORIAL DEL BUG (dos vueltas, dejado documentado para no repetirlo):
+-- v1 tenía using(false) acá + security_invoker=true en la vista de
+-- abajo → la vista heredaba el using(false) también, 403 total incluso
+-- vía la vista pública. v2 (este fix) cambió a using(true) pero mantuvo
+-- security_invoker=true → seguía fallando, porque security_invoker
+-- exige que el INVOCADOR (authenticated) tenga privilegio de tabla
+-- sobre signal_triangulation_rounds, y el REVOKE de arriba se lo quita
+-- a propósito — RLS ni se llega a evaluar sin ese privilegio previo. La
+-- solución correcta (aplicada acá) es NO usar security_invoker en la
+-- vista: así la vista corre con los privilegios de su DUEÑO (quien la
+-- creó, con acceso pleno a la tabla), el GRANT SELECT sobre la vista
+-- alcanza, y authenticated sigue sin poder leer la tabla base directo.
 -- No se agrega policy de insert/update para el cliente: las únicas
 -- escrituras a esta tabla las hace generate_signal_triangulation_round()
 -- (security definer, más abajo), nunca un insert/update directo del
@@ -226,22 +232,17 @@ create or replace view public.signal_triangulation_rounds_public as
 
 grant select on public.signal_triangulation_rounds_public to anon, authenticated;
 
-alter view public.signal_triangulation_rounds_public set (security_invoker = true);
--- security_invoker = true: la vista corre con los privilegios de quien
--- consulta, no con los del dueño de la vista — sin esto, una vista
--- creada por un rol con permisos amplios podría filtrar filas que la
--- policy de la tabla base (using(false) de arriba) debería bloquear.
--- Con security_invoker, la policy de la tabla base SÍ se evalúa al
--- consultar la vista, así que en la práctica el resultado es el mismo
--- (esta vista nunca expone source_x/source_y de todos modos, al no
--- seleccionar esas columnas) pero es la configuración correcta por
--- principio de menor privilegio, no solo por lo que la vista selecciona
--- hoy.
-
--- (No se agrega una policy separada para la vista: las vistas con
--- security_invoker heredan la policy de SELECT de la tabla base,
--- "str_rounds_select_via_grant_only" — ver esa policy más arriba para
--- el porqué de using(true) y no using(false).)
+-- SIN security_invoker=true (a propósito — ver "HISTORIAL DEL BUG"
+-- arriba): la vista corre con los privilegios de su DUEÑO, que tiene
+-- acceso pleno a la tabla base. authenticated/anon nunca tienen GRANT
+-- directo sobre signal_triangulation_rounds (revoke de arriba), así que
+-- el único camino de lectura es esta vista — y la vista en sí nunca
+-- selecciona source_x/source_y, así que esas columnas jamás salen por
+-- acá sin importar qué rol consulte. Esto es el patrón estándar de
+-- Postgres/Supabase para "vista que oculta columnas de una tabla con
+-- RLS restrictivo": security_invoker sirve para el caso inverso (dar
+-- MENOS acceso del que el dueño tendría), que no es lo que se necesita
+-- acá.
 
 -- 2.3 signal_triangulation_locks: identidad real exigida (decisión #2).
 -- Un jugador puede ver/escribir su PROPIA fila completa (incluida su
@@ -282,7 +283,16 @@ create or replace view public.signal_triangulation_locks_public as
   from public.signal_triangulation_locks;
 
 grant select on public.signal_triangulation_locks_public to anon, authenticated;
-alter view public.signal_triangulation_locks_public set (security_invoker = true);
+-- SIN security_invoker=true — mismo motivo que
+-- signal_triangulation_rounds_public más arriba (ver "HISTORIAL DEL
+-- BUG" en esa sección): con security_invoker, Postgres exige que el rol
+-- invocador (authenticated) tenga privilegio SELECT sobre la tabla base
+-- ANTES de evaluar RLS, y ese privilegio fue revocado a propósito 6
+-- líneas arriba. Sin security_invoker, la vista corre con los
+-- privilegios de su dueño (acceso pleno a la tabla), el GRANT sobre la
+-- vista alcanza, y las columnas guess_x/guess_y de compañeros de equipo
+-- siguen sin exponerse porque la vista nunca las selecciona (solo
+-- expone has_locked, un booleano derivado).
 
 -- 3. Función de generación de niveles (RPC, security definer) ----------------
 --
