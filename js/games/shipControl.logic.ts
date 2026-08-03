@@ -115,6 +115,7 @@ export function init(ui: GameUi) {
 
   const actionResultEl = ui.scActionResult as HTMLElement | undefined;
   const matchResultEl = ui.scMatchResult as HTMLElement | undefined;
+  const backToLobbyBtn = ui.backToLobby as HTMLButtonElement | undefined;
 
   const cleanup = GameHelpers.createCleanupManager();
   const allPanels = [navPanelEl, sensorsPanelEl, energyPanelEl, commsPanelEl];
@@ -485,6 +486,17 @@ export function init(ui: GameUi) {
           : 'Partida abandonada.';
       matchResultEl.textContent = text;
       matchResultEl.classList.remove('hidden');
+    }
+    // A diferencia de 'completed'/'failed' (fines de partida normales,
+    // resueltos por el propio equipo — el jugador ya sabe volver por su
+    // cuenta), 'abandoned' es alguien yéndose a mitad de partida: se
+    // ofrece el botón porque no hay ninguna otra señal en pantalla de
+    // que la partida ya terminó del lado del servidor (mismo patrón que
+    // Simon/Arrow/Termita/Signal Triangulation — ver
+    // multiplayerSplitView.onOpponentLeft y showMatchEnded en
+    // signalTriangulation.logic.ts).
+    if (m.status === 'abandoned' && backToLobbyBtn) {
+      backToLobbyBtn.classList.remove('hidden');
     }
   }
 

@@ -36,6 +36,23 @@ const GAME_LABELS: Record<string, { icon: string; name: string }> = {
 let activeAdapter: MatchWaitingAdapter | null = null;
 let unsubscribe: (() => void) | null = null;
 let leaveBtnHandler: (() => void) | null = null;
+/**
+ * true si la salida de esta vista ya fue manejada explícitamente (botón
+ * "Salir" -> adapter.leave(), o la espera se completó y se avanzó al
+ * juego real vía proceedToGame) — en ambos casos stop() no debe volver
+ * a llamar adapter.leave(). Sin este flag, stop() no tenía forma de
+ * distinguir "el jugador está por entrar a jugar, la partida sigue
+ * viva" de "el jugador navegó afuera sin usar el botón Salir (sidebar,
+ * back del navegador, cualquier showView() directo)" — este segundo
+ * caso dejaba la sub-partida huérfana en el servidor (status 'waiting'
+ * para siempre) y lobbySystem/ST/SC.currentMatch apuntando a ella en el
+ * cliente, así que la próxima vez que ese jugador entraba al mismo
+ * juego en modo SOLO, isMultiplayer daba true por error (ver
+ * simon.logic.ts/termita.logic.ts/arrowGame.logic.ts: todos leen
+ * getCurrentMatch() al iniciar) y quedaba esperando un rival que nunca
+ * iba a llegar.
+ */
+let exitHandled = false;
 
 function el(id: string): HTMLElement | null {
   return document.getElementById(id);
@@ -58,6 +75,7 @@ export function init(): void {
   if (!container) return;
 
   container.innerHTML = template();
+  exitHandled = false;
 
   const pending = getPending();
   if (!pending) {
@@ -101,6 +119,7 @@ export function init(): void {
   });
 
   leaveBtnHandler = () => {
+    exitHandled = true;
     void adapter.leave();
     clearPending();
     window.showView?.(returnTo);
@@ -109,6 +128,7 @@ export function init(): void {
 }
 
 function proceedToGame(gameId: string): void {
+  exitHandled = true;
   clearPending();
   window.showView?.(gameId);
 }
@@ -116,6 +136,16 @@ function proceedToGame(gameId: string): void {
 export function stop(): void {
   unsubscribe?.();
   unsubscribe = null;
+
+  // Salida "silenciosa": el jugador navegó afuera de esta vista sin
+  // pasar por el botón Salir ni por completar la espera (proceedToGame)
+  // — sidebar, back del navegador, cualquier window.showView?.(...)
+  // directo. Sin esto, la sub-partida quedaba huérfana — ver comentario
+  // en la declaración de `exitHandled` más arriba.
+  if (!exitHandled && activeAdapter) {
+    void activeAdapter.leave();
+  }
+  exitHandled = false;
   activeAdapter = null;
 
   const btn = el('mwLeaveBtn');

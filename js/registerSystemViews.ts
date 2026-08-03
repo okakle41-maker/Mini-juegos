@@ -122,12 +122,16 @@ export function registerSystemViews(): void {
     num: 'SYS-08',
     description: 'Selección de módulos con soporte multiplayer',
     difficulty: 0,
-    // Nota: esta vista no tiene CSS propio — usa los estilos globales/base.
-    // (Antes apuntaba a css/onlineLobbyConfig.css, un archivo que nunca
-    // llegó a existir en el repo y causaba un 404 silencioso en cada
-    // carga de la vista — bug preexistente, no introducido por Ship
-    // Control; se quita la referencia rota en vez de inventar un CSS
-    // sin saber qué estilos se querían originalmente.)
+    // Reusa multiplayer.css (.lobby-match-item, .match-btn, .no-matches,
+    // etc.): el modal de config de esta vista ahora también lista
+    // partidas existentes de Signal Triangulation/Centro de Control y
+    // permite unirse, no solo crear (ver views/onlineLobby.logic.ts) —
+    // mismo lenguaje visual que antes vivía solo en la vista Multiplayer.
+    // (Antes este campo apuntaba a css/onlineLobbyConfig.css, un archivo
+    // que nunca llegó a existir en el repo y causaba un 404 silencioso
+    // en cada carga de la vista — bug preexistente, no introducido acá;
+    // se reemplaza por una referencia real en vez de quitarla sin más.)
+    css: 'css/multiplayer.css',
     hidden: true,
     logic: async () => {
       const { init, stop } = await import('./views/onlineLobby.logic.js');

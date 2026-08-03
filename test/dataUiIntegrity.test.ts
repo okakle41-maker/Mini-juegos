@@ -48,6 +48,7 @@ const VIEW_TO_LOGIC_FILE: Record<string, string> = {
   'skillchecks': 'skillchecksHub.logic.ts',
   'snippet-race': 'snippetRace.logic.ts',
   'signal_triangulation': 'signalTriangulation.logic.ts',
+  'ship_control': 'shipControl.logic.ts',
 };
 
 function findLogicFile(viewId: string): string | null {

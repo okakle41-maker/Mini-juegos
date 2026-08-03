@@ -65,6 +65,7 @@ const template = (): string => {
             </div>
 
             <div data-ui="stMatchResult" class="st-match-result hidden" role="status" aria-live="assertive"></div>
+            <button data-ui="backToLobby" class="hidden" data-back-to="online-lobby">Volver al lobby online</button>
           </div>
         </div>
       </div>

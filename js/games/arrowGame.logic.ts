@@ -470,6 +470,24 @@ export function init(ui: GameUi) {
     clicker.start({ steps, time });
   });
 
+  // El rival abandonó la partida a mitad de juego (ver
+  // multiplayerSplitView.onOpponentLeft): corta el propio intento acá
+  // (sin reportar resultado, isExit=true como en stop() global) y
+  // muestra mensaje + botón para volver al lobby, en vez de dejar que
+  // el jugador siga jugando solo sin enterarse.
+  split.onOpponentLeft(() => {
+    clicker.stop(false, true);
+    startArrow.disabled = true;
+    startArrow.classList.add('hidden');
+    const backToLobbyBtn = ui.backToLobby as HTMLButtonElement | undefined;
+    if (arrowMessage) {
+      (arrowMessage as HTMLElement).textContent = 'Tu rival abandonó la partida.';
+      (arrowMessage as HTMLElement).classList.remove('hidden');
+      (arrowMessage as HTMLElement).classList.add('visible');
+    }
+    if (backToLobbyBtn) backToLobbyBtn.classList.remove('hidden');
+  });
+
   // ARIA labels para accesibilidad
   if (arrowDisplay) {
     arrowDisplay.setAttribute('role', 'img');

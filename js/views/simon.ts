@@ -38,6 +38,7 @@ const template = (): string => {
             </div>
           </div>
           <div data-ui="info" class="result" role="status" aria-live="polite"></div>
+          <button data-ui="backToLobby" class="hidden" data-back-to="online-lobby">Volver al lobby online</button>
         </div>
       </div>
     `;

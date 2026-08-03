@@ -106,6 +106,18 @@ export interface SplitViewHandle {
    */
   onStart: (handler: () => void) => void;
   /**
+   * Registra un handler que se dispara una sola vez cuando el rival
+   * abandona la partida a mitad de juego (status pasa a 'abandoned' vía
+   * `lobby:matches_changed` — ver
+   * lobbySystem.handleMatchUpdate/leaveCurrentMatch). No dispara nada si
+   * la partida ya había terminado por otra vía (completed) ni si no es
+   * multiplayer/se está especteando (un espectador no tiene "rival"
+   * propio al cual reaccionar así; ver nota en setupSplitView). El
+   * propio juego decide qué mostrar (mensaje + botón "volver al
+   * lobby") — este helper solo detecta y avisa una vez.
+   */
+  onOpponentLeft: (handler: () => void) => void;
+  /**
    * Reclona el markup del tablero propio dentro del contenedor rival.
    * Llamar cada vez que el juego reconstruye su tablero desde cero
    * (p.ej. setupSimonBoard/setupGrid al presionar "Empezar" con una
@@ -234,6 +246,31 @@ export function setupSplitView(
     window.addEventListener('multiplayer:game_event', listener);
   }
 
+  // Detección de abandono del rival a mitad de partida — ver
+  // onOpponentLeft más arriba. Escucha lobby:matches_changed (despachado
+  // por lobbySystem.handleMatchUpdate en cada UPDATE realtime de
+  // lobby_matches) en vez de sc:match_changed/st:match_changed propios
+  // de cada juego, porque este helper es compartido entre Simon/Arrow/
+  // Termita y todos comparten el mismo canal de lobby 1v1. matchId se
+  // captura acá (no se lee this.currentMatch.id de nuevo más tarde)
+  // porque, tras el abandono, otros flujos (leaveCurrentMatch propio)
+  // podrían limpiar currentMatch antes de que este listener corra.
+  const opponentLeftHandlers: Array<() => void> = [];
+  let opponentLeftFired = false;
+  const matchId = activeMatch?.id;
+  const matchesChangedListener = () => {
+    if (opponentLeftFired || !isMultiplayer || isSpectating || !matchId) return;
+    const current = lobbySystem.getCurrentMatch();
+    if (!current || current.id !== matchId) return;
+    if (current.status === 'abandoned') {
+      opponentLeftFired = true;
+      opponentLeftHandlers.forEach((fn) => fn());
+    }
+  };
+  if (isMultiplayer && !isSpectating) {
+    window.addEventListener('lobby:matches_changed', matchesChangedListener);
+  }
+
   return {
     isMultiplayer,
     isSpectating,
@@ -253,13 +290,20 @@ export function setupSplitView(
     onStart: (handler) => {
       startHandlers.push(handler);
     },
+    onOpponentLeft: (handler) => {
+      opponentLeftHandlers.push(handler);
+    },
     remirror,
     cleanup: () => {
       if (isMultiplayer) {
         window.removeEventListener('multiplayer:game_event', listener);
       }
+      if (isMultiplayer && !isSpectating) {
+        window.removeEventListener('lobby:matches_changed', matchesChangedListener);
+      }
       handlers.clear();
       startHandlers.length = 0;
+      opponentLeftHandlers.length = 0;
     }
   };
 }

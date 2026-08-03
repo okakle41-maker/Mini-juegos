@@ -127,6 +127,7 @@ const template = (): string => {
 
             <div data-ui="scActionResult" class="sc-action-result hidden" role="status" aria-live="polite"></div>
             <div data-ui="scMatchResult" class="sc-match-result hidden" role="status" aria-live="assertive"></div>
+            <button data-ui="backToLobby" class="hidden" data-back-to="online-lobby">Volver al lobby online</button>
           </div>
         </div>
       </div>

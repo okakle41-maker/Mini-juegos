@@ -118,6 +118,7 @@ export function init(ui: GameUi) {
   const roundResultEl = ui.stRoundResult as HTMLElement | undefined;
   const matchResultEl = ui.stMatchResult as HTMLElement | undefined;
   const roundLabelEl = ui.stRoundLabel as HTMLElement | undefined;
+  const backToLobbyBtn = ui.backToLobby as HTMLButtonElement | undefined;
 
   const cleanup = GameHelpers.createCleanupManager();
 
@@ -244,6 +245,28 @@ export function init(ui: GameUi) {
     startPlayingUi();
   }
 
+  // Muestra el panel de fin de partida (completed/abandoned) y, si fue
+  // por abandono de un compañero, el botón para volver al lobby — se
+  // llama tanto desde onRoundResolved (abandono detectado al resolverse
+  // una ronda) como desde el listener st:match_changed más abajo
+  // (abandono a mitad de una ronda que todavía nadie había resuelto, ver
+  // comentario ahí: antes este segundo caso no se manejaba en absoluto).
+  let matchEndHandled = false;
+  function showMatchEnded(finalMatch: STMatch) {
+    if (matchEndHandled) return;
+    matchEndHandled = true;
+    if (matchResultEl) {
+      matchResultEl.textContent = finalMatch.status === 'completed'
+        ? `Partida terminada — ${finalMatch.roundsWon} de 2 rondas superadas.`
+        : 'Un compañero abandonó la partida.';
+      matchResultEl.classList.remove('hidden');
+    }
+    if (playPanelEl) playPanelEl.classList.add('hidden');
+    if (finalMatch.status === 'abandoned' && backToLobbyBtn) {
+      backToLobbyBtn.classList.remove('hidden');
+    }
+  }
+
   team = setupTeamLockView(ui);
   team.onRoundResolved((status) => {
     if (roundResultEl) {
@@ -262,13 +285,7 @@ export function init(ui: GameUi) {
 
     const latestMatch = signalTriangulationSystem.getCurrentMatch();
     if (latestMatch && (latestMatch.status === 'completed' || latestMatch.status === 'abandoned')) {
-      if (matchResultEl) {
-        matchResultEl.textContent = latestMatch.status === 'completed'
-          ? `Partida terminada — ${latestMatch.roundsWon} de 2 rondas superadas.`
-          : 'Partida abandonada.';
-        matchResultEl.classList.remove('hidden');
-      }
-      if (playPanelEl) playPanelEl.classList.add('hidden');
+      showMatchEnded(latestMatch);
     }
   });
 
@@ -317,6 +334,14 @@ export function init(ui: GameUi) {
       renderWaitingSlots();
     } else if (updated.status === 'playing' && waitingPanelEl && !waitingPanelEl.classList.contains('hidden')) {
       startPlayingUi();
+    } else if (updated.status === 'abandoned') {
+      // Alguien abandonó a mitad de una ronda que todavía nadie había
+      // resuelto (si ya se hubiese resuelto, esto ya lo cubre
+      // onRoundResolved más arriba) — antes este caso no se manejaba en
+      // absoluto acá, y el resto del equipo seguía viendo el tablero de
+      // juego activo indefinidamente sin enterarse de que la partida ya
+      // había terminado del lado del servidor.
+      showMatchEnded(updated);
     }
   });
 

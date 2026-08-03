@@ -21,6 +21,7 @@ export function init(ui: GameUi) {
           simonSpeed: simonSpeedEl, simonRounds: simonRoundsEl,
           info: simonInfo } = ui;
   const startSimon = ui.start as HTMLButtonElement | undefined;
+  const backToLobbyBtn = ui.backToLobby as HTMLButtonElement | undefined;
 
   if (!startSimon) return;
 
@@ -38,6 +39,7 @@ export function init(ui: GameUi) {
   const isMultiplayer = activeMatch?.gameId === 'simon';
   const split: SplitViewHandle = setupSplitView('simon', ui, 'simon', simonBoard as HTMLElement);
   const rivalBoard = ui.simonRival as HTMLElement | undefined;
+  let needsSpectatorBoard = false;
 
   if (isMultiplayer) {
     const s = activeMatch!.settings || {};
@@ -53,6 +55,14 @@ export function init(ui: GameUi) {
       info.textContent = 'Especteando esta partida.';
       startSimon.disabled = true;
       startSimon.classList.add('hidden');
+      // A diferencia del host/rival (que construyen su tablero al
+      // arrancar/recibir la señal de arranque), un espectador nunca
+      // dispara beginSimonGame(): sin esto, su lado "Vos" del split
+      // queda vacío y colapsado (0 celdas, sin min-size en CSS) para
+      // siempre. needsSpectatorBoard se resuelve más abajo, una vez
+      // definidos simonState/setupSimonBoard (no se puede llamar acá:
+      // TDZ, ambos se declaran después en este mismo init()).
+      needsSpectatorBoard = true;
     } else if (split.isHost) {
       info.textContent = 'Partida de lobby: presioná Empezar cuando quieras. Tu rival arranca junto con vos.';
     } else {
@@ -127,6 +137,19 @@ export function init(ui: GameUi) {
     // El tablero rival debe reconstruirse cada vez que este se
     // reconstruye (distinta cantidad de colores entre partidas).
     split.remirror();
+  }
+
+  if (needsSpectatorBoard) {
+    // Ver comentario en el bloque isMultiplayer más arriba: se posterga
+    // hasta acá porque setupSimonBoard/simonState recién están
+    // definidos en este punto de init(). Usa la config ya fijada de la
+    // partida (colorCount tomado del <select>, ya seteado con
+    // activeMatch.settings más arriba) — el tablero queda deshabilitado
+    // por construcción (los botones nacen con la clase 'disabled' y
+    // onSimonPress corta temprano por isSpectating).
+    simonState.colorCount = Number((colorCountEl as HTMLSelectElement).value) || 4;
+    setupSimonBoard(simonState.colorCount);
+    (simonBoard as HTMLElement).classList.remove('hidden');
   }
 
   function getSimonButtons() {
@@ -285,6 +308,22 @@ export function init(ui: GameUi) {
   split.onStart(() => {
     if (split.isSpectating) return;
     beginSimonGame();
+  });
+
+  // El rival abandonó la partida a mitad de juego (ver
+  // multiplayerSplitView.onOpponentLeft): se corta el propio juego acá
+  // mismo (no auto-redirige) y se muestra el mensaje + botón para
+  // volver al lobby, en vez de dejar que el jugador siga jugando solo
+  // sin enterarse de que ya no hay nadie del otro lado.
+  split.onOpponentLeft(() => {
+    simonState.playing = false;
+    simonState.playerTurn = false;
+    disableSimonButtons(true);
+    startSimon.disabled = true;
+    startSimon.classList.add('hidden');
+    const info = simonInfo as HTMLElement;
+    info.textContent = 'Tu rival abandonó la partida.';
+    if (backToLobbyBtn) backToLobbyBtn.classList.remove('hidden');
   });
 
   // Soporte de teclado para Simon

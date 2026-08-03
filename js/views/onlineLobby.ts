@@ -8,13 +8,18 @@
  * Destino tras crear/unirse a un lobby grupal desde la pestaña
  * Multiplayer (ver showLobbyActive en views/multiplayer.logic.ts).
  *
- * Incluye un modal de configuración previa para los cooperativos de 4
- * jugadores (Signal Triangulation y Centro de Control): al hacer click
- * en su card, en vez de navegar directo al juego, se abre este panel
- * donde se crea la partida (eligiendo rol en el caso de Centro de
- * Control) y recién ahí se entra a la vista del juego. Los juegos 1v1
- * (Simon/Arrow/Termita/Letters Fall) siguen navegando directo como
- * siempre.
+ * Incluye un modal de configuración previa para TODOS los juegos de esta
+ * grilla: al hacer click en cualquier card, en vez de navegar directo al
+ * juego, se abre este panel para crear una partida nueva (eligiendo rol
+ * en el caso de Centro de Control), unirse a una ya creada por otro
+ * jugador del mismo lobby grupal, o espectar una en curso — lista debajo
+ * del botón/selector de crear (ver views/onlineLobby.logic.ts). Este
+ * modal es el ÚNICO punto de entrada para crear/unirse/espectar
+ * cualquier sub-partida, sea 1v1 (Simon/Arrow/Termita, vía
+ * olConfigLobbySection) o cooperativa de 4 (Signal Triangulation/Centro
+ * de Control, vía olConfigStSection/olConfigScSection): la vista
+ * Multiplayer (lobby grupal) ya no tiene sección propia para ninguno de
+ * estos juegos.
  *
  * Se omiten el "Módulo del Día" y las stat-cards de sesión de #home:
  * ambos están pensados para el catálogo completo (destacar lo último
@@ -62,11 +67,13 @@ const template = (): string => {
         </div>
       </div>
 
-      <!-- Modal de configuración previa para cooperativos de 4 jugadores.
-           Se abre al hacer click en la card de Signal Triangulation o
-           Centro de Control (ver onlineLobby.logic.ts) — para Simon/
-           Arrow/Termita/Letters Fall no se usa y las cards navegan
-           directo como siempre. -->
+      <!-- Modal de configuración previa para los juegos con lobby real
+           (Simon/Arrow/Termita vía olConfigLobbySection, Signal
+           Triangulation vía olConfigStSection, Centro de Control vía
+           olConfigScSection) — se abre al hacer click en cualquiera de
+           esas cards (ver onlineLobby.logic.ts). Letters Fall es la
+           única excepción: navega directo, maneja su propio panel de
+           sala (Solo/Crear/Unirse) dentro de su propia vista. -->
       <div class="ol-modal-overlay hidden" id="olConfigModalOverlay" role="presentation">
         <div class="ol-modal" role="dialog" aria-modal="true" aria-labelledby="olConfigModalTitle">
           <button class="ol-modal-close" id="olConfigModalClose" type="button" aria-label="Cerrar">✕</button>
@@ -88,6 +95,9 @@ const template = (): string => {
             <button class="ol-modal-primary-btn" id="olConfigStCreateBtn" type="button">
               📡 Crear partida de Signal Triangulation
             </button>
+            <div class="lobby-st-matches-list" id="olConfigStMatchesList" style="margin-top: 1rem;">
+              <p class="no-matches">Todavía no hay partidas de Signal Triangulation. ¡Creá una!</p>
+            </div>
           </div>
 
           <div id="olConfigScSection" class="hidden">
@@ -115,6 +125,24 @@ const template = (): string => {
                 <span class="ol-modal-role-icon">📻</span>
                 <span class="ol-modal-role-name">Comunicaciones</span>
               </button>
+            </div>
+            <div class="lobby-sc-matches-list" id="olConfigScMatchesList" style="margin-top: 1rem;">
+              <p class="no-matches">Todavía no hay partidas de Centro de Control. ¡Creá una eligiendo tu rol!</p>
+            </div>
+          </div>
+
+          <div id="olConfigLobbySection" class="hidden">
+            <p class="ol-modal-hint">
+              Duelo 1v1. Creá una partida nueva y esperá a un rival, unite
+              como rival a una que ya esté esperando, o espectá una que ya
+              esté en curso.
+            </p>
+            <div class="ol-modal-error hidden" id="olConfigLobbyError" role="alert"></div>
+            <button class="ol-modal-primary-btn" id="olConfigLobbyCreateBtn" type="button">
+              🆕 Crear partida
+            </button>
+            <div class="lobby-matches-list" id="olConfigLobbyMatchesList" style="margin-top: 1rem;">
+              <p class="no-matches">Todavía no hay partidas. ¡Creá una!</p>
             </div>
           </div>
         </div>

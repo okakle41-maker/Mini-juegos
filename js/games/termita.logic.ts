@@ -15,6 +15,7 @@ export function init(ui: GameUi) {
     const { grid: gridEl, gridSize: gridSizeEl, targets: targetsEl,
             showTime: showTimeEl, rounds: roundsEl, info: termitaInfo } = ui;
     const startTermita = ui.start as HTMLButtonElement | undefined;
+    const backToLobbyBtn = ui.backToLobby as HTMLButtonElement | undefined;
 
     if (!startTermita) return;
 
@@ -58,6 +59,15 @@ export function init(ui: GameUi) {
         startTermita.disabled = true;
         startTermita.classList.add('hidden');
         if (info) info.textContent = 'Especteando esta partida.';
+        // Un espectador nunca dispara beginTermitaGame(): sin esto, su
+        // lado "Vos" del split queda vacío (sin celdas, colapsado a 0
+        // por falta de min-size en CSS) para siempre. setupGrid es una
+        // function declaration (hoisted) y state ya está declarado más
+        // arriba, así que sí se puede llamar acá directo (a diferencia
+        // de Simon, que necesita diferirlo — ver simon.logic.ts).
+        state.size = parseInt((gridSizeEl as HTMLInputElement).value, 10) || 5;
+        setupGrid(state.size);
+        (gridEl as HTMLElement).classList.remove('hidden');
       } else if (split.isHost) {
         if (info) info.textContent = 'Partida de lobby: presioná Empezar cuando quieras. Tu rival arranca junto con vos.';
       } else {
@@ -278,6 +288,18 @@ export function init(ui: GameUi) {
     split.onStart(() => {
       if (split.isSpectating) return;
       beginTermitaGame();
+    });
+
+    // El rival abandonó la partida a mitad de juego (ver
+    // multiplayerSplitView.onOpponentLeft): se corta acá mismo (no
+    // auto-redirige) y se muestra mensaje + botón para volver al lobby.
+    split.onOpponentLeft(() => {
+      state.acceptingInput = false;
+      startTermita.disabled = true;
+      startTermita.classList.add('hidden');
+      const info = termitaInfo as HTMLElement;
+      info.textContent = 'Tu rival abandonó la partida.';
+      if (backToLobbyBtn) backToLobbyBtn.classList.remove('hidden');
     });
 
     // Soporte de teclado para navegación por la cuadrícula

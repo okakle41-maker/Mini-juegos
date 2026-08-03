@@ -65,6 +65,7 @@ const template = (): string => {
               <button type="button" class="arrow-touch-btn arrow-touch-btn--right" data-key="ArrowRight" aria-label="Derecha">→</button>
             </div>
             <div data-ui="arrowMessage" class="arrow-message hidden" role="status" aria-live="polite"></div>
+            <button data-ui="backToLobby" class="hidden" data-back-to="online-lobby">Volver al lobby online</button>
           </div>
         </div>
       </div>

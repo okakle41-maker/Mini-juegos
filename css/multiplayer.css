@@ -574,3 +574,152 @@
 .lobby-match-resume-btn:hover {
   background: rgba(0, 200, 255, 0.22);
 }
+
+/* ── Modal de configuración de sub-partida (Lobby Online) ──
+ * Ver views/onlineLobby.ts (template) y views/onlineLobby.logic.ts.
+ * Bug preexistente encontrado en auditoría: estas clases .ol-modal-*
+ * se usaban desde que existía el modal de Signal Triangulation/Centro
+ * de Control y nunca tuvieron una sola línea de CSS en todo el repo —
+ * el "modal" se renderizaba sin overlay fijo, sin fondo oscurecido, sin
+ * tarjeta ni centrado, como contenido inline normal del documento. Se
+ * agrega acá (no un archivo nuevo) porque esta es la hoja que la vista
+ * ya declara en su `css` (ver registerSystemViews.ts) y donde ya vive
+ * el resto del lenguaje visual reusado (.lobby-match-item, .no-matches,
+ * etc. arriba en este mismo archivo).
+ */
+.ol-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.ol-modal {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: #12161c;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.ol-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: inherit;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  line-height: 1;
+}
+.ol-modal-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.ol-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-right: 32px;
+}
+
+.ol-modal-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.ol-modal-title {
+  margin: 0 0 2px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.ol-modal-sub {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.ol-modal-hint {
+  font-size: 13px;
+  opacity: 0.75;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.ol-modal-error {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  text-align: center;
+}
+
+.ol-modal-primary-btn {
+  width: 100%;
+  cursor: pointer;
+  background: rgba(0, 200, 255, 0.14);
+  border: 1px solid rgba(0, 200, 255, 0.35);
+  color: #7fe0ff;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.ol-modal-primary-btn:hover {
+  background: rgba(0, 200, 255, 0.24);
+}
+
+.ol-modal-role-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ol-modal-role-btn {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: inherit;
+  border-radius: 10px;
+  padding: 14px 8px;
+  font-size: 13px;
+}
+.ol-modal-role-btn:hover:not(:disabled) {
+  background: rgba(0, 200, 255, 0.1);
+  border-color: rgba(0, 200, 255, 0.3);
+}
+.ol-modal-role-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ol-modal-role-icon {
+  font-size: 22px;
+}
+
+.ol-modal-role-name {
+  font-weight: 600;
+}
