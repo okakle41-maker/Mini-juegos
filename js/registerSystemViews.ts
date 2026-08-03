@@ -122,7 +122,12 @@ export function registerSystemViews(): void {
     num: 'SYS-08',
     description: 'Selección de módulos con soporte multiplayer',
     difficulty: 0,
-    css: 'css/onlineLobbyConfig.css',
+    // Nota: esta vista no tiene CSS propio — usa los estilos globales/base.
+    // (Antes apuntaba a css/onlineLobbyConfig.css, un archivo que nunca
+    // llegó a existir en el repo y causaba un 404 silencioso en cada
+    // carga de la vista — bug preexistente, no introducido por Ship
+    // Control; se quita la referencia rota en vez de inventar un CSS
+    // sin saber qué estilos se querían originalmente.)
     hidden: true,
     logic: async () => {
       const { init, stop } = await import('./views/onlineLobby.logic.js');

@@ -404,6 +404,17 @@
 
 <section id="rhythmclick" class="view hidden" data-lazy="1"></section>
 
+<!-- Signal Triangulation y Centro de Control: registradas en
+     viewTemplates.ts/GameRegistry pero sin su <section> contenedor acá
+     — showView() de viewManager.ts busca document.getElementById(id)
+     ANTES de mirar viewTemplates, así que sin este placeholder la vista
+     nunca se muestra pese a estar bien registrada (bug preexistente,
+     no introducido por Ship Control: Signal Triangulation tampoco lo
+     tenía). El contenido real lo inyecta loadLazyView vía
+     viewTemplates[id]() la primera vez que se abre. -->
+<section id="signal_triangulation" class="view hidden" data-lazy="1"></section>
+<section id="ship_control" class="view hidden" data-lazy="1"></section>
+
 
 
 <!-- ==========================================================
