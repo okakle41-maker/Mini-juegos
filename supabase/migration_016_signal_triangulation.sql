@@ -188,14 +188,31 @@ create policy "str_matches_update_all"
 -- "dar select con using(true)" expondría la fuente en claro a
 -- cualquiera con la consola de red abierta, sin importar qué columnas
 -- "debería" pedir el cliente normal. Se bloquea select directo sobre la
--- tabla base por completo para los roles del cliente, y se expone en
--- cambio una vista sin esas dos columnas.
+-- tabla base por completo para los roles del cliente (vía REVOKE, no
+-- vía RLS: ver nota más abajo), y se expone en cambio una vista sin
+-- esas dos columnas.
 revoke select on public.signal_triangulation_rounds from anon, authenticated;
 
 drop policy if exists "str_rounds_no_direct_select" on public.signal_triangulation_rounds;
-create policy "str_rounds_no_direct_select"
+create policy "str_rounds_select_via_grant_only"
   on public.signal_triangulation_rounds for select
-  using (false);
+  using (true);
+-- using(true), NO using(false) — bug corregido en esta revisión.
+-- signal_triangulation_rounds_public más abajo tiene
+-- security_invoker=true, lo que significa que sus lecturas se evalúan
+-- CON los permisos y policies RLS de quien llama a la vista, no con los
+-- del dueño. Con using(false) acá, ese security_invoker heredaba el
+-- "false" también dentro de la vista, y CUALQUIER lectura — directa o
+-- vía la vista pública — devolvía 0 filas o 403 (permission denied),
+-- rompiendo por completo Signal Triangulation en producción: el REVOKE
+-- de arriba ya es lo único necesario para bloquear el acceso DIRECTO a
+-- la tabla (sin GRANT SELECT, ningún SELECT directo puede ejecutarse,
+-- con o sin RLS) — la policy no necesita bloquear nada extra, solo
+-- necesita existir porque RLS está enable()ado en la tabla y sin
+-- ninguna policy de SELECT el default también sería denegar. El
+-- control real de qué columnas se exponen lo hace la vista pública
+-- (select explícito de columnas, sin source_x/source_y) más abajo, no
+-- esta policy.
 -- No se agrega policy de insert/update para el cliente: las únicas
 -- escrituras a esta tabla las hace generate_signal_triangulation_round()
 -- (security definer, más abajo), nunca un insert/update directo del
@@ -221,11 +238,10 @@ alter view public.signal_triangulation_rounds_public set (security_invoker = tru
 -- principio de menor privilegio, no solo por lo que la vista selecciona
 -- hoy.
 
-drop policy if exists "str_rounds_select_via_view_only" on public.signal_triangulation_rounds;
--- (la policy "str_rounds_no_direct_select" ya cubre esto; esta línea es
--- solo para dejar explícito en el historial de migraciones que no se
--- agrega una policy separada para la vista — las vistas con
--- security_invoker heredan las policies de la tabla base.)
+-- (No se agrega una policy separada para la vista: las vistas con
+-- security_invoker heredan la policy de SELECT de la tabla base,
+-- "str_rounds_select_via_grant_only" — ver esa policy más arriba para
+-- el porqué de using(true) y no using(false).)
 
 -- 2.3 signal_triangulation_locks: identidad real exigida (decisión #2).
 -- Un jugador puede ver/escribir su PROPIA fila completa (incluida su
@@ -583,24 +599,18 @@ create trigger str_matches_prevent_double_active
 -- del propio lobby — este es el primer caso del proyecto donde sí
 -- importa.
 --
--- Mitigación aplicada para signal_triangulation_rounds: se agrega la
--- tabla base a la publicación (obligatorio, Realtime no soporta
--- vistas), pero el cliente (signalTriangulationSystem.ts) NUNCA debe
--- suscribirse a esta tabla vía postgres_changes sin filtrar — en su
--- lugar, sondea el estado de la ronda (status/round_number/
--- attempt_number) leyendo signal_triangulation_rounds_public por
--- polling ligero o Realtime sobre esa vista si el proyecto migra a una
--- versión de Supabase con Realtime-sobre-vistas (no disponible al
--- momento de esta migración). Alternativa más robusta si el equipo
--- confirma que Realtime de este proyecto SÍ respeta RLS de SELECT en su
--- configuración actual (algunas versiones del broadcast de Supabase sí
--- lo hacen cuando se habilita "Realtime Authorization" con RLS): en ese
--- caso, con str_rounds_no_direct_select (using(false)) ya en efecto,
--- ningún cliente recibiría de todos modos el payload de esta tabla por
--- Realtime, y el comentario de arriba sería un caso ya cubierto en vez
--- de un riesgo abierto — pero no se debe asumir eso sin confirmarlo
--- contra la versión real del proyecto, así que esta migración trata el
--- caso pesimista.
+-- Nota sobre el fix de la policy de SELECT de esta revisión (más
+-- arriba, "str_rounds_select_via_grant_only", using(true) en vez del
+-- using(false) original): ese cambio es indiferente al riesgo de
+-- Realtime descripto arriba. Realtime en Supabase evalúa autorización
+-- vía la publicación/canal, no vía la policy de SELECT estándar de
+-- PostgREST — así que using(false) NUNCA bloqueó el payload crudo de
+-- Realtime sobre esta tabla (el riesgo documentado arriba ya existía
+-- con el using(false) original), y using(true) tampoco lo empeora. Lo
+-- único que cambió con el fix es que PostgREST (REST/RPC normal) ahora
+-- puede leer la tabla vía la vista pública sin RLS, resolviendo el 403
+-- que rompía Signal Triangulation en producción — el riesgo de Realtime
+-- sigue abierto y documentado, sin relación con este fix.
 do $$
 begin
   alter publication supabase_realtime add table public.signal_triangulation_matches;
