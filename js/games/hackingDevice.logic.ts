@@ -221,10 +221,67 @@ export function init(rawUi: GameUi): void {
     return { r, c };
   }
 
-  /** Los N índices de anillo que ocupa un tramo que arranca en `startIdx`. */
+  /**
+   * Los N índices de anillo que ocupa un tramo que arranca en `startIdx`,
+   * en el orden espacial en que se LEE en pantalla (izquierda a
+   * derecha), no en el orden ascendente del anillo interno.
+   *
+   * idxOf/posOf (arriba) recorren cada fila de DERECHA a IZQUIERDA al
+   * mapear (r,c) -> índice de anillo (ver comentario de cabecera del
+   * archivo) — por diseño, para que "avanzar +1" en el anillo mueva el
+   * contenido de la grilla hacia la derecha en pantalla en cada
+   * moveStep(). Pero eso significa que un tramo [startIdx, startIdx+1,
+   * ..., startIdx+N-1] recorrido en ESE orden (ascendente) cae, en
+   * pantalla, de DERECHA a IZQUIERDA dentro de la fila.
+   *
+   * targetCodes se genera y se muestra en el HUD ("OBJETIVO: ...") en
+   * orden natural de lectura izquierda-a-derecha (targetCodes[0] primero).
+   * Antes, targetCells()/cursorCells() asignaban targetCodes[0] al primer
+   * índice del tramo (ascendente) = la celda más a la DERECHA del grupo,
+   * y targetCodes[N-1] a la celda más a la IZQUIERDA — quedando el
+   * highlight en pantalla invertido respecto al texto del objetivo. Se
+   * podía leer perfecto ubicando el cursor sobre las celdas ya
+   * resaltadas (mismo cálculo interno de índices en ambos lados), pero
+   * intentar alinear el cursor guiándose por el texto del objetivo
+   * fallaba porque la lectura visual izquierda->derecha no correspondía
+   * al orden [0..N-1] esperado por attemptConfirm().
+   *
+   * Fix: se invierte el orden de los índices devueltos (no el rango que
+   * ocupan), así el índice 0 del array resultante siempre corresponde a
+   * la celda más a la izquierda del tramo en pantalla — alineado con
+   * targetCodes[0]/cursorCells()[0].
+   */
+  /**
+   * Los N índices de anillo que ocupa un tramo, en orden de LECTURA EN
+   * PANTALLA (izquierda a derecha), no en el orden ascendente del
+   * anillo interno.
+   *
+   * idxOf/posOf (arriba) recorren cada fila de DERECHA a IZQUIERDA al
+   * mapear (r,c) -> índice de anillo (ver comentario de cabecera del
+   * archivo) — por diseño, para que "avanzar +1" en el anillo desplace
+   * el contenido de la grilla hacia la derecha en pantalla en cada
+   * moveStep(). Eso significa que, en pantalla, el índice de anillo
+   * DECRECE al leer una fila de izquierda a derecha — por eso acá se
+   * resta `i` (startIdx - i) en vez de sumarlo: así indices[0] siempre
+   * cae en la celda más a la izquierda del tramo, e indices[N-1] en la
+   * más a la derecha, sin importar si el tramo cruza el borde de fila.
+   *
+   * targetCodes se genera y se muestra en el HUD ("OBJETIVO: ...") en
+   * orden natural de lectura izquierda-a-derecha (targetCodes[0]
+   * primero). Con el signo original (+i, ascendente), targetCells()
+   * asignaba targetCodes[0] a la celda más a la DERECHA del grupo
+   * resaltado y targetCodes[N-1] a la más a la IZQUIERDA — el highlight
+   * en pantalla quedaba invertido respecto al texto del objetivo. Se
+   * podía ganar igual parándose sobre las celdas ya resaltadas (cursor y
+   * objetivo comparten el mismo cálculo interno, así que siempre
+   * coinciden entre sí), pero intentar alinear el cursor guiándose por
+   * el texto del objetivo fallaba, porque la lectura visual
+   * izquierda->derecha no correspondía al orden [0..N-1] que
+   * attemptConfirm() espera.
+   */
   function spanIndices(startIdx: number, width: number): number[] {
     const indices: number[] = [];
-    for (let i = 0; i < width; i++) indices.push(wrap(startIdx + i, ringSize()));
+    for (let i = 0; i < width; i++) indices.push(wrap(startIdx - i, ringSize()));
     return indices;
   }
 
@@ -461,24 +518,10 @@ export function init(rawUi: GameUi): void {
   keydownHandler = (e: KeyboardEvent) => {
     if (!state.playing) return;
     const key = e.key.toLowerCase();
-    // idxOf/posOf (ver cabecera del archivo) recorren cada fila de
-    // DERECHA a IZQUIERDA al mapear (r,c) -> índice de anillo. Por eso
-    // "avanzar +1 en el anillo" corresponde a moverse hacia la
-    // IZQUIERDA en pantalla, no hacia la derecha — sin este cruce, la
-    // flecha derecha llamaba a moveCursor(-1) (retroceder en el
-    // anillo), invirtiendo el orden de lectura de cursorCells()
-    // respecto al de targetCells()/al texto "OBJETIVO: ..." (que se
-    // muestra en orden ascendente targetCodes[0..N-1]). El jugador podía
-    // alinear el cursor visualmente sobre las celdas correctas y aun así
-    // fallar attemptConfirm(), porque leía la secuencia al revés
-    // ([3,2,1,0] en vez de [0,1,2,3]) — de ahí que solo funcionara al
-    // pararse exactamente sobre las celdas ya resaltadas en amarillo
-    // (que sí usan targetStartIdx/targetCells() internos, ajenos a este
-    // cruce de teclas).
     if (key === 'arrowup' || key === 'w') { e.preventDefault(); moveCursor(-state.size); }
     else if (key === 'arrowdown' || key === 's') { e.preventDefault(); moveCursor(state.size); }
-    else if (key === 'arrowleft' || key === 'a') { e.preventDefault(); moveCursor(-1); }
-    else if (key === 'arrowright' || key === 'd') { e.preventDefault(); moveCursor(1); }
+    else if (key === 'arrowleft' || key === 'a') { e.preventDefault(); moveCursor(1); }
+    else if (key === 'arrowright' || key === 'd') { e.preventDefault(); moveCursor(-1); }
     else if (key === 'enter' || key === ' ') { e.preventDefault(); attemptConfirm(); }
   };
   document.addEventListener('keydown', keydownHandler);
