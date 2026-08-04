@@ -96,11 +96,11 @@
   line-height: 0.8;
   aspect-ratio: 1;
   display: flex;
-  place-items: center;
-  flex-direction: column;
+  flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap: 15px;
+  gap: 2px;
+  overflow: hidden;
   font-family: var(--font-mono);
   font-size: 16px;
   font-weight: 700;
@@ -256,7 +256,7 @@
 .symbol-cell.cyrillic { font-family: 'Times New Roman', serif; font-style: italic; }
 .symbol-cell.arabic { font-family: 'Noto Naskh Arabic', 'Amiri', serif; }
 .symbol-cell.cjk { font-family: 'Noto Sans SC', 'Microsoft YaHei', 'Yu Gothic', sans-serif; }
-.symbol-cell span { display: block; line-height: 0.9; }
+.symbol-cell span { line-height: 0.9; white-space: nowrap; }
 .settings-box.difficulty { grid-column: 1; grid-row: 1; }
 .settings-box.match { grid-column: 2; grid-row: 1; }
 .settings-box.options { grid-column: 2; grid-row: 2; margin-top: -145px; }

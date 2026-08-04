@@ -167,6 +167,14 @@ export function init(rawUi: GameUi): void {
     });
   });
 
+  // Re-renderiza el tablero al toggle de "Mostrar objetivo" para que el
+  // resaltado amarillo de las celdas objetivo aparezca/desaparezca en
+  // vivo, sin esperar al próximo moveStep (que recién ocurre en el
+  // siguiente tick del moveTimer).
+  hackingHighlightTarget?.addEventListener('change', () => {
+    if (state.playing) renderBoard();
+  });
+
   function randomChar(chars: string): string {
     return chars.charAt(Math.floor(Math.random() * chars.length));
   }
@@ -241,6 +249,8 @@ export function init(rawUi: GameUi): void {
     const poolClass = getActivePoolClass();
     const cursor = cursorCells();
     const cursorSet = new Set(cursor.map(p => `${p.r},${p.c}`));
+    const showTarget = !hackingHighlightTarget || hackingHighlightTarget.checked;
+    const targetSet = new Set(state.targets.map(t => `${t.r},${t.c}`));
 
     state.grid.forEach((row, r) => {
       row.forEach((cell, c) => {
@@ -253,6 +263,7 @@ export function init(rawUi: GameUi): void {
           .join('');
 
         div.dataset.pos = `${r},${c}`;
+        if (showTarget && targetSet.has(`${r},${c}`)) div.classList.add('highlight');
         if (cursorSet.has(`${r},${c}`)) div.classList.add('cursor');
         hackingBoard.appendChild(div);
       });
