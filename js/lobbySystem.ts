@@ -443,6 +443,23 @@ class LobbySystem {
     const playerId = this.currentPlayerId();
     const matchId = crypto.randomUUID();
 
+    // Auto-recuperación de partidas huérfanas: si este playerId quedó
+    // como player1/player2 de una fila 'waiting'/'playing' de una sesión
+    // anterior (pestaña cerrada, refresh, crash — nada llama a
+    // leaveCurrentMatch() en esos casos porque depende de
+    // this.currentMatch en memoria, que ya se perdió), el trigger
+    // prevent_double_active_match (migration_011) rechaza cualquier
+    // INSERT nuevo con P0001 'player_already_in_active_match' para
+    // siempre, sin salida para el jugador. Como esta llamada ya
+    // confirmó (guard de arriba) que ESTE cliente no tiene una partida
+    // activa en memoria, cualquier fila activa que aparezca acá es por
+    // definición huérfana desde la perspectiva de este cliente — se
+    // marca 'abandoned' antes de intentar el insert.
+    await client.from('lobby_matches')
+      .update({ status: 'abandoned' })
+      .in('status', ['waiting', 'playing'])
+      .or(`player1_id.eq.${playerId},player2_id.eq.${playerId}`);
+
     const { error } = await client.from('lobby_matches').insert({
       id: matchId,
       lobby_id: this.currentLobby.id,
