@@ -79,10 +79,25 @@ export function init(): void {
   exitHandled = false;
 
   const pending = getPending();
-  if (!pending) {
+  if (!pending || !pending.gameId) {
     // Se llegó a esta vista sin pasar por setPending (navegación directa,
     // recarga de página, etc.) — no hay nada que esperar. Volver al
     // lobby es más seguro que quedar en una vista sin estado válido.
+    //
+    // El chequeo de !pending.gameId (además de !pending) cubre un caso
+    // real visto en producción: getPending() devuelve un objeto no-null
+    // pero con gameId null/undefined en tiempo de ejecución pese al tipo
+    // PendingGameId no-nullable — getMatchWaitingAdapter() (ver
+    // utils/matchWaitingAdapter.ts) tira una excepción sin catch en ese
+    // caso, y como eso pasa DENTRO de init(), GameRegistry.ensureInit()
+    // (ver core/gameRegistry.ts) atrapa el error pero nunca llega a
+    // this.initialized.add('match-waiting') — la vista queda rota para
+    // siempre: cada intento posterior de entrar a CUALQUIER minijuego
+    // que pase por acá vuelve a ejecutar este init() desde cero y vuelve
+    // a tirar el mismo error. Clonamos pending.gameId a una constante
+    // ahora para que TypeScript lo siga tratando como no-nullable en el
+    // resto de esta función tras el guard.
+    clearPending();
     showError('No hay ninguna partida en espera.');
     window.showView?.('online-lobby');
     return;
