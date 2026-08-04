@@ -5,25 +5,47 @@
  * ver `logic` en hackingDevice.ts y el comentario de
  * GameConfig.logic en core/gameRegistry.ts.
  *
- * Mecánica (rediseño): en vez de clickear directamente la celda con el
- * código objetivo, el jugador controla un CURSOR de N celdas
- * consecutivas en una fila (N = cantidad de códigos en la secuencia
- * objetivo, ej. 4 códigos de 2 caracteres cada uno) que se mueve como
- * bloque por la grilla con flechas/WASD (con wraparound en ambos
- * ejes). Se confirma con Enter/Espacio: gana la ronda si, en ese
- * instante, las N celdas bajo el cursor son exactamente los N códigos
- * del objetivo, en ese orden.
+ * Mecánica: el jugador controla un CURSOR de N celdas consecutivas
+ * (N = cantidad de códigos en la secuencia objetivo, ej. 4 códigos de
+ * 2 caracteres cada uno) que se mueve por la grilla con flechas/WASD.
+ * Se confirma con Enter/Espacio: gana la ronda si, en ese instante,
+ * las N celdas bajo el cursor son exactamente los N códigos del
+ * objetivo, en ese orden.
  *
- * Las celdas objetivo (las que contienen cada código del objetivo,
- * dispersas por la grilla) SIEMPRE fluyen en diagonal (abajo-derecha →
- * arriba-izquierda, con wraparound) tick a tick. El resto de la grilla
- * depende del modo elegido:
- *   - 'flow'   (default): toda la grilla fluye junto con el mismo
- *     desplazamiento diagonal, como un único bloque.
+ * Modelo de "anillo lineal" (clave para que cursor y objetivo puedan
+ * alinearse, y para el recorrido de movimiento pedido):
+ * en vez de razonar en coordenadas (fila, columna) sueltas, toda la
+ * grilla se aplana en un único anillo circular de tamaño size*size,
+ * recorrido en este orden fijo:
+ *   - arranca en la fila de ABAJO, dentro de esa fila va de DERECHA a
+ *     IZQUIERDA;
+ *   - al agotar una fila, continúa en la fila de arriba (también
+ *     derecha → izquierda);
+ *   - al llegar a la esquina superior-izquierda (última celda del
+ *     anillo), vuelve a la esquina inferior-derecha (primera celda) y
+ *     sigue — wrap total de todo el anillo, no por fila.
+ * Tanto el CURSOR como las celdas OBJETIVO son un tramo de N índices
+ * consecutivos dentro de este mismo anillo — por eso siempre es
+ * posible alinearlos exactamente (antes, los objetivos podían quedar
+ * dispersos por la grilla mientras el cursor era siempre contiguo, lo
+ * que hacía la ronda imposible de ganar).
+ *
+ * Movimiento de fondo cada tick (moveStep): todo el contenido de la
+ * grilla avanza UNA posición a lo largo del anillo (equivalente a que
+ * cada celda "herede" el valor de la siguiente en el recorrido
+ * descripto arriba — de ahí que, visualmente, el contenido fluya fila
+ * por fila hacia la derecha al subir de fila). El modo elegido decide
+ * qué pasa con las celdas que NO son objetivo:
+ *   - 'flow'   (default): toda la grilla avanza junto por el anillo,
+ *     como un único bloque.
  *   - 'random': el resto de celdas (todo menos las del objetivo) se
  *     reordena/baraja entre sí cada tick — las celdas objetivo siguen
- *     fluyendo en diagonal igual que en 'flow', son las únicas que
+ *     avanzando por el anillo igual que en 'flow', son las únicas que
  *     mantienen movimiento predecible.
+ * Como el avance es por celda individual (no por fila completa), un
+ * tramo de N celdas consecutivas (cursor u objetivo) puede terminar
+ * repartido entre el final de una fila y el principio de la
+ * siguiente — es esperado, ver renderBoard/cursorCells más abajo.
  */
 
 import type { GameUi } from '../types/game.js';
@@ -48,16 +70,10 @@ interface HackingUi {
 
 type MoveMode = 'flow' | 'random';
 
-/** Una celda-objetivo: posición actual en la grilla + qué código (de la secuencia) representa. */
-interface TargetCell {
-  r: number;
-  c: number;
-  code: string;
-  index: number;
-}
-
 interface HackingState {
   targetCodes: string[]; // secuencia completa, ej. ['NM','YK','BO','LW']
+  /** Índice (en el anillo) de la primera celda del objetivo — el objetivo ocupa [targetStartIdx, targetStartIdx+N-1] mod size*size. */
+  targetStartIdx: number;
   grid: string[][];
   size: number;
   length: number; // longitud de cada código (2 caracteres normalmente)
@@ -69,13 +85,11 @@ interface HackingState {
   timer: ReturnType<typeof setInterval> | null;
   timeLeft: number;
   playing: boolean;
-  targets: TargetCell[];
   moveTimer: ReturnType<typeof setInterval> | null;
   moveInterval: number;
   moveMode: MoveMode;
-  /** Columna inicial del cursor — el cursor ocupa [cursorCol, cursorCol+N-1] en cursorRow, con wrap. */
-  cursorRow: number;
-  cursorCol: number;
+  /** Índice (en el anillo) de la primera celda del cursor — el cursor ocupa [cursorIdx, cursorIdx+N-1] mod size*size. */
+  cursorIdx: number;
   roundTransitionTimeout: ReturnType<typeof setTimeout> | null;
 }
 
@@ -114,6 +128,7 @@ export function init(rawUi: GameUi): void {
 
   const state: HackingState = {
     targetCodes: [],
+    targetStartIdx: 0,
     grid: [],
     size: 10,
     length: 2,
@@ -125,12 +140,10 @@ export function init(rawUi: GameUi): void {
     timer: null,
     timeLeft: 0,
     playing: false,
-    targets: [],
     moveTimer: null,
     moveInterval: 1100,
     moveMode: 'flow',
-    cursorRow: 0,
-    cursorCol: 0,
+    cursorIdx: 0,
     roundTransitionTimeout: null
   };
   activeState = state;
@@ -185,37 +198,55 @@ export function init(rawUi: GameUi): void {
     return code;
   }
 
-  function wrap(n: number, size: number): number {
-    return ((n % size) + size) % size;
+  function wrap(n: number, mod: number): number {
+    return ((n % mod) + mod) % mod;
   }
 
-  /** Genera la secuencia objetivo (4 códigos, mismo ancho que el cursor) y ubica cada código en una celda dispersa distinta. */
+  const ringSize = () => state.size * state.size;
+
+  /**
+   * Convierte (fila, columna) al índice dentro del anillo lineal — ver
+   * comentario de cabecera para el orden exacto (empieza abajo,
+   * derecha → izquierda por fila, sube de fila al agotarla).
+   */
+  function idxOf(r: number, c: number): number {
+    return (state.size - 1 - r) * state.size + (state.size - 1 - c);
+  }
+
+  /** Inversa de idxOf: de índice de anillo a (fila, columna). */
+  function posOf(idx: number): { r: number; c: number } {
+    const wrapped = wrap(idx, ringSize());
+    const r = state.size - 1 - Math.floor(wrapped / state.size);
+    const c = state.size - 1 - (wrapped % state.size);
+    return { r, c };
+  }
+
+  /** Los N índices de anillo que ocupa un tramo que arranca en `startIdx`. */
+  function spanIndices(startIdx: number, width: number): number[] {
+    const indices: number[] = [];
+    for (let i = 0; i < width; i++) indices.push(wrap(startIdx + i, ringSize()));
+    return indices;
+  }
+
+  /** Genera la secuencia objetivo y elige un tramo contiguo del anillo (mismo ancho que el cursor) para ubicarla — así siempre es posible alinear el cursor exactamente con el objetivo. */
   function generateTargets(): void {
     const chars = getSelectedPools();
     const count = 4; // cantidad fija de códigos en la secuencia, igual al ancho del cursor
     state.targetCodes = [];
-    state.targets = [];
-
-    const usedPositions = new Set<string>();
     for (let i = 0; i < count; i++) {
-      const code = randomCode(chars);
-      state.targetCodes.push(code);
-
-      let r = 0, c = 0, attempts = 0;
-      do {
-        r = Math.floor(Math.random() * state.size);
-        c = Math.floor(Math.random() * state.size);
-        attempts += 1;
-      } while (usedPositions.has(`${r},${c}`) && attempts < 50);
-      usedPositions.add(`${r},${c}`);
-
-      state.targets.push({ r, c, code, index: i });
+      state.targetCodes.push(randomCode(chars));
     }
+    state.targetStartIdx = Math.floor(Math.random() * ringSize());
 
     const strong = hackingTarget.querySelector('strong');
     if (strong) strong.textContent = state.targetCodes.join('  ');
     const showTarget = !hackingHighlightTarget || hackingHighlightTarget.checked;
     hackingTarget.classList.toggle('hidden', !showTarget);
+  }
+
+  /** Posiciones {r,c} actuales de las celdas objetivo, en el mismo orden que targetCodes. */
+  function targetCells(): Array<{ r: number; c: number }> {
+    return spanIndices(state.targetStartIdx, state.targetCodes.length || 4).map(posOf);
   }
 
   function createGrid(): void {
@@ -229,18 +260,16 @@ export function init(rawUi: GameUi): void {
       state.grid.push(row);
     }
     // Las celdas objetivo pisan lo que haya en su posición actual.
-    state.targets.forEach(t => {
-      state.grid[t.r][t.c] = t.code;
+    const cells = targetCells();
+    cells.forEach((p, i) => {
+      state.grid[p.r][p.c] = state.targetCodes[i];
     });
   }
 
+  /** Posiciones {r,c} actuales del cursor, en orden. */
   function cursorCells(): Array<{ r: number; c: number }> {
     const width = state.targetCodes.length || 4;
-    const cells: Array<{ r: number; c: number }> = [];
-    for (let i = 0; i < width; i++) {
-      cells.push({ r: state.cursorRow, c: wrap(state.cursorCol + i, state.size) });
-    }
-    return cells;
+    return spanIndices(state.cursorIdx, width).map(posOf);
   }
 
   function renderBoard(): void {
@@ -250,7 +279,7 @@ export function init(rawUi: GameUi): void {
     const cursor = cursorCells();
     const cursorSet = new Set(cursor.map(p => `${p.r},${p.c}`));
     const showTarget = !hackingHighlightTarget || hackingHighlightTarget.checked;
-    const targetSet = new Set(state.targets.map(t => `${t.r},${t.c}`));
+    const targetSet = new Set(targetCells().map(p => `${p.r},${p.c}`));
 
     state.grid.forEach((row, r) => {
       row.forEach((cell, c) => {
@@ -271,23 +300,14 @@ export function init(rawUi: GameUi): void {
     hackingBoard.classList.remove('hidden');
   }
 
-  /** Desplaza en diagonal (abajo-derecha → arriba-izquierda) las celdas objetivo, con wraparound. */
-  function advanceTargetsDiagonally(): void {
-    state.targets.forEach(t => {
-      t.r = wrap(t.r - 1, state.size);
-      t.c = wrap(t.c - 1, state.size);
-    });
-  }
-
-  /** Modo 'flow': toda la grilla se desplaza junto con el mismo offset diagonal que las celdas objetivo, sin regenerar contenido random (cada celda hereda el valor de su vecina abajo-derecha). */
-  function shiftGridDiagonally(): void {
+  /** Modo 'flow': toda la grilla avanza una posición a lo largo del anillo — cada celda hereda el valor de la SIGUIENTE en el recorrido idxOf (ver cabecera). */
+  function shiftGridAlongRing(): void {
     const size = state.size;
     const newGrid: string[][] = Array.from({ length: size }, () => new Array(size).fill(''));
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
-        const sourceR = wrap(r + 1, size);
-        const sourceC = wrap(c + 1, size);
-        newGrid[r][c] = state.grid[sourceR][sourceC];
+        const sourcePos = posOf(idxOf(r, c) + 1);
+        newGrid[r][c] = state.grid[sourcePos.r][sourcePos.c];
       }
     }
     state.grid = newGrid;
@@ -295,7 +315,7 @@ export function init(rawUi: GameUi): void {
 
   /** Modo 'random': baraja el contenido de todas las celdas que NO son celda-objetivo (Fisher-Yates sobre sus valores, posiciones fijas). */
   function shuffleNonTargetCells(): void {
-    const targetPositions = new Set(state.targets.map(t => `${t.r},${t.c}`));
+    const targetPositions = new Set(targetCells().map(p => `${p.r},${p.c}`));
     const positions: Array<{ r: number; c: number }> = [];
     for (let r = 0; r < state.size; r++) {
       for (let c = 0; c < state.size; c++) {
@@ -313,26 +333,27 @@ export function init(rawUi: GameUi): void {
   }
 
   function moveStep(): void {
-    advanceTargetsDiagonally();
+    state.targetStartIdx = wrap(state.targetStartIdx + 1, ringSize());
     if (state.moveMode === 'flow') {
-      shiftGridDiagonally();
+      shiftGridAlongRing();
     } else {
       shuffleNonTargetCells();
     }
     // Las celdas objetivo siempre pisan su nueva posición con su código,
     // en ambos modos — así nunca quedan tapadas por el shift/shuffle de
-    // fondo (el shift diagonal ya las arrastra correctamente, pero esto
-    // es un refuerzo barato y evita depender de ese detalle de orden).
-    state.targets.forEach(t => {
-      state.grid[t.r][t.c] = t.code;
+    // fondo (el shift ya las arrastra correctamente, pero esto es un
+    // refuerzo barato y evita depender de ese detalle de orden).
+    const cells = targetCells();
+    cells.forEach((p, i) => {
+      state.grid[p.r][p.c] = state.targetCodes[i];
     });
     renderBoard();
   }
 
-  function moveCursor(dr: number, dc: number): void {
+  /** Mueve el cursor a lo largo del anillo. Izquierda/derecha = 1 paso; arriba/abajo = un paso de tamaño `size` (una fila entera), para conservar control fino y grueso pese a que el cursor ahora es 1D. */
+  function moveCursor(steps: number): void {
     if (!state.playing) return;
-    if (dr !== 0) state.cursorRow = wrap(state.cursorRow + dr, state.size);
-    if (dc !== 0) state.cursorCol = wrap(state.cursorCol + dc, state.size);
+    state.cursorIdx = wrap(state.cursorIdx + steps, ringSize());
     renderBoard();
   }
 
@@ -431,8 +452,7 @@ export function init(rawUi: GameUi): void {
 
     generateTargets();
     createGrid();
-    state.cursorRow = Math.floor(state.size / 2);
-    state.cursorCol = 0;
+    state.cursorIdx = 0;
     renderBoard();
     resetTimer();
     hackingInfo.textContent = `Ronda ${state.currentRound + 1}/${state.rounds}. Alineá el cursor con el objetivo y confirmá.`;
@@ -441,10 +461,10 @@ export function init(rawUi: GameUi): void {
   keydownHandler = (e: KeyboardEvent) => {
     if (!state.playing) return;
     const key = e.key.toLowerCase();
-    if (key === 'arrowup' || key === 'w') { e.preventDefault(); moveCursor(-1, 0); }
-    else if (key === 'arrowdown' || key === 's') { e.preventDefault(); moveCursor(1, 0); }
-    else if (key === 'arrowleft' || key === 'a') { e.preventDefault(); moveCursor(0, -1); }
-    else if (key === 'arrowright' || key === 'd') { e.preventDefault(); moveCursor(0, 1); }
+    if (key === 'arrowup' || key === 'w') { e.preventDefault(); moveCursor(-state.size); }
+    else if (key === 'arrowdown' || key === 's') { e.preventDefault(); moveCursor(state.size); }
+    else if (key === 'arrowleft' || key === 'a') { e.preventDefault(); moveCursor(1); }
+    else if (key === 'arrowright' || key === 'd') { e.preventDefault(); moveCursor(-1); }
     else if (key === 'enter' || key === ' ') { e.preventDefault(); attemptConfirm(); }
   };
   document.addEventListener('keydown', keydownHandler);
