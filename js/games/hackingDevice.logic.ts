@@ -461,10 +461,24 @@ export function init(rawUi: GameUi): void {
   keydownHandler = (e: KeyboardEvent) => {
     if (!state.playing) return;
     const key = e.key.toLowerCase();
+    // idxOf/posOf (ver cabecera del archivo) recorren cada fila de
+    // DERECHA a IZQUIERDA al mapear (r,c) -> índice de anillo. Por eso
+    // "avanzar +1 en el anillo" corresponde a moverse hacia la
+    // IZQUIERDA en pantalla, no hacia la derecha — sin este cruce, la
+    // flecha derecha llamaba a moveCursor(-1) (retroceder en el
+    // anillo), invirtiendo el orden de lectura de cursorCells()
+    // respecto al de targetCells()/al texto "OBJETIVO: ..." (que se
+    // muestra en orden ascendente targetCodes[0..N-1]). El jugador podía
+    // alinear el cursor visualmente sobre las celdas correctas y aun así
+    // fallar attemptConfirm(), porque leía la secuencia al revés
+    // ([3,2,1,0] en vez de [0,1,2,3]) — de ahí que solo funcionara al
+    // pararse exactamente sobre las celdas ya resaltadas en amarillo
+    // (que sí usan targetStartIdx/targetCells() internos, ajenos a este
+    // cruce de teclas).
     if (key === 'arrowup' || key === 'w') { e.preventDefault(); moveCursor(-state.size); }
     else if (key === 'arrowdown' || key === 's') { e.preventDefault(); moveCursor(state.size); }
-    else if (key === 'arrowleft' || key === 'a') { e.preventDefault(); moveCursor(1); }
-    else if (key === 'arrowright' || key === 'd') { e.preventDefault(); moveCursor(-1); }
+    else if (key === 'arrowleft' || key === 'a') { e.preventDefault(); moveCursor(-1); }
+    else if (key === 'arrowright' || key === 'd') { e.preventDefault(); moveCursor(1); }
     else if (key === 'enter' || key === ' ') { e.preventDefault(); attemptConfirm(); }
   };
   document.addEventListener('keydown', keydownHandler);
