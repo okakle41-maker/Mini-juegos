@@ -20,6 +20,7 @@
 import { lobbySystem, type LobbyGameId } from '../lobbySystem.js';
 import { signalTriangulationSystem } from '../signalTriangulationSystem.js';
 import { shipControlSystem } from '../shipControlSystem.js';
+import { fragmentedLabyrinthSystem } from '../fragmentedLabyrinthSystem.js';
 import type { PendingGameId } from './matchWaitingContext.js';
 
 export interface MatchWaitingAdapter {
@@ -49,6 +50,12 @@ function countStPlayers(): number {
 
 function countScPlayers(): number {
   const match = shipControlSystem.getCurrentMatch();
+  if (!match) return 0;
+  return Object.values(match.players).filter(Boolean).length;
+}
+
+function countFlPlayers(): number {
+  const match = fragmentedLabyrinthSystem.getCurrentMatch();
   if (!match) return 0;
   return Object.values(match.players).filter(Boolean).length;
 }
@@ -97,11 +104,24 @@ function scAdapter(): MatchWaitingAdapter {
   };
 }
 
+function flAdapter(): MatchWaitingAdapter {
+  return {
+    getCurrentCount: countFlPlayers,
+    onCountChanged(cb) {
+      const handler = () => cb(countFlPlayers());
+      window.addEventListener('fl:match_changed', handler);
+      return () => window.removeEventListener('fl:match_changed', handler);
+    },
+    leave: () => fragmentedLabyrinthSystem.leaveCurrentMatch()
+  };
+}
+
 const LOBBY_GAME_IDS: ReadonlySet<string> = new Set<LobbyGameId>(['simon', 'arrow', 'termita']);
 
 export function getMatchWaitingAdapter(gameId: PendingGameId): MatchWaitingAdapter {
   if (LOBBY_GAME_IDS.has(gameId)) return lobbyAdapter();
   if (gameId === 'signal_triangulation') return stAdapter();
   if (gameId === 'ship_control') return scAdapter();
+  if (gameId === 'fragmented_labyrinth') return flAdapter();
   throw new Error(`[matchWaitingAdapter] Juego sin adaptador de espera: ${gameId}`);
 }

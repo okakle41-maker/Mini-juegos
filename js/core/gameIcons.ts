@@ -162,6 +162,12 @@ const ICONS: Record<string, string> = {
     '<path d="M5.5 11 12 4.5 18.5 11"/>'
   ),
 
+  // RITMO — figura triangular con vértice activo (Rhythm Arrows)
+  'rhythmArrows': svg(
+    '<path d="M12 4 20 18H4Z"/>' +
+    '<circle cx="12" cy="4" r="1.6" fill="currentColor" stroke="none"/>'
+  ),
+
   // VIRUS OVERLOAD — biohazard con glitch y exclamación
   'virusOverload': svg(
     '<polyline points="5.5,6 2.5,12 5.5,18" stroke-width="1.8"/>' +

@@ -131,6 +131,22 @@ const template = (): string => {
             </div>
           </div>
 
+          <div id="olConfigFlSection" class="hidden">
+            <p class="ol-modal-hint">
+              Cooperativo puro de 4 jugadores. Un laberinto, un solo
+              personaje: solo el Jugador A lo controla, los otros tres
+              guían por voz desde su propio cuadrante. Requiere sesión
+              iniciada.
+            </p>
+            <div class="ol-modal-error hidden" id="olConfigFlError" role="alert"></div>
+            <button class="ol-modal-primary-btn" id="olConfigFlCreateBtn" type="button">
+              🌀 Crear partida de Fragmented Labyrinth
+            </button>
+            <div class="lobby-fl-matches-list" id="olConfigFlMatchesList" style="margin-top: 1rem;">
+              <p class="no-matches">Todavía no hay partidas de Fragmented Labyrinth. ¡Creá una!</p>
+            </div>
+          </div>
+
           <div id="olConfigLobbySection" class="hidden">
             <p class="ol-modal-hint">
               Duelo 1v1. Creá una partida nueva y esperá a un rival, unite

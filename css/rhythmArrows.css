@@ -1,0 +1,199 @@
+/* ── Rhythm Arrows — Ritmo y precisión ── */
+.rhythm-arrows-container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.rhythm-arrows-card {
+  padding: 28px;
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.06), rgba(9, 4, 0, 0.75));
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  border-radius: 22px;
+  position: relative;
+  box-shadow: inset 0 0 60px rgba(249, 115, 22, 0.04), 0 24px 70px -35px rgba(0, 0, 0, 0.75);
+}
+
+.rhythm-arrows-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.rhythm-arrows-header h2 {
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+.rhythm-arrows-header p {
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-size: 13px;
+  max-width: 420px;
+}
+
+.rhythm-arrows-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-orange);
+}
+
+.rhythm-arrows-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 18px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.rhythm-arrows-controls select {
+  margin-left: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  border-radius: 6px;
+  color: #fff;
+  padding: 4px 8px;
+}
+
+.rhythm-arrows-svg-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+.rhythm-arrows-svg {
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 1 / 1;
+  background: rgba(5, 2, 0, 0.65);
+  border: 1px solid rgba(249, 115, 22, 0.15);
+  border-radius: 16px;
+}
+
+.rhythm-arrows-connection {
+  stroke: rgba(249, 115, 22, 0.2);
+  stroke-width: 3;
+  stroke-dasharray: 8 8;
+}
+
+.rhythm-arrows-trail {
+  stroke: #f97316;
+  stroke-width: 5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.8));
+  transition: opacity 0.15s ease;
+}
+
+.rhythm-arrows-head {
+  fill: #ff9a3c;
+  filter: drop-shadow(0 0 8px rgba(255, 154, 60, 0.9));
+  transition: opacity 0.15s ease;
+}
+
+.rhythm-arrows-vertex {
+  fill: rgba(20, 8, 0, 0.9);
+  stroke: rgba(249, 115, 22, 0.25);
+  stroke-width: 2;
+  transition: fill 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease;
+}
+.rhythm-arrows-vertex--start {
+  stroke: rgba(255, 154, 60, 0.5);
+}
+.rhythm-arrows-vertex.active {
+  stroke: #ff9a3c;
+  stroke-width: 4;
+}
+.rhythm-arrows-vertex.lit {
+  fill: rgba(249, 115, 22, 0.2);
+  stroke: #f97316;
+  stroke-width: 4;
+}
+
+.rhythm-arrows-vertex-label {
+  fill: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  pointer-events: none;
+  user-select: none;
+}
+
+.rhythm-arrows-feedback {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.rhythm-arrows-feedback.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.rhythm-arrows-feedback.good {
+  color: #00ff88;
+  background: rgba(0, 255, 136, 0.1);
+}
+.rhythm-arrows-feedback.bad {
+  color: #ff3333;
+  background: rgba(255, 51, 51, 0.1);
+}
+
+.rhythm-arrows-footer {
+  display: flex;
+  justify-content: flex-end;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.rhythm-arrows-start-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(180deg, #ff9a3c, #f97316);
+  border: none;
+  border-radius: 10px;
+  color: #1a0800;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.rhythm-arrows-start-btn:hover {
+  filter: brightness(1.08);
+}
+.rhythm-arrows-start-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.rhythm-arrows-message {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  text-align: center;
+}
+.rhythm-arrows-message.success {
+  background: rgba(0, 255, 136, 0.08);
+  color: #00ff88;
+  border: 1px solid rgba(0, 255, 136, 0.25);
+}
+.rhythm-arrows-message.fail {
+  background: rgba(255, 51, 51, 0.08);
+  color: #ff3333;
+  border: 1px solid rgba(255, 51, 51, 0.25);
+}
+.rhythm-arrows-message.hidden {
+  display: none;
+}

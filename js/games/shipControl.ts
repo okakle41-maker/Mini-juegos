@@ -11,7 +11,9 @@
  * diferencia de las 4 antenas intercambiables de SigTri, acá cada rol
  * ve una pantalla completamente distinta — ver diseño,
  * ship-control-design.md sección 7). `online: true` lo hace aparecer en
- * la grilla filtrada de "Lobby Online".
+ * la grilla filtrada de "Lobby Online". `soloUnavailable: true` lo saca
+ * del lobby principal de un jugador (#home) sin afectar Lobby Online —
+ * ver GameConfig.soloUnavailable.
  */
 
 import GameRegistry from '../core/gameRegistry.js';
@@ -29,6 +31,7 @@ const gameConfig: GameConfig = {
   css:         'css/shipControl.css',
   online:      true,
   playersRequired: 4,
+  soloUnavailable: true,
 
   init: () => {
     throw new Error('[shipControl] init directo no debería llamarse: usar logic()');

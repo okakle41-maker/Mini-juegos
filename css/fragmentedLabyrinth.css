@@ -1,0 +1,233 @@
+/* ── Fragmented Labyrinth — Coop 4 jugadores ── */
+.fl-game-container {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.fl-card {
+  padding: 28px;
+  background: linear-gradient(180deg, rgba(163, 230, 53, 0.06), rgba(4, 8, 9, 0.75));
+  border: 1px solid rgba(163, 230, 53, 0.18);
+  border-radius: 22px;
+  position: relative;
+  box-shadow: inset 0 0 60px rgba(163, 230, 53, 0.04), 0 24px 70px -35px rgba(0, 0, 0, 0.75);
+}
+.fl-card::before,
+.fl-card::after {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #a3e635;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.fl-card::before { top: 10px; left: 10px; border-right: none; border-bottom: none; border-radius: 4px 0 0 0; }
+.fl-card::after { bottom: 10px; right: 10px; border-left: none; border-top: none; border-radius: 0 0 4px 0; }
+
+.fl-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.fl-header h2 {
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+.fl-header p {
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-size: 13px;
+  max-width: 420px;
+}
+.fl-role-badge-wrap {
+  display: flex;
+  align-items: center;
+}
+.fl-role-badge {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: #a3e635;
+  border: 1px solid rgba(163, 230, 53, 0.4);
+  background: rgba(163, 230, 53, 0.08);
+  white-space: nowrap;
+}
+
+.fl-message {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 120, 60, 0.08);
+  border: 1px solid rgba(255, 120, 60, 0.28);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.fl-waiting-panel {
+  margin-top: 20px;
+  text-align: center;
+}
+.fl-waiting-panel p {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+.fl-roles-list {
+  display: grid;
+  gap: 8px;
+}
+.fl-role-slot {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  border: 1px solid rgba(163, 230, 53, 0.16);
+  background: rgba(163, 230, 53, 0.04);
+  text-align: left;
+}
+.fl-role-slot.filled {
+  color: #a3e635;
+  border-color: rgba(163, 230, 53, 0.4);
+}
+.fl-role-slot.empty {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.fl-play-panel {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.fl-role-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  max-width: 420px;
+}
+
+.fl-hud {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: center;
+}
+.fl-hud-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.fl-hud-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.fl-timer {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 700;
+  color: #a3e635;
+  line-height: 1;
+}
+.fl-timer.danger {
+  color: #ff6a4d;
+  text-shadow: 0 0 16px rgba(255, 106, 77, 0.5);
+}
+.fl-moves {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.fl-svg {
+  width: min(360px, 92vw);
+  aspect-ratio: 1 / 1;
+  background: rgba(163, 230, 53, 0.03);
+  border: 1px solid rgba(163, 230, 53, 0.18);
+  border-radius: 12px;
+}
+
+.fl-cell-wall {
+  fill: rgba(255, 255, 255, 0.04);
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+}
+.fl-cell-path {
+  fill: rgba(163, 230, 53, 0.06);
+  stroke: rgba(163, 230, 53, 0.1);
+  stroke-width: 1;
+}
+.fl-cell-start {
+  fill: rgba(58, 209, 255, 0.18);
+  stroke: rgba(58, 209, 255, 0.4);
+  stroke-width: 1;
+}
+.fl-cell-exit {
+  fill: rgba(255, 209, 102, 0.2);
+  stroke: rgba(255, 209, 102, 0.5);
+  stroke-width: 1;
+}
+.fl-cell-player {
+  fill: rgba(163, 230, 53, 0.14);
+  stroke: rgba(163, 230, 53, 0.3);
+  stroke-width: 1;
+}
+.fl-cell-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  fill: rgba(255, 255, 255, 0.65);
+  pointer-events: none;
+}
+.fl-player-marker {
+  fill: #a3e635;
+  stroke: #04181d;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 6px rgba(163, 230, 53, 0.7));
+}
+
+.fl-quadrant-hint {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #a3e635;
+  min-height: 18px;
+  text-align: center;
+}
+.fl-controls-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.fl-result {
+  margin-top: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(163, 230, 53, 0.08);
+  border: 1px solid rgba(163, 230, 53, 0.28);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  text-align: center;
+}
+.fl-result.success {
+  background: rgba(163, 230, 53, 0.14);
+  border-color: rgba(163, 230, 53, 0.5);
+}
+.fl-result.fail {
+  background: rgba(255, 106, 77, 0.1);
+  border-color: rgba(255, 106, 77, 0.35);
+}
+
+/* .hidden ya está definida globalmente en css/styles.css — no se
+   redefine acá para evitar dos fuentes de verdad para la misma regla. */

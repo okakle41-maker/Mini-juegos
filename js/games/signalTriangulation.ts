@@ -29,6 +29,7 @@ const gameConfig: GameConfig = {
   css:         'css/signalTriangulation.css',
   online:      true,
   playersRequired: 4,
+  soloUnavailable: true,
 
   // init/stop directos no se usan (logic tiene prioridad, ver
   // ensureInit en gameRegistry.ts); se dejan como stubs solo porque el

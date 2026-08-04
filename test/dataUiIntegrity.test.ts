@@ -49,6 +49,7 @@ const VIEW_TO_LOGIC_FILE: Record<string, string> = {
   'snippet-race': 'snippetRace.logic.ts',
   'signal_triangulation': 'signalTriangulation.logic.ts',
   'ship_control': 'shipControl.logic.ts',
+  'fragmented_labyrinth': 'fragmentedLabyrinth.logic.ts',
 };
 
 function findLogicFile(viewId: string): string | null {

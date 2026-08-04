@@ -15,7 +15,7 @@
  * mínimo de jugadores.
  */
 
-export type PendingGameId = 'simon' | 'arrow' | 'termita' | 'signal_triangulation' | 'ship_control';
+export type PendingGameId = 'simon' | 'arrow' | 'termita' | 'signal_triangulation' | 'ship_control' | 'fragmented_labyrinth';
 
 interface PendingWait {
   gameId: PendingGameId;

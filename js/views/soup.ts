@@ -15,7 +15,7 @@ const template = (): string => {
         <div class="card">
           <h2>Hacking Device</h2>
           <p>
-            Encuentra la secuencia objetivo dentro de la cuadrícula antes de que termine el tiempo.
+            Movete por la cuadrícula (flechas/WASD) y confirmá (Enter/Espacio) cuando el cursor quede alineado con el código objetivo, antes de que se agote el tiempo.
           </p>
           <!-- CONFIGURACIÓN -->
           <div class="hacking-settings">
@@ -80,18 +80,19 @@ const template = (): string => {
             <!-- OPCIONES -->
             <div class="settings-box options">
               <h3>Opciones</h3>
-              <label class="checkbox-row">
-                <input
-                  data-ui="hackingMoveAll"
-                  type="checkbox"
-                  checked>
-                <span>Mover todas las celdas</span>
+              <label>
+                Modo de movimiento
+                <select data-ui="hackingMoveMode">
+                  <option value="flow" selected>Flujo (todo el tablero se desplaza)</option>
+                  <option value="random">Random (solo el resto se baraja)</option>
+                </select>
               </label>
               <label class="checkbox-row">
                 <input
                   data-ui="hackingHighlightTarget"
-                  type="checkbox">
-                <span>Iluminar objetivo</span>
+                  type="checkbox"
+                  checked>
+                <span>Mostrar objetivo</span>
               </label>
             </div>
 
@@ -109,6 +110,9 @@ const template = (): string => {
               <strong></strong>
             </div>
           </div>
+          <p data-ui="hackingControlsHint" class="hacking-controls-hint">
+            Flechas / WASD para mover el cursor · Enter / Espacio para confirmar.
+          </p>
           <button data-ui="start">
             Iniciar Hacking
           </button>

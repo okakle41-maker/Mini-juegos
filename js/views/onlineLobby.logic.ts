@@ -23,6 +23,7 @@ import GameRegistry, { type GameConfig } from '../core/gameRegistry.js';
 import { lobbySystem, type LobbyGameId, type LobbyMatch } from '../lobbySystem.js';
 import { signalTriangulationSystem, type STMatch, type STSlot } from '../signalTriangulationSystem.js';
 import { shipControlSystem, type SCMatch, type SCRole } from '../shipControlSystem.js';
+import { fragmentedLabyrinthSystem, type FLMatch, type FLRole, ROLE_DESCRIPTIONS as FL_ROLE_DESCRIPTIONS } from '../fragmentedLabyrinthSystem.js';
 import Auth from '../authManager.js';
 import { escapeHtml } from '../security.js';
 import template from './onlineLobby.js';
@@ -73,6 +74,7 @@ const SC_ROLE_LABELS: Record<SCRole, string> = {
   comms: '📻 Comunicaciones'
 };
 const ALL_SC_ROLES: SCRole[] = ['navigation', 'sensors', 'energy', 'comms'];
+const ALL_FL_ROLES: FLRole[] = ['A', 'B', 'C', 'D'];
 
 /**
  * Juegos que manejan su propio flujo de sala DENTRO de su propia vista
@@ -134,6 +136,23 @@ function setupConfigModal(): void {
     }
   });
 
+  // Fragmented Labyrinth: crear partida (quien crea ocupa el rol A)
+  modalEl('olConfigFlCreateBtn')?.addEventListener('click', async () => {
+    clearFlConfigError();
+    if (!fragmentedLabyrinthSystem.isPlayerEligible()) {
+      showFlConfigError('Necesitás iniciar sesión para crear una partida de Fragmented Labyrinth.');
+      return;
+    }
+    try {
+      await fragmentedLabyrinthSystem.createMatch();
+      closeConfigModal();
+      setPending('fragmented_labyrinth', 'online-lobby');
+      window.showView?.('match-waiting');
+    } catch (e) {
+      showFlConfigError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
+    }
+  });
+
   // Centro de Control: elegir rol para crear
   modalEl('olConfigScRolePicker')?.addEventListener('click', async (event) => {
     const btn = (event.target as HTMLElement).closest<HTMLButtonElement>('.ol-modal-role-btn[data-role]');
@@ -190,6 +209,7 @@ function openConfigModal(gameId: string): void {
 
   const stSection = modalEl('olConfigStSection');
   const scSection = modalEl('olConfigScSection');
+  const flSection = modalEl('olConfigFlSection');
   const lobbySection = modalEl('olConfigLobbySection');
   const title = modalEl('olConfigModalTitle');
   const desc = modalEl('olConfigModalDesc');
@@ -197,12 +217,14 @@ function openConfigModal(gameId: string): void {
 
   clearStConfigError();
   clearScConfigError();
+  clearFlConfigError();
   clearLobbyConfigError();
   currentLobbyGameId = null;
 
   if (gameId === 'signal_triangulation') {
     stSection?.classList.remove('hidden');
     scSection?.classList.add('hidden');
+    flSection?.classList.add('hidden');
     lobbySection?.classList.add('hidden');
     if (icon) icon.textContent = '📡';
     if (title) title.textContent = 'Signal Triangulation';
@@ -211,17 +233,28 @@ function openConfigModal(gameId: string): void {
   } else if (gameId === 'ship_control') {
     stSection?.classList.add('hidden');
     scSection?.classList.remove('hidden');
+    flSection?.classList.add('hidden');
     lobbySection?.classList.add('hidden');
     if (icon) icon.textContent = '🚀';
     if (title) title.textContent = 'Centro de Control';
     if (desc) desc.textContent = 'Elegí tu rol para crear la partida cooperativa.';
     void shipControlSystem.loadLobbyMatches().then(() => renderScMatches());
+  } else if (gameId === 'fragmented_labyrinth') {
+    stSection?.classList.add('hidden');
+    scSection?.classList.add('hidden');
+    flSection?.classList.remove('hidden');
+    lobbySection?.classList.add('hidden');
+    if (icon) icon.textContent = '🌀';
+    if (title) title.textContent = 'Fragmented Labyrinth';
+    if (desc) desc.textContent = 'Creá la partida (rol A) o unite a una que ya esté esperando jugadores.';
+    void fragmentedLabyrinthSystem.loadLobbyMatches().then(() => renderFlMatches());
   } else if (LOBBY_1V1_GAMES.has(gameId)) {
     const lobbyGameId = gameId as LobbyGameId;
     currentLobbyGameId = lobbyGameId;
     const labels = LOBBY_GAME_LABELS[lobbyGameId];
     stSection?.classList.add('hidden');
     scSection?.classList.add('hidden');
+    flSection?.classList.add('hidden');
     lobbySection?.classList.remove('hidden');
     if (icon) icon.textContent = labels.icon;
     if (title) title.textContent = labels.name;
@@ -241,6 +274,7 @@ function closeConfigModal(): void {
   modalEl('olConfigModalOverlay')?.classList.add('hidden');
   clearStConfigError();
   clearScConfigError();
+  clearFlConfigError();
   clearLobbyConfigError();
   currentLobbyGameId = null;
 }
@@ -265,6 +299,17 @@ function showScConfigError(message: string): void {
 
 function clearScConfigError(): void {
   modalEl('olConfigScError')?.classList.add('hidden');
+}
+
+function showFlConfigError(message: string): void {
+  const el = modalEl('olConfigFlError');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+function clearFlConfigError(): void {
+  modalEl('olConfigFlError')?.classList.add('hidden');
 }
 
 function showLobbyConfigError(message: string): void {
@@ -421,6 +466,76 @@ function renderScMatches(): void {
 }
 
 /**
+ * Fragmented Labyrinth: lista de partidas cooperativas de 4 del lobby
+ * actual. Mismo criterio que renderScMatches (roles fijos, quien crea
+ * ya ocupa un rol), pero acá el rol A es especial (controla al
+ * personaje) así que se distingue en el texto de unión.
+ */
+function renderFlMatches(): void {
+  const list = modalEl('olConfigFlMatchesList');
+  if (!list) return;
+  const matches = fragmentedLabyrinthSystem.getMatches();
+  const lobby = lobbySystem.getCurrentLobby();
+  const myId = Auth.getUser()?.id ?? null;
+
+  if (matches.length === 0) {
+    list.innerHTML = '<p class="no-matches">Todavía no hay partidas de Fragmented Labyrinth. ¡Creá una!</p>';
+    return;
+  }
+
+  const usernameById = new Map((lobby?.players ?? []).map((p) => [p.id, p.username]));
+
+  list.innerHTML = matches.map((m: FLMatch) => {
+    const filledCount = ALL_FL_ROLES.filter((r) => !!m.players[r]).length;
+    const myRole = myId !== null ? ALL_FL_ROLES.find((r) => m.players[r] === myId) ?? null : null;
+    const iAmPlayer = myRole !== null;
+    const openRoles = ALL_FL_ROLES.filter((r) => !m.players[r]);
+    const canJoin = m.status === 'waiting' && openRoles.length > 0 && !iAmPlayer && myId !== null;
+    const canResume = iAmPlayer && (m.status === 'waiting' || m.status === 'playing');
+
+    const rolesLine = ALL_FL_ROLES
+      .map((r) => {
+        const pid = m.players[r];
+        const name = pid ? (usernameById.get(pid) ?? 'Jugador') : 'esperando';
+        return `Rol ${r}: ${pid ? escapeHtml(name) : name}`;
+      })
+      .join(' · ');
+
+    return `
+      <div class="lobby-match-item" data-match-id="${escapeHtml(m.id)}">
+        <span class="lobby-match-game">🌀 Fragmented Labyrinth</span>
+        <span class="lobby-match-players">${rolesLine} (${filledCount}/4)</span>
+        <span class="lobby-match-status">${m.status === 'waiting' ? '⏳ Esperando jugadores' : '▶️ En curso'}</span>
+        ${canResume ? `<button class="lobby-match-resume-btn" data-action="fl-resume">▶️ Volver a mi partida (Rol ${myRole})</button>` : ''}
+        ${canJoin ? `<button class="lobby-match-join-btn" data-action="fl-join" data-match-id="${m.id}">🌀 Unirse (Rol ${openRoles[0]} — ${FL_ROLE_DESCRIPTIONS[openRoles[0]]})</button>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('button[data-action]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const el = btn as HTMLElement;
+      const action = el.dataset.action;
+      const matchId = el.dataset.matchId;
+
+      try {
+        if (action === 'fl-resume') {
+          closeConfigModal();
+          window.showView?.('fragmented_labyrinth');
+        } else if (action === 'fl-join' && matchId) {
+          await fragmentedLabyrinthSystem.joinMatch(matchId);
+          closeConfigModal();
+          setPending('fragmented_labyrinth', 'online-lobby');
+          window.showView?.('match-waiting');
+        }
+      } catch (e) {
+        showFlConfigError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
+      }
+    });
+  });
+}
+
+/**
  * Simon/Arrow/Termita: lista de sub-partidas 1v1 del lobby grupal
  * actual, filtrada al juego que se está configurando (currentLobbyGameId).
  * A diferencia de ST/SC, lobbySystem no separa por juego en el server —
@@ -500,6 +615,7 @@ function setupMatchesListeners(): void {
   // la vista — evita acumular listeners duplicados al entrar/salir.
   window.addEventListener('st:matches_changed', () => renderStMatches());
   window.addEventListener('sc:matches_changed', () => renderScMatches());
+  window.addEventListener('fl:matches_changed', () => renderFlMatches());
   // lobbySystem no tiene un evento dedicado por-juego (a diferencia de
   // ST/SC): 'lobby:matches_changed' se dispara para CUALQUIER cambio de
   // CUALQUIER sub-partida 1v1 del lobby (Simon/Arrow/Termita mezclados).
@@ -548,6 +664,7 @@ export function stop(): void {
   // ciclo de vida.
   signalTriangulationSystem.stopWatchingLobbyMatches();
   shipControlSystem.stopWatchingLobbyMatches();
+  fragmentedLabyrinthSystem.stopWatchingLobbyMatches();
 
   const container = document.getElementById('online-lobby');
   if (container) container.innerHTML = '';

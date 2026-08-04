@@ -1,0 +1,18 @@
+{
+  "name": "fragmentad-labyrinth",
+  "version": "1.0.0",
+  "description": "Laberinto Fragmentado — minijuego cooperativo online de 4 jugadores. Cada uno ve solo un cuadrante del laberinto y debe guiar a un único personaje hasta la salida.",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "license": "MIT"
+}

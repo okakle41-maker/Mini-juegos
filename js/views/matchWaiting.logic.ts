@@ -30,7 +30,8 @@ const GAME_LABELS: Record<string, { icon: string; name: string }> = {
   arrow: { icon: '🏹', name: 'Desafío Flechas' },
   termita: { icon: '🐜', name: 'Termita' },
   signal_triangulation: { icon: '📡', name: 'Signal Triangulation' },
-  ship_control: { icon: '🚀', name: 'Centro de Control' }
+  ship_control: { icon: '🚀', name: 'Centro de Control' },
+  fragmented_labyrinth: { icon: '🌀', name: 'Fragmented Labyrinth' }
 };
 
 let activeAdapter: MatchWaitingAdapter | null = null;

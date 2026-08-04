@@ -50,6 +50,14 @@
   color: #ff9a3c;
   text-shadow: 0 0 14px rgba(255, 154, 60, 0.65);
 }
+.hacking-controls-hint {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+}
 .hacking-board {
   display: grid;
   gap: 4px;
@@ -100,23 +108,23 @@
   border: 1px solid rgba(249, 115, 22, 0.15);
   border-radius: 8px;
   color: var(--text-muted);
-  cursor: pointer;
   transition: all 0.18s ease;
   user-select: none;
   position: relative;
-}
-.symbol-cell:hover {
-  background: rgba(249, 115, 22, 0.15);
-  border-color: var(--accent-orange);
-  color: #ff9a3c;
-  transform: scale(1.06);
-  z-index: 2;
 }
 .symbol-cell.highlight {
   background: linear-gradient(160deg, rgba(250, 204, 21, 0.35), rgba(250, 204, 21, 0.1));
   border-color: #facc15;
   color: #fef08a;
   box-shadow: 0 0 18px rgba(250, 204, 21, 0.45);
+}
+.symbol-cell.cursor {
+  background: linear-gradient(160deg, rgba(56, 189, 248, 0.35), rgba(56, 189, 248, 0.1));
+  border-color: #38bdf8;
+  color: #e0f2fe;
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.5);
+  transform: scale(1.04);
+  z-index: 1;
 }
 .symbol-cell.correct {
   background: linear-gradient(160deg, #22c55e, #15803d);

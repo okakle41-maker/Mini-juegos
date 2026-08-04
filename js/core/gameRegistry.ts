@@ -20,23 +20,37 @@ export interface GameConfig {
   /**
    * Marca los juegos con soporte multiplayer real (Simon/Arrow/Termita
    * vía lobbySystem, Letters Fall vía su propia sala 1v1 en
-   * multiplayerSystem). Usado por LobbyRenderer para armar la grilla
-   * filtrada de la vista "Lobby Online" (ver views/onlineLobby.logic.ts) —
-   * no afecta el lobby principal (#home), que sigue mostrando
-   * GameRegistry.visible() sin filtrar.
+   * multiplayerSystem, Signal Triangulation/Centro de Control/
+   * Fragmented Labyrinth vía sus propios *System.ts). Usado por
+   * LobbyRenderer para armar la grilla filtrada de la vista "Lobby
+   * Online" (ver views/onlineLobby.logic.ts). Los juegos con `online:
+   * true` que ADEMÁS no tienen modo solo deben marcar `soloUnavailable:
+   * true` para no duplicarse en el lobby principal (#home) — ver
+   * GameConfig.soloUnavailable.
    */
   online?: boolean;
   /**
    * Cantidad mínima de jugadores humanos que la sub-partida necesita
    * antes de arrancar (2 para Simon/Arrow/Termita vía lobbySystem, 4
-   * para Signal Triangulation/Centro de Control). Consumido por la
-   * vista genérica de espera `match-waiting` (ver
+   * para Signal Triangulation/Centro de Control/Fragmented Labyrinth).
+   * Consumido por la vista genérica de espera `match-waiting` (ver
    * views/matchWaiting.logic.ts y utils/matchWaitingAdapter.ts) para
    * saber cuándo dejar de esperar y navegar al juego real. No aplica a
    * Letters Fall (queda fuera de este mecanismo a propósito) ni a
    * juegos sin multiplayer.
    */
   playersRequired?: number;
+  /**
+   * Juegos exclusivamente cooperativos de 4 jugadores fijos (Signal
+   * Triangulation, Centro de Control, Fragmented Labyrinth) no tienen
+   * ningún modo jugable en solitario — su card solo tiene sentido en
+   * "Lobby Online" (ver GameRegistry.visibleOnline()), nunca en el
+   * lobby principal de un jugador (#home). Este flag saca esos juegos
+   * de GameRegistry.visible() sin afectar visibleOnline(), que sigue
+   * mostrándolos: a diferencia de `hidden`, que los sacaría de AMBAS
+   * grillas (visibleOnline() filtra sobre visible()).
+   */
+  soloUnavailable?: boolean;
   /**
    * Lógica pesada del juego (init/stop) cargada bajo demanda vía import()
    * dinámico, en vez de venir ya resuelta en `init`/`stop`. Preferir esto
@@ -111,17 +125,22 @@ class GameRegistry implements GameRegistryInterface {
   }
 
   visible(): GameConfig[] {
-    return this.all().filter(game => !game.hidden);
+    return this.all().filter(game => !game.hidden && !game.soloUnavailable);
   }
 
   /**
-   * Subconjunto de `visible()` con soporte multiplayer real (ver
-   * GameConfig.online). Usado por la vista "Lobby Online" para armar
-   * su propia grilla filtrada reusando LobbyRenderer en vez de
-   * duplicar el markup/lógica de tarjetas.
+   * Subconjunto de `all()` (no de `visible()`) con soporte multiplayer
+   * real (ver GameConfig.online). Usado por la vista "Lobby Online"
+   * para armar su propia grilla filtrada reusando LobbyRenderer en vez
+   * de duplicar el markup/lógica de tarjetas. Deliberadamente NO filtra
+   * sobre `visible()`: un juego coop-only marcado `soloUnavailable:
+   * true` (ver ese flag) debe seguir apareciendo acá aunque ya no
+   * aparezca en el lobby principal — sí respeta `hidden`, porque eso
+   * marca sub-vistas internas (p. ej. minijuegos de Skillchecks) que no
+   * son cards jugables en ningún lobby.
    */
   visibleOnline(): GameConfig[] {
-    return this.visible().filter(game => game.online);
+    return this.all().filter(game => !game.hidden && game.online);
   }
 
   get(id: string): GameConfig | undefined {
