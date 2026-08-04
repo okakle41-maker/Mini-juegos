@@ -57,6 +57,11 @@
   color: #fff;
   padding: 4px 8px;
 }
+.rhythm-arrows-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .rhythm-arrows-svg-wrapper {
   position: relative;
@@ -91,6 +96,19 @@
   fill: #ff9a3c;
   filter: drop-shadow(0 0 8px rgba(255, 154, 60, 0.9));
   transition: opacity 0.15s ease;
+}
+
+.rhythm-arrows-target-marker {
+  fill: none;
+  stroke: #facc15;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.85));
+  transition: opacity 0.15s ease;
+  animation: rhythm-target-pulse 0.9s ease-in-out infinite;
+}
+@keyframes rhythm-target-pulse {
+  0%, 100% { r: 5; }
+  50% { r: 7; }
 }
 
 .rhythm-arrows-vertex {

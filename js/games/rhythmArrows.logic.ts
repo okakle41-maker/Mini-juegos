@@ -67,6 +67,7 @@ export function init(ui: GameUi) {
   const speedEl = ui.rhythmSpeed as HTMLSelectElement | undefined;
   const precisionEl = ui.rhythmPrecision as HTMLSelectElement | undefined;
   const svg = ui.rhythmSvg as unknown as SVGSVGElement | undefined;
+  const showTargetEl = ui.rhythmShowTarget as HTMLInputElement | undefined;
   const {
     rhythmCompleted,
     rhythmTime,
@@ -115,6 +116,7 @@ export function init(ui: GameUi) {
     vertexEls: Array<{ circle: SVGCircleElement; label: SVGTextElement }> = [];
     lineHeadEl: SVGCircleElement | null = null;
     lineTrailEl: SVGLineElement | null = null;
+    targetMarkerEl: SVGCircleElement | null = null;
 
     constructor(ui: GameUi, options: RhythmArrowsOptions) {
       this.ui = ui;
@@ -184,6 +186,16 @@ export function init(ui: GameUi) {
       this.lineHeadEl.setAttribute('opacity', '0');
       svg!.appendChild(this.lineHeadEl);
 
+      // Marcador del punto exacto de acierto (opt-in vía checkbox
+      // rhythmShowTarget) — se ubica en getMaxProgress() del segmento
+      // activo, el mismo punto que usa handleInput() para medir deltaMs.
+      this.targetMarkerEl = document.createElementNS(SVG_NS, 'circle');
+      this.targetMarkerEl.setAttribute('r', '5');
+      this.targetMarkerEl.setAttribute('class', 'rhythm-arrows-target-marker');
+      this.targetMarkerEl.setAttribute('opacity', '0');
+      this.targetMarkerEl.setAttribute('aria-hidden', 'true');
+      svg!.appendChild(this.targetMarkerEl);
+
       // Vértices (flechas).
       this.vertexEls = this.vertices.map((v, i) => {
         const circle = document.createElementNS(SVG_NS, 'circle');
@@ -239,6 +251,26 @@ export function init(ui: GameUi) {
       this.lineHeadEl.setAttribute('cx', String(x));
       this.lineHeadEl.setAttribute('cy', String(y));
       this.lineHeadEl.setAttribute('opacity', '1');
+
+      this.updateTargetMarker();
+    }
+
+    updateTargetMarker() {
+      if (!this.targetMarkerEl) return;
+      const shouldShow = !!(showTargetEl && showTargetEl.checked)
+        && this.lineActive && this.previousIndex >= 0 && this.nextIndex >= 0;
+      if (!shouldShow) {
+        this.targetMarkerEl.setAttribute('opacity', '0');
+        return;
+      }
+      const from = this.vertices[this.previousIndex];
+      const to = this.vertices[this.nextIndex];
+      const maxProgress = this.getMaxProgress();
+      const tx = from.x + (to.x - from.x) * maxProgress;
+      const ty = from.y + (to.y - from.y) * maxProgress;
+      this.targetMarkerEl.setAttribute('cx', String(tx));
+      this.targetMarkerEl.setAttribute('cy', String(ty));
+      this.targetMarkerEl.setAttribute('opacity', '1');
     }
 
     // ── Ciclo de partida ────────────────────────────────────────────────
@@ -470,6 +502,9 @@ export function init(ui: GameUi) {
   });
   precisionEl?.addEventListener('change', () => {
     game.options.windowMs = precisionPresets[precisionEl.value] ?? 160;
+  });
+  showTargetEl?.addEventListener('change', () => {
+    game.updateTargetMarker();
   });
 
   startBtn.addEventListener('click', () => game.start());

@@ -54,6 +54,10 @@ const template = (): string => {
                   <option value="extreme">Extrema</option>
                 </select>
               </label>
+              <label class="rhythm-arrows-checkbox-row">
+                <input type="checkbox" data-ui="rhythmShowTarget">
+                <span>Mostrar punto exacto</span>
+              </label>
             </div>
             <div class="rhythm-arrows-svg-wrapper">
               <svg data-ui="rhythmSvg" class="rhythm-arrows-svg"></svg>
