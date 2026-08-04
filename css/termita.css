@@ -91,6 +91,14 @@
   gap: 20px;
   align-items: start;
 }
+/* Modo solo-jugador: mismo contenedor grid que el split multiplayer
+ * (ver js/utils/multiplayerSplitView.ts), pero con la columna rival
+ * oculta — se colapsa a 1 columna para que el tablero propio ocupe el
+ * ancho completo en vez de quedar comprimido a la mitad izquierda del
+ * grid de 2 columnas. */
+#termita .termita-split--solo {
+  grid-template-columns: 1fr;
+}
 #termita .termita-split-side {
   display: flex;
   flex-direction: column;

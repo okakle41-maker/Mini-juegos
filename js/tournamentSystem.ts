@@ -180,13 +180,17 @@ class TournamentSystem {
       })
       .subscribe();
 
-    // Subscribe to event updates
-    const eventSubscription = this.supabaseClient
-      .channel('events')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, (payload: any) => {
-        this.handleEventUpdate(payload);
-      })
-      .subscribe();
+    // Nota: NO hay suscripción a una tabla `events` — no existe en el
+    // schema real (supabase/schema.sql + migraciones): los "eventos
+    // estacionales" (halloween, cyber week, etc.) son generados
+    // enteramente en el cliente por initializeSeasonalEvents() y viven
+    // solo en localStorage, nunca en Supabase. Antes había acá un
+    // .channel('events').on(..., { table: 'events' }) que se suscribía
+    // indefinidamente a una tabla inexistente — nunca iba a disparar
+    // nada, pero quedaba como suscripción Realtime abierta sin ningún
+    // propósito. Si en el futuro los eventos pasan a vivir en el
+    // servidor, la suscripción y handleEventUpdate() (ver abajo, todavía
+    // presente para ese caso) son el punto de partida correcto.
   }
 
   private handleTournamentUpdate(payload: any): void {
@@ -205,9 +209,16 @@ class TournamentSystem {
         startTime: new Date(newRecord.start_time).getTime(),
         endTime: new Date(newRecord.end_time).getTime(),
         registrationDeadline: new Date(newRecord.registration_deadline).getTime(),
-        bracket: JSON.parse(newRecord.bracket),
-        rules: JSON.parse(newRecord.rules),
-        rewards: JSON.parse(newRecord.rewards),
+        // bracket/rules/rewards son columnas `jsonb` (ver
+        // migration_006_social_tournaments.sql) — supabase-js ya las
+        // entrega parseadas como objetos JS, no como strings JSON.
+        // JSON.parse(objeto) lanza SyntaxError ("[object Object] is not
+        // valid JSON"), sin capturar acá, así que este handler rompía
+        // en cada evento Realtime real del canal `tournaments` en vez de
+        // actualizar el torneo.
+        bracket: newRecord.bracket,
+        rules: newRecord.rules,
+        rewards: newRecord.rewards,
         isRegistered: newRecord.is_registered || false
       };
 
@@ -220,6 +231,13 @@ class TournamentSystem {
     }
   }
 
+  /**
+   * Sin uso hoy (ver nota en setupRealtimeSubscriptions: no hay tabla
+   * `events` en el schema real) — se mantiene lista para el día que los
+   * eventos estacionales pasen a vivir en el servidor. `challenges`/
+   * `rewards`/`theme` asumidos como columnas `jsonb` (mismo criterio que
+   * handleTournamentUpdate), no como texto a parsear.
+   */
   private handleEventUpdate(payload: any): void {
     const { eventType, new: newRecord } = payload;
 
@@ -232,9 +250,9 @@ class TournamentSystem {
         startDate: new Date(newRecord.start_date).getTime(),
         endDate: new Date(newRecord.end_date).getTime(),
         isActive: newRecord.is_active,
-        challenges: JSON.parse(newRecord.challenges),
-        rewards: JSON.parse(newRecord.rewards),
-        theme: JSON.parse(newRecord.theme)
+        challenges: newRecord.challenges,
+        rewards: newRecord.rewards,
+        theme: newRecord.theme
       };
 
       this.events.set(event.id, event);

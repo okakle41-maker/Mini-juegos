@@ -200,11 +200,26 @@ class SocialSystem {
         this.socialStats.friendsCount = this.friends.size;
       }
 
-      if (requestsRes.data) {
+      if (requestsRes.data && requestsRes.data.length > 0) {
+        // friend_requests no tiene nombre denormalizado — a diferencia de
+        // `friends` (que sí guarda friend_name en el INSERT de
+        // acceptFriendRequest), acá solo hay sender_id. Se resuelve el
+        // username real vía `profiles` (select público, ver
+        // profiles_select_all en schema.sql) en vez de mostrar el uuid
+        // crudo como si fuera un nombre — y, más importante, en vez de
+        // que ese mismo uuid termine persistido como `friend_name` al
+        // aceptar la solicitud (ver acceptFriendRequest más abajo).
+        const senderIds = requestsRes.data.map((row: any) => row.sender_id);
+        const { data: profilesData } = await this.supabaseClient
+          .from('profiles')
+          .select('id, username')
+          .in('id', senderIds);
+        const usernameById = new Map<string, string>((profilesData ?? []).map((p: any) => [p.id, p.username]));
+
         for (const row of requestsRes.data) {
           this.friendRequests.set(row.sender_id, {
             id: row.sender_id,
-            name: row.sender_id, // no hay nombre denormalizado en friend_requests
+            name: usernameById.get(row.sender_id) ?? 'Jugador',
             avatar: '👤',
             level: 1,
             status: 'offline',
@@ -286,12 +301,34 @@ class SocialSystem {
       .subscribe();
   }
 
+  /**
+   * La tabla `friends` (migration_006) no tiene columna `friend_id` — es
+   * una fila simétrica por PAR de jugadores (`player1_id`/`player2_id`,
+   * ver migración). El id del amigo, desde la perspectiva de quien
+   * mira, es "el otro" de los dos — mismo cálculo que loadInitialData()
+   * ya hace al cargar la lista inicial. Antes este handler leía
+   * `newRecord.friend_id` (columna inexistente, siempre `undefined`) y
+   * cada evento de Realtime en el canal `friends` terminaba guardando
+   * una entrada con `id: undefined` en vez de actualizar/crear la fila
+   * correcta del amigo real.
+   */
+  private friendIdFromRow(row: { player1_id: string; player2_id: string }): string | null {
+    const myId = this.currentPlayerId();
+    if (!myId) return null;
+    if (row.player1_id === myId) return row.player2_id;
+    if (row.player2_id === myId) return row.player1_id;
+    return null; // fila de otro par de jugadores, no debería llegar acá (RLS)
+  }
+
   private handleFriendUpdate(payload: any): void {
-    const { eventType, new: newRecord } = payload;
+    const { eventType, new: newRecord, old: oldRecord } = payload;
 
     if (eventType === 'INSERT' || eventType === 'UPDATE') {
+      const friendId = this.friendIdFromRow(newRecord);
+      if (!friendId) return;
+
       const friend: Friend = {
-        id: newRecord.friend_id,
+        id: friendId,
         name: newRecord.friend_name,
         avatar: newRecord.friend_avatar || '👤',
         level: newRecord.friend_level || 1,
@@ -308,11 +345,13 @@ class SocialSystem {
         detail: { friend }
       }));
     } else if (eventType === 'DELETE') {
-      this.friends.delete(payload.old.friend_id);
+      const friendId = this.friendIdFromRow(oldRecord);
+      if (!friendId) return;
+      this.friends.delete(friendId);
       this.saveLocalData();
 
       window.dispatchEvent(new CustomEvent('social:friend_removed', {
-        detail: { friendId: payload.old.friend_id }
+        detail: { friendId }
       }));
     }
   }
@@ -523,12 +562,18 @@ class SocialSystem {
           .eq('sender_id', playerId)
           .eq('receiver_id', myId);
 
+        // this.friendRequests.get(playerId)?.name ya viene resuelto a un
+        // username real desde loadInitialData (ver el fetch a `profiles`
+        // ahí) — el fallback final a 'Jugador' (no a `playerId`) evita
+        // que un uuid crudo quede persistido para siempre como
+        // friend_name si por algún motivo la solicitud no estaba en el
+        // mapa local (p.ej. aceptada desde otra pestaña).
         await this.supabaseClient
           .from('friends')
           .insert({
             player1_id: myId,
             player2_id: playerId,
-            friend_name: this.friendRequests.get(playerId)?.name || playerId,
+            friend_name: this.friendRequests.get(playerId)?.name || 'Jugador',
             created_at: new Date().toISOString()
           });
       } catch (e) {

@@ -203,6 +203,18 @@ export function setupSplitView(
 
   const splitEl = ui[`${prefix}Split`] as HTMLElement | undefined;
   const rivalEl = ui[`${prefix}Rival`] as HTMLElement | undefined;
+  // Lado "Vos": vive DENTRO de splitEl (mismo contenedor grid que el
+  // rival, ver css/simon.css y css/termita.css) para que ambos queden
+  // como columnas de un mismo `.{prefix}-split { display:grid;
+  // grid-template-columns: 1fr 1fr }`. Antes `ownBoard` estaba fuera de
+  // splitEl como un `.{prefix}-split-side` suelto — el grid de 2
+  // columnas terminaba con un solo hijo real (el rival), dejando el
+  // propio tablero apilado arriba a ancho completo y un hueco vacío al
+  // lado del rival en vez de un split simétrico. Ambos son opcionales:
+  // Arrow usa un panel resumen en vez de este patrón (ver `ownBoard`
+  // en el comentario de función) y no tiene ninguno de los dos.
+  const rivalLabelEl = ui[`${prefix}RivalLabel`] as HTMLElement | undefined;
+  const ownLabelEl = ui[`${prefix}OwnLabel`] as HTMLElement | undefined;
 
   const remirror = () => {
     if (isMultiplayer && rivalEl && ownBoard) {
@@ -210,15 +222,25 @@ export function setupSplitView(
     }
   };
 
-  if (isMultiplayer && splitEl) {
+  if (splitEl) {
+    // El grid en sí queda siempre visible (nunca `.hidden`, salvo el
+    // estado inicial del template antes de este init()): el modo
+    // solo-jugador se distingue con `.{prefix}-split--solo` (colapsa a
+    // 1 columna vía CSS, ver css/simon.css y css/termita.css), no
+    // ocultando el grid entero — así el propio tablero nunca salta de
+    // "dentro del grid" a "fuera del grid" según el modo, evitando el
+    // bug donde quedaba apilado arriba a ancho completo con un hueco
+    // vacío al lado del rival (grid de 2 columnas con un solo hijo real).
     splitEl.classList.remove('hidden');
+    splitEl.classList.toggle(`${prefix}-split--solo`, !isMultiplayer);
+    const rivalSideEl = rivalLabelEl?.closest<HTMLElement>('.simon-split-side, .termita-split-side');
+    rivalSideEl?.classList.toggle('hidden', !isMultiplayer);
+    ownLabelEl?.classList.toggle('hidden', !isMultiplayer);
     // No se re-espeja acá todavía: al llamar setupSplitView() en init(),
     // el juego típicamente no construyó su tablero real hasta que se
     // presiona "Empezar" (setupSimonBoard/setupGrid). El propio juego
     // debe llamar a `remirror()` justo después de construir su tablero,
     // cada vez que lo reconstruye.
-  } else if (splitEl) {
-    splitEl.classList.add('hidden');
   }
 
   const handlers = new Map<string, Array<(payload: any) => void>>();
