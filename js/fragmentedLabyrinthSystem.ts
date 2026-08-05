@@ -24,10 +24,9 @@
  * a la vista.
  */
 
-import Auth from './authManager.js';
 import { lobbySystem } from './lobbySystem.js';
-import { getSupabaseClient } from './core/supabaseClient.js';
 import ErrorLogger from './core/errorLogger.js';
+import { RoleMatchSystemBase, type RoleMatchSystemConfig } from './utils/roleMatchSystemBase.js';
 
 export type FLMatchStatus = 'waiting' | 'playing' | 'won' | 'over';
 export type FLRole = 'A' | 'B' | 'C' | 'D';
@@ -79,58 +78,24 @@ const ROLE_COLUMNS: Record<FLRole, 'role_a_id' | 'role_b_id' | 'role_c_id' | 'ro
   D: 'role_d_id'
 };
 
-class FragmentedLabyrinthSystem {
-  private supabaseClient: any = null;
-  private isConnected = false;
-  private initPromise: Promise<void>;
-
-  private currentMatch: FLMatch | null = null;
+class FragmentedLabyrinthSystem extends RoleMatchSystemBase<FLMatch> {
   private lastView: FLView | null = null;
-  private channels: any[] = [];
-
-  private lobbyMatches: Map<string, FLMatch> = new Map();
-  private lobbyChannel: any = null;
 
   constructor() {
-    this.initPromise = this.initializeSupabase();
-  }
-
-  private async initializeSupabase(): Promise<void> {
-    try {
-      this.supabaseClient = await getSupabaseClient();
-      this.isConnected = true;
-    } catch (e) {
-      ErrorLogger?.log('fragmentedLabyrinthSystem.init', e, {});
-      this.isConnected = false;
-    }
-  }
-
-  private async waitForInitialization(): Promise<void> {
-    await this.initPromise;
-  }
-
-  private requireClient(): any {
-    if (!this.supabaseClient || !this.isConnected) {
-      throw new Error('No hay conexión con el servidor. Revisá tu internet e intentá de nuevo.');
-    }
-    return this.supabaseClient;
-  }
-
-  /**
-   * Igual que signalTriangulationSystem: exige sesión real, no un id
-   * anónimo de localStorage — necesario porque hay algo que ocultar
-   * entre los propios jugadores del equipo (el laberinto completo).
-   */
-  requireAuthenticatedPlayerId(): string {
-    const user = Auth.getUser();
-    if (!user) {
-      throw new Error('Necesitás iniciar sesión para jugar Fragmented Labyrinth.');
-    }
-    return user.id;
-  }
-
-  isPlayerEligible(): boolean {
-    return Auth.isLoggedIn();
+    const config: RoleMatchSystemConfig<FLMatch> = {
+      table: 'fragmented_labyrinth_matches',
+      moduleName: 'fragmentedLabyrinthSystem',
+      gameLabel: 'Fragmented Labyrinth',
+      lobbyChannelPrefix: 'fl_lobby_matches',
+      eventPrefix: 'fl',
+      // 'over'/'won' — mismo set que handleLobbyMatchesUpdate usaba
+      // antes de esta migración (distinto de ST/SC: FL no usa
+      // 'completed'/'abandoned' como nombres de estado terminal).
+      terminalStatuses: ['over', 'won'],
+      rowToMatch: (row: any) => this.rowToMatch(row),
+      getMatchId: (match: FLMatch) => match.id
+    };
+    super(config);
   }
 
   private rowToMatch(row: any): FLMatch {
@@ -261,52 +226,6 @@ class FragmentedLabyrinthSystem {
     return match;
   }
 
-  getCurrentMatch(): FLMatch | null {
-    return this.currentMatch;
-  }
-
-  getMatches(): FLMatch[] {
-    return Array.from(this.lobbyMatches.values());
-  }
-
-  async loadLobbyMatches(): Promise<FLMatch[]> {
-    await this.waitForInitialization();
-    const lobby = lobbySystem.getCurrentLobby();
-    if (!lobby) {
-      this.lobbyMatches.clear();
-      return [];
-    }
-    const client = this.requireClient();
-
-    const { data, error } = await client
-      .from('fragmented_labyrinth_matches')
-      .select('*')
-      .eq('lobby_id', lobby.id)
-      .in('status', ['waiting', 'playing']);
-    if (error) {
-      ErrorLogger?.log('fragmentedLabyrinthSystem.loadLobbyMatches', error, {});
-      return this.getMatches();
-    }
-
-    this.lobbyMatches.clear();
-    (data ?? []).forEach((row: any) => {
-      this.lobbyMatches.set(row.id, this.rowToMatch(row));
-    });
-
-    this.setupLobbyRealtimeSubscriptions(lobby.id);
-    return this.getMatches();
-  }
-
-  /**
-   * Detiene la suscripción a nivel de lobby (lista de partidas) sin
-   * afectar una eventual suscripción a la partida propia — se llama
-   * desde views/onlineLobby.logic.ts stop(), mismo criterio que
-   * signalTriangulationSystem/shipControlSystem.
-   */
-  stopWatchingLobbyMatches(): void {
-    this.teardownLobbyRealtimeSubscriptions();
-  }
-
   /** Mi rol (A-D) dentro de la partida actual, o null si no soy jugador de ella. */
   myRole(): FLRole | null {
     if (!this.currentMatch) return null;
@@ -412,12 +331,6 @@ class FragmentedLabyrinthSystem {
     this.channels = [matchChannel];
   }
 
-  private teardownMatchRealtimeSubscriptions(): void {
-    if (!this.supabaseClient) return;
-    this.channels.forEach((ch) => this.supabaseClient.removeChannel(ch));
-    this.channels = [];
-  }
-
   /**
    * fragmented_labyrinth_state (donde vive el laberinto/posición real)
    * NO es suscribible directamente (sin SELECT otorgado, ver RLS) — así
@@ -434,37 +347,6 @@ class FragmentedLabyrinthSystem {
     this.lobbyMatches.set(this.currentMatch.id, this.currentMatch);
     window.dispatchEvent(new CustomEvent('fl:match_changed', { detail: { match: this.currentMatch } }));
     void this.refreshMyView();
-  }
-
-  private setupLobbyRealtimeSubscriptions(lobbyId: string): void {
-    if (!this.supabaseClient || !this.isConnected) return;
-    this.teardownLobbyRealtimeSubscriptions();
-
-    this.lobbyChannel = this.supabaseClient
-      .channel(`fl_lobby_matches_${lobbyId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fragmented_labyrinth_matches', filter: `lobby_id=eq.${lobbyId}` }, (payload: any) => {
-        this.handleLobbyMatchesUpdate(payload);
-      })
-      .subscribe();
-  }
-
-  private teardownLobbyRealtimeSubscriptions(): void {
-    if (!this.supabaseClient || !this.lobbyChannel) return;
-    this.supabaseClient.removeChannel(this.lobbyChannel);
-    this.lobbyChannel = null;
-  }
-
-  private handleLobbyMatchesUpdate(payload: any): void {
-    const { eventType, new: newRow, old: oldRow } = payload;
-
-    if (eventType === 'DELETE' || newRow?.status === 'over' || newRow?.status === 'won') {
-      const id = newRow?.id ?? oldRow?.id;
-      this.lobbyMatches.delete(id);
-    } else if (newRow) {
-      this.lobbyMatches.set(newRow.id, this.rowToMatch(newRow));
-    }
-
-    window.dispatchEvent(new CustomEvent('fl:matches_changed', { detail: { matches: this.getMatches() } }));
   }
 }
 

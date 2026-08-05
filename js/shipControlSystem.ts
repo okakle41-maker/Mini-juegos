@@ -34,10 +34,9 @@
  * nombre.
  */
 
-import Auth from './authManager.js';
 import { lobbySystem } from './lobbySystem.js';
-import { getSupabaseClient } from './core/supabaseClient.js';
 import ErrorLogger from './core/errorLogger.js';
+import { RoleMatchSystemBase, type RoleMatchSystemConfig } from './utils/roleMatchSystemBase.js';
 
 export type SCMatchStatus = 'waiting' | 'playing' | 'completed' | 'abandoned' | 'failed';
 export type SCDifficulty = 'normal' | 'dificil';
@@ -108,49 +107,23 @@ export interface SCEvent {
   morsePattern: string | null;
 }
 
-class ShipControlSystem {
-  private supabaseClient: any = null;
-  private isConnected = false;
-  private initPromise: Promise<void>;
-
-  private currentMatch: SCMatch | null = null;
-  private channels: any[] = [];
+class ShipControlSystem extends RoleMatchSystemBase<SCMatch> {
   private tickTimer: ReturnType<typeof setInterval> | null = null;
 
-  private lobbyMatches: Map<string, SCMatch> = new Map();
-  private lobbyChannel: any = null;
-
   constructor() {
-    this.initPromise = this.initializeSupabase();
-  }
-
-  private async initializeSupabase(): Promise<void> {
-    try {
-      this.supabaseClient = await getSupabaseClient();
-      this.isConnected = !!this.supabaseClient;
-    } catch (e) {
-      ErrorLogger?.log('shipControlSystem.initializeSupabase', e, {});
-      this.isConnected = false;
-    }
-  }
-
-  private async waitForInitialization(): Promise<void> {
-    await this.initPromise;
-  }
-
-  private requireClient(): any {
-    if (!this.supabaseClient) throw new Error('Sin conexión a Supabase.');
-    return this.supabaseClient;
-  }
-
-  private requireAuthenticatedPlayerId(): string {
-    const user = Auth.getUser?.();
-    if (!user?.id) throw new Error('Necesitás iniciar sesión para jugar Centro de Control.');
-    return String(user.id);
-  }
-
-  isPlayerEligible(): boolean {
-    return Auth.isLoggedIn();
+    const config: RoleMatchSystemConfig<SCMatch> = {
+      table: 'ship_control_matches',
+      moduleName: 'shipControlSystem',
+      gameLabel: 'Centro de Control',
+      lobbyChannelPrefix: 'sc_lobby_matches',
+      eventPrefix: 'sc',
+      // 'completed'/'abandoned'/'failed' — mismo set que
+      // handleLobbyMatchesUpdate usaba antes de esta migración.
+      terminalStatuses: ['abandoned', 'completed', 'failed'],
+      rowToMatch: (row: any) => this.rowToMatch(row),
+      getMatchId: (match: SCMatch) => match.id
+    };
+    super(config);
   }
 
   /**
@@ -277,35 +250,6 @@ class ShipControlSystem {
     window.dispatchEvent(new CustomEvent('sc:match_joined', { detail: { match } }));
     window.dispatchEvent(new CustomEvent('sc:matches_changed', { detail: { matches: this.getMatches() } }));
     return match;
-  }
-
-  getCurrentMatch(): SCMatch | null {
-    return this.currentMatch;
-  }
-
-  getMatches(): SCMatch[] {
-    return Array.from(this.lobbyMatches.values());
-  }
-
-  async loadLobbyMatches(): Promise<SCMatch[]> {
-    await this.waitForInitialization();
-    const lobby = lobbySystem.getCurrentLobby();
-    if (!lobby) return [];
-    const client = this.requireClient();
-
-    const { data, error } = await client
-      .from('ship_control_matches')
-      .select('*')
-      .eq('lobby_id', lobby.id)
-      .in('status', ['waiting', 'playing']);
-    if (error) {
-      ErrorLogger?.log('shipControlSystem.loadLobbyMatches', error, {});
-      return [];
-    }
-
-    this.lobbyMatches = new Map((data ?? []).map((row: any) => [row.id, this.rowToMatch(row)]));
-    this.setupLobbyRealtimeSubscriptions(lobby.id);
-    return this.getMatches();
   }
 
   myRole(): SCRole | null {
@@ -488,10 +432,6 @@ class ShipControlSystem {
     window.dispatchEvent(new CustomEvent('sc:matches_changed', { detail: { matches: this.getMatches() } }));
   }
 
-  stopWatchingLobbyMatches(): void {
-    this.teardownLobbyRealtimeSubscriptions();
-  }
-
   private rowToMatch(row: any): SCMatch {
     return {
       id: row.id,
@@ -539,49 +479,12 @@ class ShipControlSystem {
     this.channels = [matchChannel];
   }
 
-  private teardownMatchRealtimeSubscriptions(): void {
-    if (!this.supabaseClient) return;
-    this.channels.forEach((ch) => this.supabaseClient.removeChannel(ch));
-    this.channels = [];
-  }
-
   private handleMatchUpdate(payload: any): void {
     const newRow = payload.new;
     if (!newRow || !this.currentMatch || newRow.id !== this.currentMatch.id) return;
     this.currentMatch = this.rowToMatch(newRow);
     this.lobbyMatches.set(this.currentMatch.id, this.currentMatch);
     window.dispatchEvent(new CustomEvent('sc:match_changed', { detail: { match: this.currentMatch } }));
-  }
-
-  private setupLobbyRealtimeSubscriptions(lobbyId: string): void {
-    if (!this.supabaseClient || !this.isConnected) return;
-    this.teardownLobbyRealtimeSubscriptions();
-
-    this.lobbyChannel = this.supabaseClient
-      .channel(`sc_lobby_matches_${lobbyId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ship_control_matches', filter: `lobby_id=eq.${lobbyId}` }, (payload: any) => {
-        this.handleLobbyMatchesUpdate(payload);
-      })
-      .subscribe();
-  }
-
-  private teardownLobbyRealtimeSubscriptions(): void {
-    if (!this.supabaseClient || !this.lobbyChannel) return;
-    this.supabaseClient.removeChannel(this.lobbyChannel);
-    this.lobbyChannel = null;
-  }
-
-  private handleLobbyMatchesUpdate(payload: any): void {
-    const { eventType, new: newRow, old: oldRow } = payload;
-
-    if (eventType === 'DELETE' || ['abandoned', 'completed', 'failed'].includes(newRow?.status)) {
-      const id = newRow?.id ?? oldRow?.id;
-      this.lobbyMatches.delete(id);
-    } else if (newRow) {
-      this.lobbyMatches.set(newRow.id, this.rowToMatch(newRow));
-    }
-
-    window.dispatchEvent(new CustomEvent('sc:matches_changed', { detail: { matches: this.getMatches() } }));
   }
 }
 

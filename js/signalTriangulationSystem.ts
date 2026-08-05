@@ -29,10 +29,9 @@
  * la fuente oculta.
  */
 
-import Auth from './authManager.js';
 import { lobbySystem } from './lobbySystem.js';
-import { getSupabaseClient } from './core/supabaseClient.js';
 import ErrorLogger from './core/errorLogger.js';
+import { RoleMatchSystemBase, type RoleMatchSystemConfig } from './utils/roleMatchSystemBase.js';
 
 export type STMatchStatus = 'waiting' | 'playing' | 'completed' | 'abandoned';
 export type STRoundStatus = 'active' | 'solved' | 'failed';
@@ -83,67 +82,23 @@ export interface STTeamLockStatus {
   hasLocked: boolean;
 }
 
-class SignalTriangulationSystem {
-  private supabaseClient: any = null;
-  private isConnected = false;
-  private initPromise: Promise<void>;
-
-  private currentMatch: STMatch | null = null;
+class SignalTriangulationSystem extends RoleMatchSystemBase<STMatch> {
   private currentRound: STRoundPublic | null = null;
-  private channels: any[] = [];
-
-  /**
-   * Partidas 'waiting'/'playing' que este cliente conoce del lobby
-   * actual — igual rol que lobbySystem.matches para lobby_matches.
-   * Se puebla con loadLobbyMatches() al entrar a la vista y se
-   * mantiene con el canal de lobby de setupLobbyRealtimeSubscriptions.
-   */
-  private lobbyMatches: Map<string, STMatch> = new Map();
-  private lobbyChannel: any = null;
 
   constructor() {
-    this.initPromise = this.initializeSupabase();
-  }
-
-  private async initializeSupabase(): Promise<void> {
-    try {
-      this.supabaseClient = await getSupabaseClient();
-      this.isConnected = true;
-    } catch (e) {
-      ErrorLogger?.log('signalTriangulationSystem.init', e, {});
-      this.isConnected = false;
-    }
-  }
-
-  private async waitForInitialization(): Promise<void> {
-    await this.initPromise;
-  }
-
-  private requireClient(): any {
-    if (!this.supabaseClient || !this.isConnected) {
-      throw new Error('No hay conexión con el servidor. Revisá tu internet e intentá de nuevo.');
-    }
-    return this.supabaseClient;
-  }
-
-  /**
-   * Id real del jugador — a diferencia de lobbySystem.currentPlayerId(),
-   * acá NO se cae a un id anónimo de localStorage: Signal Triangulation
-   * exige sesión iniciada (ver comentario de archivo). Lanza si no hay
-   * sesión, para que el llamador (la UI de "unirse a esta partida")
-   * pueda redirigir a login en vez de que el insert falle silenciosamente
-   * recién al intentar escribir en signal_triangulation_locks.
-   */
-  requireAuthenticatedPlayerId(): string {
-    const user = Auth.getUser();
-    if (!user) {
-      throw new Error('Necesitás iniciar sesión para jugar Signal Triangulation.');
-    }
-    return user.id;
-  }
-
-  isPlayerEligible(): boolean {
-    return Auth.isLoggedIn();
+    const config: RoleMatchSystemConfig<STMatch> = {
+      table: 'signal_triangulation_matches',
+      moduleName: 'signalTriangulationSystem',
+      gameLabel: 'Signal Triangulation',
+      lobbyChannelPrefix: 'st_lobby_matches',
+      eventPrefix: 'st',
+      // 'completed'/'abandoned' — mismo criterio que leaveCurrentMatch()
+      // más abajo, que también trata esos dos como estado final.
+      terminalStatuses: ['abandoned', 'completed'],
+      rowToMatch: (row: any) => this.rowToMatch(row),
+      getMatchId: (match: STMatch) => match.id
+    };
+    super(config);
   }
 
   /**
@@ -279,57 +234,6 @@ class SignalTriangulationSystem {
     window.dispatchEvent(new CustomEvent('st:match_joined', { detail: { match } }));
     window.dispatchEvent(new CustomEvent('st:matches_changed', { detail: { matches: this.getMatches() } }));
     return match;
-  }
-
-  getCurrentMatch(): STMatch | null {
-    return this.currentMatch;
-  }
-
-  /**
-   * Partidas 'waiting'/'playing' conocidas del lobby actual — igual rol
-   * que lobbySystem.getMatches() para lobby_matches. Usado por la
-   * sección "Signal Triangulation" de views/multiplayer.logic.ts para
-   * listar partidas a las que unirse o reanudar.
-   */
-  getMatches(): STMatch[] {
-    return Array.from(this.lobbyMatches.values());
-  }
-
-  /**
-   * Trae las partidas 'waiting'/'playing' del lobby actual y arranca la
-   * suscripción Realtime a nivel de lobby (no de una partida puntual) —
-   * análogo a lobbySystem.loadLobbyState() para lobby_matches. Se debe
-   * llamar al entrar a la vista que muestra la lista (multiplayer.logic.ts),
-   * no automáticamente al construirse el módulo, porque no tiene sentido
-   * mantener esta suscripción activa mientras el usuario está jugando
-   * otra cosa.
-   */
-  async loadLobbyMatches(): Promise<STMatch[]> {
-    await this.waitForInitialization();
-    const lobby = lobbySystem.getCurrentLobby();
-    if (!lobby) {
-      this.lobbyMatches.clear();
-      return [];
-    }
-    const client = this.requireClient();
-
-    const { data, error } = await client
-      .from('signal_triangulation_matches')
-      .select('*')
-      .eq('lobby_id', lobby.id)
-      .in('status', ['waiting', 'playing']);
-    if (error) {
-      ErrorLogger?.log('signalTriangulationSystem.loadLobbyMatches', error, {});
-      return this.getMatches();
-    }
-
-    this.lobbyMatches.clear();
-    (data ?? []).forEach((row: any) => {
-      this.lobbyMatches.set(row.id, this.rowToMatch(row));
-    });
-
-    this.setupLobbyRealtimeSubscriptions(lobby.id);
-    return this.getMatches();
   }
 
   getCurrentRound(): STRoundPublic | null {
@@ -516,17 +420,6 @@ class SignalTriangulationSystem {
     window.dispatchEvent(new CustomEvent('st:matches_changed', { detail: { matches: this.getMatches() } }));
   }
 
-  /**
-   * Detiene la suscripción a nivel de lobby (lista de partidas) sin
-   * afectar una eventual suscripción a la partida propia — se llama
-   * desde views/multiplayer.logic.ts al salir de esa vista, igual
-   * criterio que lobbySystem no fuerza salir del lobby al cambiar de
-   * pantalla (ver comentario en multiplayer.logic.ts stop()).
-   */
-  stopWatchingLobbyMatches(): void {
-    this.teardownLobbyRealtimeSubscriptions();
-  }
-
   private rowToMatch(row: any): STMatch {
     return {
       id: row.id,
@@ -608,62 +501,12 @@ class SignalTriangulationSystem {
     this.channels = ownLockChannel ? [matchChannel, ownLockChannel] : [matchChannel];
   }
 
-  private teardownMatchRealtimeSubscriptions(): void {
-    if (!this.supabaseClient) return;
-    this.channels.forEach((ch) => this.supabaseClient.removeChannel(ch));
-    this.channels = [];
-  }
-
   private handleMatchUpdate(payload: any): void {
     const newRow = payload.new;
     if (!newRow || !this.currentMatch || newRow.id !== this.currentMatch.id) return;
     this.currentMatch = this.rowToMatch(newRow);
     this.lobbyMatches.set(this.currentMatch.id, this.currentMatch);
     window.dispatchEvent(new CustomEvent('st:match_changed', { detail: { match: this.currentMatch } }));
-  }
-
-  /**
-   * Suscripción a nivel de LOBBY (todas las partidas de Signal
-   * Triangulation del lobby actual, no solo la propia) — análoga a
-   * lobbySystem's matchesChannel para lobby_matches. Mantiene
-   * this.lobbyMatches actualizado y dispara 'st:matches_changed' para
-   * que views/multiplayer.logic.ts pinte la lista sin tener que
-   * refrescar manualmente. Independiente de
-   * setupMatchRealtimeSubscriptions/teardownMatchRealtimeSubscriptions
-   * (esas son sobre UNA partida puntual, filtradas por id — esta es
-   * sobre TODAS las del lobby, filtradas por lobby_id) — ambas pueden
-   * estar activas a la vez sin pisarse (channels distintos, arrays
-   * separados).
-   */
-  private setupLobbyRealtimeSubscriptions(lobbyId: string): void {
-    if (!this.supabaseClient || !this.isConnected) return;
-    this.teardownLobbyRealtimeSubscriptions();
-
-    this.lobbyChannel = this.supabaseClient
-      .channel(`st_lobby_matches_${lobbyId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'signal_triangulation_matches', filter: `lobby_id=eq.${lobbyId}` }, (payload: any) => {
-        this.handleLobbyMatchesUpdate(payload);
-      })
-      .subscribe();
-  }
-
-  private teardownLobbyRealtimeSubscriptions(): void {
-    if (!this.supabaseClient || !this.lobbyChannel) return;
-    this.supabaseClient.removeChannel(this.lobbyChannel);
-    this.lobbyChannel = null;
-  }
-
-  private handleLobbyMatchesUpdate(payload: any): void {
-    const { eventType, new: newRow, old: oldRow } = payload;
-
-    if (eventType === 'DELETE' || newRow?.status === 'abandoned' || newRow?.status === 'completed') {
-      const id = newRow?.id ?? oldRow?.id;
-      this.lobbyMatches.delete(id);
-    } else if (newRow) {
-      this.lobbyMatches.set(newRow.id, this.rowToMatch(newRow));
-    }
-
-    window.dispatchEvent(new CustomEvent('st:matches_changed', { detail: { matches: this.getMatches() } }));
   }
 }
 
