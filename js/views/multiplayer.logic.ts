@@ -20,6 +20,10 @@ import { template } from './multiplayer.js';
 import { escapeHtml } from '../security.js';
 import { hydrateBackButtons } from '../utils/backButton.js';
 import { setPending } from '../utils/matchWaitingContext.js';
+import { attachCopyButton } from '../utils/copyRoomCode.js';
+import { withButtonBusy } from '../utils/buttonBusyGuard.js';
+import { runCreateMatchAction } from '../utils/createMatchAction.js';
+import { describeMatchError } from '../utils/describeMatchError.js';
 
 let eventListeners: Array<() => void> = [];
 let cachedElements: Record<string, HTMLElement | null> = {};
@@ -122,7 +126,10 @@ function showLobbyActive(): void {
   const lobby = lobbySystem.getCurrentLobby();
   if (lobby) {
     const codeDisplay = getElement('lobby-code-display');
-    if (codeDisplay) codeDisplay.textContent = lobby.roomCode;
+    if (codeDisplay) {
+      codeDisplay.textContent = lobby.roomCode;
+      attachCopyButton(codeDisplay, 'lobby-code-copy-btn');
+    }
   }
   renderLobbyPlayers();
   renderLobbyMatches();
@@ -140,7 +147,8 @@ function clearLobbyError(): void {
 }
 
 function setupLobbySection(): void {
-  getElement('lobby-create-btn')?.addEventListener('click', async () => {
+  const createBtn = getElement('lobby-create-btn') as HTMLButtonElement | null;
+  createBtn?.addEventListener('click', () => withButtonBusy(createBtn, async () => {
     clearLobbyError();
     try {
       await lobbySystem.createLobby();
@@ -152,11 +160,12 @@ function setupLobbySection(): void {
       // "Ir a elegir juego" (ver lobby-go-online-btn más abajo).
       showLobbyActive();
     } catch (e) {
-      showLobbyError(e instanceof Error ? e.message : 'No se pudo crear el lobby.');
+      showLobbyError(describeMatchError(e, 'No se pudo crear el lobby.'));
     }
-  });
+  }));
 
-  getElement('lobby-join-btn')?.addEventListener('click', async () => {
+  const joinBtn = getElement('lobby-join-btn') as HTMLButtonElement | null;
+  joinBtn?.addEventListener('click', () => withButtonBusy(joinBtn, async () => {
     clearLobbyError();
     const codeInput = getElement('lobby-join-code') as HTMLInputElement | null;
     const code = codeInput?.value.trim();
@@ -166,9 +175,9 @@ function setupLobbySection(): void {
       // Ver comentario equivalente en lobby-create-btn más arriba.
       showLobbyActive();
     } catch (e) {
-      showLobbyError(e instanceof Error ? e.message : 'No se pudo unir al lobby.');
+      showLobbyError(describeMatchError(e, 'No se pudo unir al lobby.'));
     }
-  });
+  }));
 
   getElement('lobby-leave-btn')?.addEventListener('click', async () => {
     await lobbySystem.leaveLobby();
@@ -179,18 +188,21 @@ function setupLobbySection(): void {
     window.showView?.('online-lobby');
   });
 
-  getElement('lobby-create-match-btn')?.addEventListener('click', async () => {
-    clearLobbyError();
-    const select = getElement('lobby-game-select') as HTMLSelectElement | null;
-    const gameId = (select?.value ?? 'simon') as LobbyGameId;
-    try {
-      await lobbySystem.createMatch(gameId);
+  const createMatchBtn = getElement('lobby-create-match-btn') as HTMLButtonElement | null;
+  createMatchBtn?.addEventListener('click', () => withButtonBusy(createMatchBtn, () => runCreateMatchAction({
+    clearError: clearLobbyError,
+    showError: showLobbyError,
+    create: () => {
+      const select = getElement('lobby-game-select') as HTMLSelectElement | null;
+      const gameId = (select?.value ?? 'simon') as LobbyGameId;
+      return lobbySystem.createMatch(gameId).then(() => gameId);
+    },
+    fallbackErrorMessage: 'No se pudo crear la partida.',
+    onSuccess: (gameId) => {
       setPending(gameId, 'multiplayer');
       window.showView?.('match-waiting');
-    } catch (e) {
-      showLobbyError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
     }
-  });
+  })));
 }
 
 function renderLobbyPlayers(): void {
@@ -262,7 +274,7 @@ function renderLobbyMatches(): void {
           window.showView?.(gameId);
         }
       } catch (e) {
-        showLobbyError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
+        showLobbyError(describeMatchError(e, 'No se pudo completar la acción.'));
       }
     });
   });

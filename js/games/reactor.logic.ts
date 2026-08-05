@@ -410,7 +410,7 @@ const ACTIONS: ReactorAction[] = [
     icon: '❄️',
     cd: 4,
     apply(s) {
-      s.cooling -= 20;
+      s.cooling += 20;
       s.pressure -= 6;
       s.energy  -= 6;
     }
@@ -422,7 +422,7 @@ const ACTIONS: ReactorAction[] = [
     icon: '🌡️',
     cd: 2,
     apply(s) {
-      s.cooling  += 18;
+      s.cooling  -= 18;
       s.pressure += 5;
       s.temp     += 3;
     }

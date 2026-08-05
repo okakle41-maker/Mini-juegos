@@ -29,6 +29,10 @@ import { escapeHtml } from '../security.js';
 import template from './onlineLobby.js';
 import { hydrateBackButtons } from '../utils/backButton.js';
 import { setPending } from '../utils/matchWaitingContext.js';
+import { attachCopyButton } from '../utils/copyRoomCode.js';
+import { withButtonBusy } from '../utils/buttonBusyGuard.js';
+import { runCreateMatchAction } from '../utils/createMatchAction.js';
+import { describeMatchError } from '../utils/describeMatchError.js';
 
 export function init(): void {
   const container = document.getElementById('online-lobby');
@@ -120,76 +124,85 @@ function setupConfigModal(): void {
   });
 
   // Signal Triangulation: crear partida
-  modalEl('olConfigStCreateBtn')?.addEventListener('click', async () => {
-    clearStConfigError();
-    if (!signalTriangulationSystem.isPlayerEligible()) {
-      showStConfigError('Necesitás iniciar sesión para crear una partida de Signal Triangulation.');
-      return;
-    }
-    try {
-      await signalTriangulationSystem.createMatch();
+  const stCreateBtn = modalEl('olConfigStCreateBtn') as HTMLButtonElement | null;
+  stCreateBtn?.addEventListener('click', () => withButtonBusy(stCreateBtn, () => runCreateMatchAction({
+    clearError: () => clearConfigError('olConfigStError'),
+    showError: (msg) => showConfigError('olConfigStError', msg),
+    checkEligibility: () => signalTriangulationSystem.isPlayerEligible()
+      ? null
+      : 'Necesitás iniciar sesión para crear una partida de Signal Triangulation.',
+    create: () => signalTriangulationSystem.createMatch(),
+    fallbackErrorMessage: 'No se pudo crear la partida.',
+    onSuccess: () => {
       closeConfigModal();
       setPending('signal_triangulation', 'online-lobby');
       window.showView?.('match-waiting');
-    } catch (e) {
-      showStConfigError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
     }
-  });
+  })));
 
   // Fragmented Labyrinth: crear partida (quien crea ocupa el rol A)
-  modalEl('olConfigFlCreateBtn')?.addEventListener('click', async () => {
-    clearFlConfigError();
-    if (!fragmentedLabyrinthSystem.isPlayerEligible()) {
-      showFlConfigError('Necesitás iniciar sesión para crear una partida de Fragmented Labyrinth.');
-      return;
-    }
-    try {
-      await fragmentedLabyrinthSystem.createMatch();
+  const flCreateBtn = modalEl('olConfigFlCreateBtn') as HTMLButtonElement | null;
+  flCreateBtn?.addEventListener('click', () => withButtonBusy(flCreateBtn, () => runCreateMatchAction({
+    clearError: () => clearConfigError('olConfigFlError'),
+    showError: (msg) => showConfigError('olConfigFlError', msg),
+    checkEligibility: () => fragmentedLabyrinthSystem.isPlayerEligible()
+      ? null
+      : 'Necesitás iniciar sesión para crear una partida de Fragmented Labyrinth.',
+    create: () => fragmentedLabyrinthSystem.createMatch(),
+    fallbackErrorMessage: 'No se pudo crear la partida.',
+    onSuccess: () => {
       closeConfigModal();
       setPending('fragmented_labyrinth', 'online-lobby');
       window.showView?.('match-waiting');
-    } catch (e) {
-      showFlConfigError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
     }
-  });
+  })));
 
   // Centro de Control: elegir rol para crear
   modalEl('olConfigScRolePicker')?.addEventListener('click', async (event) => {
     const btn = (event.target as HTMLElement).closest<HTMLButtonElement>('.ol-modal-role-btn[data-role]');
     if (!btn) return;
-    clearScConfigError();
-    if (!shipControlSystem.isPlayerEligible()) {
-      showScConfigError('Necesitás iniciar sesión para crear una partida de Centro de Control.');
-      return;
-    }
-    const role = btn.dataset.role as SCRole;
-    try {
-      await shipControlSystem.createMatch(role);
-      closeConfigModal();
-      setPending('ship_control', 'online-lobby');
-      window.showView?.('match-waiting');
-    } catch (e) {
-      showScConfigError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
-    }
+    await withButtonBusy(btn, () => runCreateMatchAction({
+      clearError: () => clearConfigError('olConfigScError'),
+      showError: (msg) => showConfigError('olConfigScError', msg),
+      checkEligibility: () => shipControlSystem.isPlayerEligible()
+        ? null
+        : 'Necesitás iniciar sesión para crear una partida de Centro de Control.',
+      create: () => shipControlSystem.createMatch(btn.dataset.role as SCRole),
+      fallbackErrorMessage: 'No se pudo crear la partida.',
+      onSuccess: () => {
+        closeConfigModal();
+        setPending('ship_control', 'online-lobby');
+        window.showView?.('match-waiting');
+      }
+    }));
   });
 
   // Simon/Arrow/Termita: crear partida 1v1
-  modalEl('olConfigLobbyCreateBtn')?.addEventListener('click', async () => {
-    clearLobbyConfigError();
+  const lobbyCreateBtn = modalEl('olConfigLobbyCreateBtn') as HTMLButtonElement | null;
+  lobbyCreateBtn?.addEventListener('click', () => withButtonBusy(lobbyCreateBtn, async () => {
+    // Guard silencioso, no un error mostrable (no debería poder pasar:
+    // el botón vive dentro de olConfigLobbySection, que solo se muestra
+    // tras haber seteado currentLobbyGameId al abrir el modal) — se
+    // mantiene fuera de runCreateMatchAction porque esa función siempre
+    // muestra el resultado de checkEligibility, y acá directamente no
+    // hay nada que crear ni que decirle al jugador.
     if (!currentLobbyGameId) return;
-    if (!lobbySystem.getCurrentLobby()) {
-      showLobbyConfigError('Necesitás estar en un lobby grupal para crear una partida.');
-      return;
-    }
-    try {
-      await lobbySystem.createMatch(currentLobbyGameId);
-      closeConfigModal();
-      setPending(currentLobbyGameId, 'online-lobby');
-      window.showView?.('match-waiting');
-    } catch (e) {
-      showLobbyConfigError(e instanceof Error ? e.message : 'No se pudo crear la partida.');
-    }
-  });
+    const gameId = currentLobbyGameId;
+    await runCreateMatchAction({
+      clearError: () => clearConfigError('olConfigLobbyError'),
+      showError: (msg) => showConfigError('olConfigLobbyError', msg),
+      checkEligibility: () => lobbySystem.getCurrentLobby()
+        ? null
+        : 'Necesitás estar en un lobby grupal para crear una partida.',
+      create: () => lobbySystem.createMatch(gameId),
+      fallbackErrorMessage: 'No se pudo crear la partida.',
+      onSuccess: () => {
+        closeConfigModal();
+        setPending(gameId, 'online-lobby');
+        window.showView?.('match-waiting');
+      }
+    });
+  }));
 
   // Se registra una sola vez en todo el ciclo de vida de la app para no
   // acumular listeners duplicados cada vez que se entra a la vista.
@@ -215,10 +228,10 @@ function openConfigModal(gameId: string): void {
   const desc = modalEl('olConfigModalDesc');
   const icon = modalEl('olConfigModalIcon');
 
-  clearStConfigError();
-  clearScConfigError();
-  clearFlConfigError();
-  clearLobbyConfigError();
+  clearConfigError('olConfigStError');
+  clearConfigError('olConfigScError');
+  clearConfigError('olConfigFlError');
+  clearConfigError('olConfigLobbyError');
   currentLobbyGameId = null;
 
   if (gameId === 'signal_triangulation') {
@@ -272,55 +285,31 @@ function openConfigModal(gameId: string): void {
 
 function closeConfigModal(): void {
   modalEl('olConfigModalOverlay')?.classList.add('hidden');
-  clearStConfigError();
-  clearScConfigError();
-  clearFlConfigError();
-  clearLobbyConfigError();
+  clearConfigError('olConfigStError');
+  clearConfigError('olConfigScError');
+  clearConfigError('olConfigFlError');
+  clearConfigError('olConfigLobbyError');
   currentLobbyGameId = null;
 }
 
-function showStConfigError(message: string): void {
-  const el = modalEl('olConfigStError');
+/**
+ * Muestra/limpia el mensaje de error dentro de una sección del modal de
+ * configuración (ST/SC/FL/lobby 1v1), identificada por el id de su
+ * elemento `.ol-modal-error`. Reemplaza las 4 parejas
+ * show/clear{St,Sc,Fl,Lobby}ConfigError que existían antes — idénticas
+ * salvo por qué id de elemento tocaban, así que cualquier cambio al
+ * comportamiento (p. ej. el fallback cuando el elemento no existe)
+ * requería tocar 4 lugares para no dejar 3 actualizados y 1 desviado.
+ */
+function showConfigError(elId: string, message: string): void {
+  const el = modalEl(elId);
   if (!el) return;
   el.textContent = message;
   el.classList.remove('hidden');
 }
 
-function clearStConfigError(): void {
-  modalEl('olConfigStError')?.classList.add('hidden');
-}
-
-function showScConfigError(message: string): void {
-  const el = modalEl('olConfigScError');
-  if (!el) return;
-  el.textContent = message;
-  el.classList.remove('hidden');
-}
-
-function clearScConfigError(): void {
-  modalEl('olConfigScError')?.classList.add('hidden');
-}
-
-function showFlConfigError(message: string): void {
-  const el = modalEl('olConfigFlError');
-  if (!el) return;
-  el.textContent = message;
-  el.classList.remove('hidden');
-}
-
-function clearFlConfigError(): void {
-  modalEl('olConfigFlError')?.classList.add('hidden');
-}
-
-function showLobbyConfigError(message: string): void {
-  const el = modalEl('olConfigLobbyError');
-  if (!el) return;
-  el.textContent = message;
-  el.classList.remove('hidden');
-}
-
-function clearLobbyConfigError(): void {
-  modalEl('olConfigLobbyError')?.classList.add('hidden');
+function clearConfigError(elId: string): void {
+  modalEl(elId)?.classList.add('hidden');
 }
 
 // ── Listas de partidas existentes (crear O unirse, todo en este modal) ──
@@ -390,7 +379,7 @@ function renderStMatches(): void {
           window.showView?.('match-waiting');
         }
       } catch (e) {
-        showStConfigError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
+        showConfigError('olConfigStError', describeMatchError(e, 'No se pudo completar la acción.'));
       }
     });
   });
@@ -459,7 +448,7 @@ function renderScMatches(): void {
           window.showView?.('match-waiting');
         }
       } catch (e) {
-        showScConfigError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
+        showConfigError('olConfigScError', describeMatchError(e, 'No se pudo completar la acción.'));
       }
     });
   });
@@ -529,7 +518,7 @@ function renderFlMatches(): void {
           window.showView?.('match-waiting');
         }
       } catch (e) {
-        showFlConfigError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
+        showConfigError('olConfigFlError', describeMatchError(e, 'No se pudo completar la acción.'));
       }
     });
   });
@@ -599,7 +588,7 @@ function renderLobbyMatches(): void {
           window.showView?.(gameId);
         }
       } catch (e) {
-        showLobbyConfigError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
+        showConfigError('olConfigLobbyError', describeMatchError(e, 'No se pudo completar la acción.'));
       }
     });
   });
@@ -636,6 +625,7 @@ function renderLobbyCodeBadge(): void {
   if (lobby) {
     valueEl.textContent = lobby.roomCode;
     badge.classList.remove('hidden');
+    attachCopyButton(valueEl, 'onlineLobbyCodeCopyBtn');
   } else {
     badge.classList.add('hidden');
   }

@@ -282,7 +282,7 @@ function createVirus(): Virus {
   }
 
   const virusType = VIRUS_TYPES[type];
-  const minigame = pick(MINIGAMES.filter(m => m !== 'boss' || type === 'BOSS'));
+  const minigame = pick(MINIGAMES);
   
   return {
     id: Date.now() + Math.random(),
@@ -297,7 +297,11 @@ function createVirus(): Virus {
   };
 }
 
-function generateMinigameData(minigame: string): MinigameData {
+/** Exportada solo para tests (ver test/virusOverloadPasswordMinigame.test.ts):
+ *  es una función pura, no necesita pasar por init()/DOM para probar
+ *  que el índice `correct` siempre corresponde a la palabra `target`
+ *  mostrada, incluso después de shufflear `options`. */
+export function generateMinigameData(minigame: string): MinigameData {
   switch(minigame) {
     case 'type':
       return { code: generateCode(4), input: '' };
@@ -308,8 +312,22 @@ function generateMinigameData(minigame: string): MinigameData {
     case 'colormatch':
       return { textColor: pick(['rojo', 'azul', 'verde', 'amarillo']), 
                textWord: pick(['rojo', 'azul', 'verde', 'amarillo']) };
-    case 'password':
-      return { options: GameHelpers.shuffle(['ALFA', 'BRAVO', 'CHARLIE', 'DELTA']), correct: 0 };
+    case 'password': {
+      // Bug: `correct` quedaba hardcodeado en 0, pero `options` se
+      // shufflea — el índice 0 del array YA shuffleado no tiene
+      // relación con ninguna palabra en particular, así que el botón
+      // "correcto" terminaba siendo esencialmente al azar (1/4), y
+      // encima no había ninguna pista visible que indicara cuál
+      // palabra era la correcta (ver renderMinigameLabel: el caso
+      // 'password' solo pintaba los 4 botones, sin mostrar un target).
+      // Fix: elegimos la palabra correcta ANTES de shufflear, y
+      // recalculamos su índice en el array ya shuffleado — y la
+      // mostramos como pista (ver renderMinigameLabel).
+      const words = ['ALFA', 'BRAVO', 'CHARLIE', 'DELTA'];
+      const target = pick(words);
+      const options = GameHelpers.shuffle(words);
+      return { options, correct: options.indexOf(target), target };
+    }
     case 'memory':
       return { sequence: GameHelpers.shuffle([1, 2, 3, 4]).slice(0, 3), input: [] };
     case 'wire':
@@ -329,11 +347,18 @@ function generateMinigameData(minigame: string): MinigameData {
     case 'firewall':
       return { blocked: false };
     case 'spam':
-      return { cleaned: 0, total: 3 };
+      // Bug: acá se creaban los campos `cleaned`/`total`, pero tanto
+      // el click handler (case 'spam' en handleVirusClick) como
+      // updateVirusVisual leen/escriben `hits` (con fallback `|| 0`,
+      // por eso no rompía nada visiblemente) — `cleaned`/`total`
+      // quedaban seteados una vez y nunca se leían en ningún lado.
+      // Se unifica al mismo esquema que 'target'/'node' (`hits` +
+      // `required`), que es el que el resto del código realmente usa.
+      return { hits: 0, required: 3 };
     case 'node':
-      return { activated: 0, required: 3 };
+      return { hits: 0, required: 3 };
     case 'scan':
-      return { scanned: 0, required: 5 };
+      return { hits: 0, required: 5 };
     case 'hold':
       return { key: pick(['A', 'S', 'D', 'F']), held: 0, required: 1000 };
     case 'rapid':
@@ -393,9 +418,10 @@ function getMinigameHTML(virus: Virus): string {
     case 'colormatch':
       return `<span class="minigame-label" style="color: ${getColorCSS(virus.data.textColor)}">${virus.data.textWord}</span>`;
     case 'password':
-      return virus.data.options.map((opt: string, i: number) => 
-        `<button class="password-option" data-index="${i}">${opt}</button>`
-      ).join('');
+      return `<span class="minigame-label">Clave: ${virus.data.target}</span>` +
+        virus.data.options.map((opt: string, i: number) =>
+          `<button class="password-option" data-index="${i}">${opt}</button>`
+        ).join('');
     case 'memory':
       return '<span class="minigame-label">🧠 CLIC</span>';
     case 'wire':
@@ -458,7 +484,7 @@ function handleVirusClick(e: MouseEvent, virus: Virus): void {
 
   switch(virus.minigame) {
     case 'click':
-      damageVirus(virus, virus.maxHealth);
+      damageVirus(virus, 1);
       break;
     case 'type':
       // El typing se maneja con eventos de teclado global
@@ -470,7 +496,7 @@ function handleVirusClick(e: MouseEvent, virus: Virus): void {
       // Las flechas se manejan con eventos de teclado
       break;
     case 'colormatch':
-      damageVirus(virus, virus.maxHealth);
+      damageVirus(virus, 1);
       break;
     case 'password': {
       const target = e.target as HTMLElement;
@@ -478,7 +504,7 @@ function handleVirusClick(e: MouseEvent, virus: Virus): void {
       if (btn) {
         const index = parseInt(btn.dataset.index || '0', 10);
         if (index === virus.data.correct) {
-          damageVirus(virus, virus.maxHealth);
+          damageVirus(virus, 1);
         } else {
           gameState.combo = 0;
           updateUI();
@@ -494,28 +520,28 @@ function handleVirusClick(e: MouseEvent, virus: Virus): void {
     case 'signal':
     case 'file':
     case 'firewall':
-      damageVirus(virus, virus.maxHealth);
+      damageVirus(virus, 1);
       break;
     case 'target':
     case 'spam':
     case 'node':
       virus.data.hits = (virus.data.hits || 0) + 1;
-      if (virus.data.hits >= 3) {
-        damageVirus(virus, virus.maxHealth);
+      if (virus.data.hits >= virus.data.required) {
+        damageVirus(virus, 1);
       } else {
         updateVirusVisual(virus);
       }
       break;
     case 'scan':
       virus.data.hits = (virus.data.hits || 0) + 1;
-      if (virus.data.hits >= 5) {
-        damageVirus(virus, virus.maxHealth);
+      if (virus.data.hits >= virus.data.required) {
+        damageVirus(virus, 1);
       } else {
         updateVirusVisual(virus);
       }
       break;
     default:
-      damageVirus(virus, virus.maxHealth);
+      damageVirus(virus, 1);
   }
 }
 
@@ -698,7 +724,7 @@ function handleKeyPress(e: KeyboardEvent): void {
         virus.data.held = elapsed;
         if (elapsed >= virus.data.required) {
           clearInterval(virus.data.holdInterval);
-          damageVirus(virus, virus.maxHealth);
+          damageVirus(virus, 1);
         } else {
           updateVirusVisual(virus);
         }
@@ -712,7 +738,7 @@ function handleKeyPress(e: KeyboardEvent): void {
     if (key === virus.data.key || (virus.data.key === 'SPACE' && e.code === 'Space')) {
       virus.data.presses++;
       if (virus.data.presses >= virus.data.required) {
-        damageVirus(virus, virus.maxHealth);
+        damageVirus(virus, 1);
       } else {
         updateVirusVisual(virus);
       }
@@ -726,7 +752,7 @@ function handleKeyPress(e: KeyboardEvent): void {
     if (key === expected) {
       virus.data.index++;
       if (virus.data.index >= virus.data.sequence.length) {
-        damageVirus(virus, virus.maxHealth);
+        damageVirus(virus, 1);
       } else {
         updateVirusVisual(virus);
       }
@@ -744,7 +770,7 @@ function handleKeyPress(e: KeyboardEvent): void {
     if (Math.abs(virus.data.position - virus.data.target) < 10) {
       virus.data.balanceTime = (virus.data.balanceTime || 0) + 1;
       if (virus.data.balanceTime >= 20) {
-        damageVirus(virus, virus.maxHealth);
+        damageVirus(virus, 1);
       }
     } else {
       virus.data.balanceTime = 0;
@@ -810,11 +836,11 @@ function updateVirusVisual(virus: Virus): void {
     label.innerHTML = `<span style="color:#22c55e">${typed}</span>${remaining}`;
   } else if (['target', 'spam', 'node'].includes(virus.minigame)) {
     const hits = virus.data.hits || 0;
-    const required = 3;
+    const required = virus.data.required;
     label.innerHTML = `${(label.textContent || '').split(' ')[0]} ${hits}/${required}`;
   } else if (virus.minigame === 'scan') {
     const hits = virus.data.hits || 0;
-    const required = 5;
+    const required = virus.data.required;
     label.innerHTML = `${(label.textContent || '').split(' ')[0]} ${hits}/${required}`;
   } else if (virus.minigame === 'hold') {
     const elapsed = virus.data.held || 0;
@@ -871,7 +897,7 @@ function gameLoop(): void {
   // Mutación de virus mutantes
   gameState.activeViruses.forEach(virus => {
     if (virus.type === 'MUTANT' && virus.canMutate && Math.random() < 0.005) {
-      virus.minigame = pick(MINIGAMES.filter(m => m !== 'boss'));
+      virus.minigame = pick(MINIGAMES);
       virus.data = generateMinigameData(virus.minigame);
       virus.canMutate = false;
       // Re-renderizar
@@ -1089,7 +1115,15 @@ function stopGame(): void {
         v.data.holdInterval = null;
       }
     });
+    // Bug: solo se removía 'keydown', nunca 'keyup' (a diferencia de
+    // endGame(), que remueve ambos) — si el jugador salía de la vista
+    // a mitad de partida (en vez de llegar a game over), el listener
+    // de 'keyup' quedaba pegado a `document` para siempre, así que
+    // handleKeyUp seguía ejecutándose (y potencialmente tocando
+    // gameState de una partida ya "detenida") en cada tecla soltada
+    // durante el resto de la sesión.
     document.removeEventListener('keydown', handleKeyPress);
+    document.removeEventListener('keyup', handleKeyUp);
     endEvent();
   }
 }

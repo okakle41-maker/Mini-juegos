@@ -8,8 +8,13 @@
 
 import type { GameUi } from '../types/game.js';
 import audioManager from '../audioManager.js';
+import GameInstanceRegistry from '../core/gameInstanceRegistry.js';
 import { lobbySystem } from '../lobbySystem.js';
 import { setupSplitView, findRivalElement, type SplitViewHandle } from '../utils/multiplayerSplitView.js';
+
+interface TermitaInstance {
+  stop: () => void;
+}
 
 export function init(ui: GameUi) {
     const { grid: gridEl, gridSize: gridSizeEl, targets: targetsEl,
@@ -18,6 +23,17 @@ export function init(ui: GameUi) {
     const backToLobbyBtn = ui.backToLobby as HTMLButtonElement | undefined;
 
     if (!startTermita) return;
+
+    // Si init() se llama de nuevo sin que stop() haya corrido antes
+    // (doble init por routing, por ejemplo), la instancia anterior
+    // todavía tiene sus listeners de split-view (multiplayer:game_event,
+    // lobby:matches_changed) activos — sin este cleanup previo quedaban
+    // huérfanos para siempre (el registro solo guardaba el último
+    // `split.cleanup` en una variable de módulo, pisando la referencia
+    // a la limpieza anterior sin invocarla) y los eventos del rival
+    // terminaban procesándose dos veces.
+    const previousInstance = GameInstanceRegistry.get<TermitaInstance>('termita');
+    if (previousInstance) previousInstance.stop();
 
     // Partida de lobby (ver lobbySystem.ts): la sub-partida ya queda en
     // 'playing' con settings fijados por quien la creó apenas se une el
@@ -352,19 +368,24 @@ export function init(ui: GameUi) {
       }
     });
 
-    termitaSplitCleanup = split.cleanup;
+    // Exponer stop real — mismo patrón que simon.logic.ts/arrowGame.logic.ts
+    // (GameInstanceRegistry en vez de una variable de módulo suelta, que
+    // no soportaba una segunda instancia activa sin perder la referencia
+    // de limpieza de la anterior).
+    GameInstanceRegistry.set<TermitaInstance>('termita', {
+      stop: () => {
+        state.acceptingInput = false;
+        split.cleanup();
+      },
+    });
 }
 
-let termitaSplitCleanup: (() => void) | null = null;
-
 export function stop() {
-  // El juego no usa timers persistentes fuera de una ronda en curso
-  if (termitaSplitCleanup) {
-    termitaSplitCleanup();
-    termitaSplitCleanup = null;
-  }
+  const instance = GameInstanceRegistry.get<TermitaInstance>('termita');
+  if (instance) instance.stop();
   // Libera el estado del lobby si se sale de la vista sin haber
   // terminado (o especteando) — ver comentario equivalente en
   // arrowGame.logic.ts/stop(). No-op si no hay match activo.
   void lobbySystem.leaveCurrentMatch();
+  GameInstanceRegistry.clear('termita');
 }
