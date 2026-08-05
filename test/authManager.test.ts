@@ -126,6 +126,23 @@ describe('AuthManager', () => {
       expect(Auth.getUser()).toBeNull();
     });
 
+    it('cierra la sesión huérfana de Supabase Auth si la inserción en profiles falla', async () => {
+      // Antes de este fix: si profiles.insert fallaba (username ya
+      // tomado en otra capitalización), signUp() ya había dejado una
+      // sesión activa y persistida en auth.users para esa cuenta —
+      // nunca se llamaba signOut(), así que el token quedaba vivo y el
+      // email sintético (usuario@minijuegos.local) quedaba tomado para
+      // siempre, bloqueando cualquier reintento futuro con ese mismo
+      // username aunque nunca hubiera llegado a tener un perfil usable.
+      authState.signUp.mockResolvedValue({ data: { user: { id: 'u3' }, session: { access_token: 'tok' } }, error: null });
+      profilesInsert.mockResolvedValue({ error: { message: 'duplicate key value violates unique constraint' } });
+      authState.signOut.mockResolvedValue({ error: null });
+
+      await Auth.register('OtroRepetido', 'password123');
+
+      expect(authState.signOut).toHaveBeenCalled();
+    });
+
     it('traduce el error de Supabase "already registered" a un mensaje entendible', async () => {
       authState.signUp.mockResolvedValue({
         data: { user: null },

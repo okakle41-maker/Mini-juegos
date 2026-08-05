@@ -121,6 +121,7 @@ const template = (): string => {
               </select>
             </label>
             <button data-ui="start" class="letters-start-btn">Iniciar</button>
+            <button data-ui="retry" class="letters-start-btn hidden">Jugar de nuevo</button>
           </div>
           <div data-ui="lettersSplit" class="letters-split">
             <div class="letters-split-side">

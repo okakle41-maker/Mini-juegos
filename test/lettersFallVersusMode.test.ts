@@ -13,10 +13,11 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
  * simular ese join disparando manualmente el callback capturado acá
  * — ver `simulateRivalJoined` más abajo.
  */
-const { sendGameEvent, createRoomMatch, joinRoomMatch, onRoomUpdate, leaveRoomMatch, capturedRoomUpdateCallbacks } = vi.hoisted(() => {
+const { sendGameEvent, updateScore, createRoomMatch, joinRoomMatch, onRoomUpdate, leaveRoomMatch, capturedRoomUpdateCallbacks } = vi.hoisted(() => {
   const capturedRoomUpdateCallbacks: Array<(match: any) => void> = [];
   return {
     sendGameEvent: vi.fn(async (_type: string, _payload?: unknown) => {}),
+    updateScore: vi.fn(async (_score: number) => {}),
     createRoomMatch: vi.fn(async () => ({
       id: 'match1', gameId: 'letters', roomCode: 'QXWM',
       players: [{ id: 'me', role: 'p1' }],
@@ -59,6 +60,7 @@ vi.mock('../js/multiplayerSystem', () => ({
     createRoomMatch,
     joinRoomMatch,
     sendGameEvent,
+    updateScore,
     onRoomUpdate,
     leaveRoomMatch,
     finishRoomMatch: vi.fn(async () => {}),
@@ -87,6 +89,7 @@ function buildLettersUi() {
     <button data-ui="roleBack"></button>
     <button data-ui="roomCancel"></button>
     <button data-ui="start"></button>
+    <button data-ui="retry" class="hidden"></button>
     <input data-ui="lettersInput" />
     <div data-ui="lettersArea" style="width:400px;height:560px;"></div>
     <div data-ui="lettersMessage"></div>
@@ -292,5 +295,62 @@ describe('Letters Fall 1v1 (versus mode)', () => {
     expect(ui.start.disabled).toBe(false);
     expect(ui.lettersModePanel.classList.contains('hidden')).toBe(false);
     expect(ui.versusChooser.classList.contains('hidden')).toBe(true);
+  });
+
+  /**
+   * Regresión: gameOver() en 1v1 llamaba a
+   * multiplayerSystem.finishRoomMatch(), que marca la sala 'completed'
+   * en la DB y limpia multiplayerSystem.currentMatch. sendGameEvent()
+   * es un no-op silencioso sin currentMatch (ver su guard), así que
+   * cualquier room.send() posterior — incluido el 'versus:start' que
+   * retry()/start() emite al reintentar — se perdía en silencio: el
+   * host reiniciaba su propio tablero pero el rival nunca se enteraba,
+   * dejando la revancha rota. El fix cambia finishRoomMatch() por
+   * updateScore() (que no toca currentMatch) en gameOver().
+   */
+  it('gameOver() en 1v1 NO llama a finishRoomMatch (rompería el reintento), reporta el score con updateScore', async () => {
+    const ui = buildLettersUi();
+    init(ui);
+    ui.modeVersus.click();
+    ui.versusCreate.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    simulateRivalJoined();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const game = GameInstanceRegistry.get<any>('letters');
+    expect(game).toBeTruthy();
+
+    updateScore.mockClear();
+    game.state.active = true;
+    game.state.score = 42;
+    game.gameOver();
+
+    expect(updateScore).toHaveBeenCalledWith(42);
+  });
+
+  it('tras gameOver(), retry() en 1v1 sigue pudiendo emitir versus:start (currentMatch no quedó limpio)', async () => {
+    const ui = buildLettersUi();
+    init(ui);
+    ui.modeVersus.click();
+    ui.versusCreate.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    simulateRivalJoined();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const game = GameInstanceRegistry.get<any>('letters');
+    expect(game).toBeTruthy();
+
+    game.state.active = true;
+    game.gameOver();
+
+    sendGameEvent.mockClear();
+    ui.retry.click();
+
+    const versusStartCalls = sendGameEvent.mock.calls.filter(([type]) => type === 'versus:start');
+    expect(versusStartCalls.length).toBe(1);
   });
 });

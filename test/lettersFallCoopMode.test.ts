@@ -19,6 +19,7 @@ function buildLettersUi() {
     <button data-ui="roleBack"></button>
     <button data-ui="roomCancel"></button>
     <button data-ui="start"></button>
+    <button data-ui="retry" class="hidden"></button>
     <input data-ui="lettersInput" />
     <div data-ui="lettersArea"></div>
     <div data-ui="lettersMessage"></div>
@@ -59,6 +60,7 @@ function buildLettersUi() {
     'roleBack',
     'roomCancel',
     'start',
+    'retry',
     'lettersInput',
     'lettersArea',
     'lettersMessage',
@@ -144,6 +146,7 @@ describe('Letters Fall coop mode', () => {
       </div>
       <button data-ui="modeVersus"></button>
       <button data-ui="start"></button>
+      <button data-ui="retry" class="hidden"></button>
       <input data-ui="lettersInput" />
       <div data-ui="lettersArea"></div>
       <div data-ui="lettersMessage"></div>

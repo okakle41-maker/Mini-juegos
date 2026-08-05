@@ -48,6 +48,7 @@ function buildLettersUi() {
     <button data-ui="roleBack"></button>
     <button data-ui="roomCancel"></button>
     <button data-ui="start"></button>
+    <button data-ui="retry" class="hidden"></button>
     <input data-ui="lettersInput" />
     <div data-ui="lettersArea" style="width:400px;height:560px;"></div>
     <div data-ui="lettersMessage"></div>
@@ -74,7 +75,7 @@ function buildLettersUi() {
   for (const selector of [
     'lettersModePanel', 'roleChooser', 'roomStatus', 'roomStatusText', 'roomCodeDisplay',
     'modeSolo', 'modeCreate', 'modeJoin', 'roleViewer', 'roleTyper', 'joinCodeRow',
-    'joinCodeInput', 'roleConfirm', 'roleBack', 'roomCancel', 'start', 'lettersInput',
+    'joinCodeInput', 'roleConfirm', 'roleBack', 'roomCancel', 'start', 'retry', 'lettersInput',
     'lettersArea', 'lettersMessage', 'lettersDifficulty', 'lettersDifficultySelect',
     'lettersScore', 'lettersBest', 'lettersLives', 'lettersCard', 'lettersControls',
     'lettersRoleBadge', 'roleChooserLabel',
@@ -276,5 +277,122 @@ describe('Letters Fall: stop() restaura el panel de selección de modo', () => {
     expect(ui.lettersModePanel.classList.contains('hidden')).toBe(false);
     expect(ui.roleChooser.classList.contains('hidden')).toBe(true);
     expect(ui.lettersModePanel.querySelector('.letters-mode-options')?.classList.contains('hidden')).toBe(false);
+  });
+});
+
+describe('Letters Fall: checkInputMatch() solo se dispara con Enter, no en cada frame', () => {
+  /**
+   * Regresión: update() llamaba a checkInputMatch() en cada frame de
+   * requestAnimationFrame (~60/s), no solo al presionar Enter. Si el
+   * texto parcial tipeado coincidía por casualidad con alguna palabra
+   * en pantalla, se "confirmaba" solo sin que el jugador apretara
+   * Enter — típicamente al escribir rápido, la palabra se borraba a
+   * mitad de tecleo. Este test simula esa carrera directamente sobre
+   * update(), sin requestAnimationFrame real.
+   */
+  it('un input parcial que coincide con una palabra en pantalla NO se borra sin Enter', () => {
+    const ui = buildLettersUi();
+    init(ui);
+    ui.modeSolo.click();
+
+    const game = GameInstanceRegistry.get<any>('letters');
+    game.reset();
+    game.spawnWord();
+    const word = game.state.words[0];
+    word.text = 'AGUA'; // palabra conocida en pantalla
+
+    // El jugador tipeó exactamente "AGUA" como paso intermedio de otra
+    // palabra más larga, sin presionar Enter todavía.
+    ui.lettersInput.value = 'AGUA';
+    ui.lettersInput.dispatchEvent(new Event('input'));
+    expect(game.state.currentInput).toBe('AGUA');
+
+    // Simula un frame de update() (sin rAF real) tal como antes lo
+    // llamaba el loop en cada frame.
+    game.state.lastTime = performance.now();
+    game.update(performance.now() + 16);
+
+    // La palabra NO debería haberse removido, ni el input limpiado,
+    // porque no hubo Enter.
+    expect(game.state.words).toContain(word);
+    expect(ui.lettersInput.value).toBe('AGUA');
+  });
+
+  it('con Enter sí se confirma la palabra coincidente', () => {
+    const ui = buildLettersUi();
+    init(ui);
+    ui.modeSolo.click();
+
+    const game = GameInstanceRegistry.get<any>('letters');
+    game.reset();
+    game.spawnWord();
+    const word = game.state.words[0];
+    word.text = 'AGUA';
+
+    ui.lettersInput.value = 'AGUA';
+    ui.lettersInput.dispatchEvent(new Event('input'));
+    ui.lettersInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+    expect(game.state.words).not.toContain(word);
+    expect(ui.lettersInput.value).toBe('');
+  });
+});
+
+describe('Letters Fall: reintentar en la misma sala tras game over', () => {
+  it('gameOver() muestra el botón "Jugar de nuevo" en modo solo', () => {
+    const ui = buildLettersUi();
+    init(ui);
+    ui.modeSolo.click();
+
+    const game = GameInstanceRegistry.get<any>('letters');
+    game.reset();
+    game.state.active = true;
+    game.state.lives = 1;
+    game.gameOver();
+
+    expect(ui.retry.classList.contains('hidden')).toBe(false);
+  });
+
+  it('retry() reinicia la partida y vuelve a ocultar el botón', () => {
+    const ui = buildLettersUi();
+    init(ui);
+    ui.modeSolo.click();
+
+    const game = GameInstanceRegistry.get<any>('letters');
+    game.reset();
+    game.state.score = 500;
+    game.state.active = true;
+    game.gameOver();
+    expect(ui.retry.classList.contains('hidden')).toBe(false);
+
+    ui.retry.click();
+
+    expect(game.state.score).toBe(0);
+    expect(game.state.active).toBe(true);
+    expect(ui.retry.classList.contains('hidden')).toBe(true);
+  });
+
+  it('en coop, retry() del viewer emite viewer:retry para rehabilitar al typer', async () => {
+    const ui = buildLettersUi();
+    init(ui);
+
+    ui.modeJoin.click();
+    ui.roleViewer.click();
+    ui.joinCodeInput.value = 'AB3C';
+    ui.joinCodeInput.dispatchEvent(new Event('input'));
+    ui.roleConfirm.click();
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const game = GameInstanceRegistry.get<any>('letters');
+    expect(game).toBeTruthy();
+
+    sendGameEvent.mockClear();
+    game.state.active = true;
+    game.gameOver();
+    game.retry();
+
+    const retryCalls = sendGameEvent.mock.calls.filter((args: any[]) => args[0] === 'viewer:retry');
+    expect(retryCalls.length).toBe(1);
   });
 });

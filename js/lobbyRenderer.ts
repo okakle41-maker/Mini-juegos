@@ -219,10 +219,25 @@ class LobbyRenderer {
       };
       card.addEventListener('click', openCard);
       card.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          openCard();
-        }
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+
+        // Si el foco está en el botón de favoritos (un <button> real,
+        // anidado dentro de la card y focuseable de forma independiente
+        // por teclado), Enter/Espacio ahí lo activa de forma nativa: el
+        // navegador dispara su propio evento 'click' sobre el botón, que
+        // sí hace stopPropagation() (ver el listener de favBtn más
+        // abajo). Pero el propio 'keydown' burbujea hasta la card ANTES
+        // de que el navegador sintetice ese click, y sin este chequeo el
+        // handler de la card lo interpretaba igual como "activar la
+        // card completa" — abriendo el juego (openCard()) además de
+        // marcar/desmarcar el favorito, cuando el usuario solo quería
+        // lo segundo. e.target es el elemento real donde ocurrió la
+        // tecla (no se ve afectado por bubbling), así que basta con
+        // excluir el botón de favoritos del comportamiento de la card.
+        if (e.target instanceof HTMLElement && e.target.closest('.card-favorite-btn')) return;
+
+        e.preventDefault();
+        openCard();
       });
 
       // Precarga el chunk de la lógica pesada del juego (si es lazy) en

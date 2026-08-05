@@ -503,4 +503,50 @@ describe('GameRegistry.prefetch — precarga en hover/focus', () => {
 
     expect(logic).toHaveBeenCalledTimes(2);
   });
+
+  /**
+   * Regresión: cuando `ensureInit(id)` llama a `game.logic()`
+   * directamente (sin que un `prefetch()` previo la haya disparado ya),
+   * el `catch` de ensureInit solo loguea el error — no limpia
+   * `logicPromises`, a diferencia del `.catch()` de `prefetch()` que sí
+   * lo hace. Eso deja la promesa RECHAZADA cacheada para siempre: un
+   * segundo `ensureInit(id)` reutiliza esa misma promesa ya fallida
+   * (ver el `let logicPromise = this.logicPromises.get(id)`) en vez de
+   * reintentar `game.logic()`, así que el juego queda permanentemente
+   * roto para esa sesión aunque el problema original (red, chunk) haya
+   * sido transitorio.
+   */
+  it('un error en el import() durante ensureInit (sin prefetch previo) permite reintentar', async () => {
+    const { default: GameRegistry } = await import('../js/core/gameRegistry');
+
+    let attempts = 0;
+    const logic = vi.fn(async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error('fallo de red simulado');
+      return { init: vi.fn(), stop: vi.fn() };
+    });
+
+    GameRegistry.register({
+      id: 'ensureinit-flaky',
+      name: 'EnsureInit Flaky',
+      tag: 'TEST',
+      accent: '#000',
+      icon: '⏩',
+      num: '00',
+      description: 'primer intento de ensureInit falla, el segundo debe funcionar',
+      difficulty: 1,
+      init: () => {},
+      stop: () => {},
+      logic,
+    });
+
+    await GameRegistry.ensureInit('ensureinit-flaky');
+    expect(logic).toHaveBeenCalledTimes(1);
+
+    // Reintento (p.ej. el jugador vuelve a entrar a la vista tras el
+    // error) debe volver a llamar a logic(), no reusar la promesa
+    // rechazada del primer intento.
+    await GameRegistry.ensureInit('ensureinit-flaky');
+    expect(logic).toHaveBeenCalledTimes(2);
+  });
 });

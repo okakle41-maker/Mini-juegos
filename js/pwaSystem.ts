@@ -204,7 +204,24 @@ class PWASystem {
 
   // App Shortcuts
   setupAppShortcuts(): void {
-    if (!('navigator' in window) || !('installPrompt' in (window as any))) return;
+    // Antes este guard chequeaba `'installPrompt' in window`, una
+    // propiedad que nunca se define en ningún lado del código — lo que
+    // sí se guarda en window es `deferredPrompt` (ver el listener de
+    // 'beforeinstallprompt' más abajo), bajo otro nombre. Como
+    // `installPrompt` jamás existe, este método retornaba siempre de
+    // forma temprana y los shortcuts de la app nunca se registraban,
+    // sin importar si la PWA estaba instalada o no.
+    //
+    // Además, condicionar esto a `deferredPrompt` tampoco sería
+    // correcto: ese evento solo se dispara ANTES de instalar la app
+    // (mientras el navegador ofrece el prompt), y una vez instalada
+    // (el caso que este método realmente maneja, ver el chequeo de
+    // display-mode inmediatamente abajo) el navegador ya no lo vuelve
+    // a disparar en cargas futuras. El único guard que hace falta acá
+    // es que `navigator` exista, que ya está garantizado por el
+    // llamador (init() solo entra a este bloque dentro de
+    // `if ('serviceWorker' in navigator)`).
+    if (typeof navigator === 'undefined') return;
 
     // Detectar si la app está instalada
     if (window.matchMedia('(display-mode: standalone)').matches) {
@@ -213,7 +230,20 @@ class PWASystem {
   }
 
   private registerShortcuts(): void {
-    if (!('navigator' in window) || !(window as any).userActivation) return;
+    // Antes este guard chequeaba `(window as any).userActivation`, que
+    // no existe: la API real es `navigator.userActivation` (un objeto
+    // con `.isActive`/`.hasBeenActive`, no algo en `window`). Al buscar
+    // la propiedad en el objeto equivocado, esto siempre daba
+    // `undefined` y registerShortcuts() retornaba temprano en el 100%
+    // de los casos — los shortcuts de la app nunca llegaban a
+    // registrarse desde ninguno de sus 3 call sites (arranque de la
+    // PWA instalada, justo tras instalar, y al habilitar shortcuts en
+    // configuración). Ninguno de esos call sites tiene relación con
+    // "el usuario interactuó recientemente" (que es lo que
+    // userActivation representaría de todas formas, y ni siquiera como
+    // booleano), así que el chequeo correcto es solo la disponibilidad
+    // real de la API que se usa a continuación.
+    if (!('navigator' in window) || !navigator.serviceWorker) return;
 
     // Registrar shortcuts (Chrome/Edge)
     if (navigator.serviceWorker) {

@@ -672,11 +672,41 @@ class AchievementManager {
         currentValue = this.userProgress.get('total_time_played') || 0;
         break;
       case 'sequential':
-        currentValue = this.userProgress.get('sequential_progress') || 0;
+        // Antes leía la clave fija 'sequential_progress', que
+        // trackSequentialProgress() nunca escribe: esa función guarda
+        // bajo `sequential_${chainId}` (una clave por cadena, ya que
+        // puede haber varias cadenas de logros en paralelo). El
+        // mismatch hacía que la barra de progreso de logros
+        // secuenciales (chain_master_1/2/3) se quedara siempre en 0%
+        // hasta que el logro se desbloqueaba de golpe. Derivamos el
+        // chainId del propio id del logro quitando el sufijo numérico
+        // final (p.ej. 'chain_master_2' -> 'chain_master'), que es el
+        // patrón usado por los ids de esta cadena.
+        currentValue = this.userProgress.get(
+          `sequential_${achievement.id.replace(/_\d+$/, '')}`
+        ) || 0;
         break;
       case 'game_specific':
         if (req.gameId) {
-          currentValue = this.userProgress.get(`game_progress_${req.gameId}`) || 0;
+          // Antes esto siempre leía `game_progress_${gameId}` (el
+          // conteo de partidas jugadas de ese juego), sin mirar
+          // `req.condition`. Para condiciones no acumulativas basadas
+          // en cantidad de partidas eso es correcto (p.ej. 'rounds'
+          // vía newProgress >= value en trackGameSpecificProgress),
+          // pero para condiciones como 'avg_reaction' (arrow_speed: el
+          // requisito es que el promedio sea MENOR a value, no mayor,
+          // y no depende de cuántas partidas se jugaron) o 'perfect'
+          // (booleano, no acumulativo) el resultado no tenía relación
+          // alguna con el requisito real y podía mostrar barras de
+          // progreso sin sentido. Estas condiciones no tienen un
+          // "progreso parcial" bien definido con los datos que
+          // guardamos hoy, así que se muestran como 0% hasta
+          // desbloquearse (barra vacía) en vez de un número inventado.
+          if (req.condition === 'avg_reaction' || req.condition === 'perfect') {
+            currentValue = achievement.unlocked ? req.value : 0;
+          } else {
+            currentValue = this.userProgress.get(`game_progress_${req.gameId}`) || 0;
+          }
         }
         break;
       default:

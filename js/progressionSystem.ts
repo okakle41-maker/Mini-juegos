@@ -323,6 +323,7 @@ class ProgressionSystem {
     if (now - this.lastQuestReset > oneDay) {
       this.generateDailyQuests();
       this.lastQuestReset = now;
+      this.streakCountedToday = false;
       this.saveProgress();
     }
   }
@@ -552,18 +553,40 @@ class ProgressionSystem {
     }));
   }
 
+  // Recuerda si ya se sumó el streak del día actual, para no
+  // incrementarlo más de una vez por día — ver el bug descripto abajo.
+  private streakCountedToday: boolean = false;
+
   private updateStreak(): void {
     const today = new Date().setHours(0, 0, 0, 0);
     const lastReset = this.lastQuestReset;
     const oneDay = 24 * 60 * 60 * 1000;
-    
+
     const daysSinceLastReset = Math.floor((today - lastReset) / oneDay);
-    
-    if (daysSinceLastReset <= 1) {
+
+    // Bug anterior: completeQuest() llama a updateStreak() cada vez
+    // que se completa UNA quest, y en un día normal el jugador puede
+    // completar varias (hasta 5 quests diarias). Con
+    // `daysSinceLastReset <= 1` cada una de esas quests incrementaba
+    // el streak por separado — 3 quests completadas el mismo día
+    // sumaban +3 al streak en vez de +1 por día. El guard
+    // `streakCountedToday` asegura que, dentro del mismo período de
+    // quests (mismo `lastQuestReset`), el streak solo se incremente
+    // una vez sin importar cuántas quests se completen.
+    if (daysSinceLastReset === 0) {
+      if (!this.streakCountedToday) {
+        this.streak++;
+        this.streakCountedToday = true;
+      }
+      return;
+    }
+
+    if (daysSinceLastReset === 1) {
       this.streak++;
     } else {
       this.streak = 1;
     }
+    this.streakCountedToday = true;
   }
 
   getStreak(): number {

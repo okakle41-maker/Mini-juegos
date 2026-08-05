@@ -92,7 +92,17 @@ function performSearch(query: string, grid: HTMLElement): void {
 
   cards.forEach((card) => {
     const name = card.querySelector('.card-name')?.textContent?.toLowerCase() || '';
-    const category = card.querySelector('.card-category')?.textContent?.toLowerCase() || '';
+    // '.card-category' nunca existe en las cards reales que genera
+    // lobbyRenderer.ts — esa clase solo aparece en el CSS del estado
+    // "--loading" (skeleton placeholder, ver styles.css), no en el
+    // markup real de una card renderizada. La clase que sí lleva la
+    // categoría/tag visible ("MEMORIA", "REFLEJOS", etc., ver
+    // buildCardHTML en lobbyRenderer.ts) es '.card-tag'. Con el
+    // selector equivocado, `category` siempre era '' y buscar por
+    // categoría en el buscador del lobby nunca encontraba nada, aunque
+    // el usuario ve esa etiqueta en pantalla y esperaría poder
+    // filtrar/buscar por ella.
+    const category = card.querySelector('.card-tag')?.textContent?.toLowerCase() || '';
     const description = card.querySelector('.card-desc')?.textContent?.toLowerCase() || '';
     
     const searchableText = `${name} ${category} ${description}`;
@@ -148,14 +158,39 @@ function updateFavCount(): void {
 function initFavoritesCounter(): void {
   updateFavCount();
 
-  // Se recalcula tras cada click en una estrella de favorito. Delegado en
-  // #gameList (ancestro): al burbujear, el propio toggle de Favorites ya
-  // corrió en el listener del botón, así que aquí el conteo ya es el nuevo.
+  // Se recalcula tras cada click en una estrella de favorito.
+  //
+  // Bug real anterior: este listener estaba delegado en #gameList
+  // escuchando la fase de burbujeo (comportamiento por defecto de
+  // addEventListener). Pero favBtn.addEventListener('click', ...) en
+  // lobbyRenderer.ts llama e.stopPropagation() para evitar que el
+  // click en la estrella también abra el juego (evento de la card
+  // padre) — y stopPropagation() corta la propagación hacia TODOS los
+  // ancestros, incluido #gameList. El click nunca llegaba a burbujear
+  // hasta acá, así que el contador de favoritos del sidebar nunca se
+  // actualizaba al tocar una estrella (solo mostraba el valor de la
+  // carga inicial).
+  //
+  // Fix: escuchar en la FASE DE CAPTURA (tercer argumento `true`). La
+  // captura baja de document hacia el target ANTES de que el target
+  // dispare su propio listener y llame stopPropagation() — en esta
+  // fase el evento ya "pasó" por #gameList antes de que exista la
+  // oportunidad de cortarlo, así que no se ve afectado por ese
+  // stopPropagation() posterior en fase de burbujeo.
+  //
+  // Ojo: la fase de captura en #gameList se ejecuta ANTES que el
+  // listener del propio favBtn (que es donde ocurre
+  // Favorites.toggle(gameId), en fase de burbujeo sobre el target).
+  // Leer el conteo de forma síncrona acá vería el valor viejo, previo
+  // al toggle. Se agenda updateFavCount() para el siguiente microtask
+  // (Promise.resolve().then), momento en el que el toggle síncrono ya
+  // se ejecutó pero antes de que el usuario pueda interactuar de
+  // nuevo.
   document.getElementById('gameList')?.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('.card-favorite-btn')) {
-      updateFavCount();
+      Promise.resolve().then(updateFavCount);
     }
-  });
+  }, true);
 }
 
 function init(): void {

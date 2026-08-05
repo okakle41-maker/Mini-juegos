@@ -5,6 +5,8 @@
 
 import safeStorage from './core/safeStorage.js';
 import { submitScore } from './globalScores.js';
+import achievementManager from './achievements.js';
+import progressionSystem from './progressionSystem.js';
 
 export interface LeaderboardEntry {
   value: number;
@@ -82,14 +84,68 @@ export class LeaderboardManager {
       meta: entryMeta
     });
 
-    // Mantener solo los mejores N
+    // Mantener solo los mejores N por VALOR, no los N más recientes —
+    // pero preservando el orden cronológico (más reciente primero) del
+    // array resultante, del que dependen otros módulos (ver
+    // lobbyRenderer.ts: lastPlayedOf() lee get(gameId)[0] asumiendo que
+    // es la partida más reciente).
+    //
+    // Antes, `entries.length = maxEntries` cortaba el array tal cual
+    // quedaba tras el unshift() de arriba — como cada partida nueva
+    // entra al frente, eso conservaba las `maxEntries` partidas más
+    // RECIENTES, no las de mayor puntaje (pese a que el comentario de
+    // este método decía "mejores N"). Un récord histórico alto se
+    // perdía en silencio en cuanto el jugador acumulaba `maxEntries`
+    // partidas más sin volver a superarlo: caía fuera del array
+    // recortado y getBest()/el badge del lobby empezaban a reportar un
+    // valor menor al verdadero mejor histórico.
+    //
+    // Fix: se identifican las `maxEntries` entradas de mayor `value`
+    // (ordenando una copia, nunca el array real) y se recorta
+    // preservando el orden cronológico original entre esas elegidas.
     const maxEntries = this.configs[gameKey]?.maxEntries ?? 10;
     if (entries.length > maxEntries) {
-      entries.length = maxEntries;
+      const keep = new Set(
+        [...entries]
+          .sort((a, b) => b.value - a.value)
+          .slice(0, maxEntries)
+      );
+      this.data[gameKey] = entries.filter((entry) => keep.has(entry));
     }
 
     this.saveToStorage();
     this.renderBadges();
+
+    // Conecta cada partida jugada con los sistemas de logros y
+    // progresión. Antes de este cambio, `save()` (el único punto que
+    // los 23 juegos llaman al terminar una partida) no avisaba ni a
+    // achievementManager ni a progressionSystem: sus métodos de
+    // tracking (trackGamePlayed, updateQuestProgress, addXP, etc.)
+    // nunca se invocaban desde ningún lado del código productivo. El
+    // resultado era que toda la UI de logros y progresión (niveles,
+    // XP, skill tree, daily quests) funcionaba perfectamente pero
+    // nunca avanzaba: un jugador podía jugar cientos de partidas y
+    // seguir en nivel 1 con todos los logros bloqueados.
+    //
+    // Solo enganchamos acá lo que se puede derivar honestamente de los
+    // datos que `save()` realmente tiene (gameKey, value, isNewRecord):
+    // partida jugada, quests de tipo "jugar N partidas"/"jugar este
+    // juego"/"alcanzar X puntos", y XP base por partida. Dejamos
+    // afuera trackGameCompleted() de achievements.ts (que exige
+    // `duration` y `perfect`, datos que esta capa no tiene de forma
+    // confiable) para no inventar esos valores — un juego que sí sepa
+    // su duración real y si fue perfecto puede llamarlo directo.
+    try {
+      achievementManager.trackGamePlayed(gameKey);
+      progressionSystem.updateQuestProgress('play_games', 1);
+      progressionSystem.updateQuestProgress('play_specific', 1, gameKey);
+      progressionSystem.updateQuestProgress('high_score', value, gameKey);
+      progressionSystem.addXP(10, gameKey);
+    } catch (error) {
+      // No dejamos que un fallo en logros/progresión (p.ej. localStorage
+      // lleno) impida que se guarde el score, que es lo esencial.
+      window.ErrorLogger?.log('leaderboardManager.save.progressionHook', error, { gameKey });
+    }
 
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
       window.dispatchEvent(new CustomEvent('leaderboard:updated', { detail: { gameKey, value, isNewRecord } }));

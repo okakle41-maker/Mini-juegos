@@ -285,6 +285,16 @@ class GameRegistry implements GameRegistryInterface {
       devLog(`[GameRegistry] Inicializado: ${game.name}`);
     } catch (error) {
       window.ErrorLogger?.log('GameRegistry.ensureInit', error, { id });
+      // Sin esto, una promesa RECHAZADA de game.logic() quedaba
+      // cacheada en logicPromises para siempre: un reintento posterior
+      // (el jugador vuelve a entrar a la vista tras un error de red o
+      // un chunk que falló) reutilizaba esa misma promesa ya fallida
+      // en vez de volver a invocar logic(), dejando el juego roto por
+      // el resto de la sesión aunque la causa original fuera
+      // transitoria. `prefetch()` ya limpiaba esto en su propio
+      // `.catch()`, pero `ensureInit` puede llegar acá sin haber
+      // pasado por prefetch (click directo sin hover previo).
+      this.logicPromises.delete(id);
     }
   }
 

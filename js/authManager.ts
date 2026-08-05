@@ -370,6 +370,23 @@ class AuthManager {
       if (profileError) {
         // Constraint de unicidad case-insensitive violado, u otro fallo de
         // inserción — el username ya estaba tomado en otra capitalización.
+        //
+        // En este punto ya existe una sesión de Supabase Auth activa y
+        // persistida (data.session del signUp de arriba era truthy) para
+        // una cuenta que nunca va a tener fila en profiles — no hay forma
+        // de revertir el signUp desde el cliente. Sin este signOut, esa
+        // sesión huérfana quedaba viva: this.currentUser se queda en
+        // null acá (por eso el registro se ve "fallido" a nivel UI), pero
+        // el token seguía persistido, y sobre todo el email sintético
+        // (usuario@minijuegos.local) quedaba tomado en auth.users para
+        // siempre — cualquier reintento posterior de registrarse con ESE
+        // MISMO username fallaría con "already registered" incluso si el
+        // primer intento nunca llegó a tener un perfil usable. Se ignora
+        // el resultado de signOut() a propósito: si también falla (p.ej.
+        // sin red en este instante), igual currentUser sigue en null y el
+        // usuario ve el mismo error; el token simplemente dejará de
+        // usarse la próxima vez que haya red.
+        await this.withSelfInitiatedAuthChange(() => supabase.auth.signOut()).catch(() => {});
         return { ok: false, error: 'Ese nombre de usuario ya está en uso.' };
       }
 

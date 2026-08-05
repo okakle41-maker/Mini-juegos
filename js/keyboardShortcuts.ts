@@ -131,10 +131,16 @@ keyboardShortcuts.register({
   key: 'escape',
   description: 'Cerrar vista actual / volver al lobby',
   handler: (e) => {
-    // Implementar lógica para cerrar modales o volver al lobby
-    const viewManager = (window as any).viewManager;
-    if (viewManager && typeof viewManager.showView === 'function') {
-      viewManager.showView('home');
+    // `window.viewManager` nunca existió: ViewManagerInstance se
+    // expone en window como `window.showView`/`window.backToMenu`
+    // (ver el final de core/viewManager.ts), no como una propiedad
+    // `viewManager`. Con la referencia vieja, `viewManager` siempre
+    // era `undefined` y este atajo no hacía nada — Escape nunca volvía
+    // al lobby en ninguna vista, silenciosamente, porque el `if` de
+    // abajo jamás llegaba a ser verdadero.
+    const backToMenu = (window as any).backToMenu;
+    if (typeof backToMenu === 'function') {
+      backToMenu();
     }
   }
 });

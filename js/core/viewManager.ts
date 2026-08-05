@@ -32,39 +32,52 @@ export interface ViewManagerInterface {
 
 class ViewManager implements ViewManagerInterface {
   private currentViewId: string | null = null;
-  private loadingViews = new Set<string>();
 
   /**
    * Si la vista tiene `data-lazy`, trae su template vía import() dinámico
    * y lo inyecta. Idempotente: no vuelve a pedir el import si ya se cargó
    * o está en curso.
    */
+  /** Promesas de carga en curso por id de vista — permite que una
+   *  segunda navegación al mismo id mientras la primera carga todavía
+   *  está en vuelo (p.ej. A→B→A rápido) espere esa misma promesa en
+   *  vez de resolver de inmediato con el HTML todavía sin hidratar
+   *  (ver el guard `if (this.loadingViews.has(id)) return;` de antes,
+   *  que dejaba a un segundo showView(id) creyendo que la carga ya
+   *  había terminado). */
+  private loadingPromises = new Map<string, Promise<void>>();
+
   private async loadLazyView(targetView: HTMLElement): Promise<void> {
     const src = targetView.dataset.lazy;
     if (!src) return;
 
     const id = targetView.id;
-    if (this.loadingViews.has(id)) return;
-    this.loadingViews.add(id);
+    const inFlight = this.loadingPromises.get(id);
+    if (inFlight) return inFlight;
 
-    try {
-      const loadTemplate = viewTemplates[id];
-      if (!loadTemplate) throw new Error(`No hay template registrado para la vista "${id}"`);
+    const promise = (async () => {
+      try {
+        const loadTemplate = viewTemplates[id];
+        if (!loadTemplate) throw new Error(`No hay template registrado para la vista "${id}"`);
 
-      const mod = await loadTemplate();
-      targetView.innerHTML = mod.default();
-      delete targetView.dataset.lazy;
-      hydrateBackButtons(targetView);
-    } catch (error) {
-      window.ErrorLogger?.log('ViewManager.loadLazyView', error, { viewId: id, src });
-      targetView.innerHTML = `
-        <div class="back-btn" onclick="window.backToMenu()">← Volver</div>
-        <p style="padding:2rem;text-align:center;opacity:.7;">
-          No se pudo cargar este minijuego. Revisa tu conexión e inténtalo de nuevo.
-        </p>`;
-    } finally {
-      this.loadingViews.delete(id);
-    }
+        const mod = await loadTemplate();
+        targetView.innerHTML = mod.default();
+        delete targetView.dataset.lazy;
+        hydrateBackButtons(targetView);
+      } catch (error) {
+        window.ErrorLogger?.log('ViewManager.loadLazyView', error, { viewId: id, src });
+        targetView.innerHTML = `
+          <div class="back-btn" onclick="window.backToMenu()">← Volver</div>
+          <p style="padding:2rem;text-align:center;opacity:.7;">
+            No se pudo cargar este minijuego. Revisa tu conexión e inténtalo de nuevo.
+          </p>`;
+      } finally {
+        this.loadingPromises.delete(id);
+      }
+    })();
+
+    this.loadingPromises.set(id, promise);
+    return promise;
   }
 
   /**
@@ -101,7 +114,22 @@ class ViewManager implements ViewManagerInterface {
       // El HTML del juego aún no existe en el DOM: pedirlo primero y
       // solo entonces resolver `ui` e inicializar (resolveUi necesita
       // los elementos `data-ui` ya presentes).
-      this.loadLazyView(targetView).then(initGame);
+      //
+      // Antes, esta promesa encadenaba `.then(initGame)` sin ninguna
+      // verificación posterior: si el usuario navegaba a otra vista B
+      // mientras el import() de A todavía estaba en curso (dos clicks
+      // rápidos en el lobby), currentViewId ya valía 'B' para cuando A
+      // terminaba de cargar, pero initGame() para 'A' se ejecutaba
+      // igual — inicializando (rAF loops, listeners, timers) un juego
+      // que el usuario ya no estaba viendo y que nadie iba a detener
+      // con stopGame (que solo se dispara al ENTRAR a la siguiente
+      // vista, no al abandonar la actual a mitad de una carga
+      // pendiente). El guard de abajo descarta esa inicialización
+      // fantasma si, para cuando la carga termina, esta vista ya dejó
+      // de ser la actual.
+      this.loadLazyView(targetView).then(() => {
+        if (this.currentViewId === id) initGame();
+      });
     } else {
       initGame();
     }

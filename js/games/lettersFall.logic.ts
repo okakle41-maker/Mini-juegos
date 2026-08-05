@@ -152,6 +152,7 @@ const VERSUS_GENERATOR_ROLE: CoopRole = 'p1';
 
 interface LettersFallUi {
   start: HTMLButtonElement;
+  retry: HTMLButtonElement;
   lettersInput: HTMLInputElement;
   lettersArea: HTMLElement;
   lettersMessage: HTMLElement;
@@ -352,6 +353,27 @@ class LettersFallGame {
     }
   }
 
+  /**
+   * Reinicia la partida en la MISMA sala tras un game over — a
+   * diferencia de `start()`, oculta el botón "Jugar de nuevo" que
+   * `gameOver()` reveló y, en coop, le avisa al typer para que
+   * rehabilite su input (que `viewer:gameover` había deshabilitado)
+   * en vez de quedar bloqueado para siempre. En 1v1 cada lado
+   * reintenta con su propio click de "Jugar de nuevo" — no hace falta
+   * coordinar el arranque como con `versus:start`, ya que a
+   * diferencia del primer inicio (que si no se coordina hace que las
+   * palabras del generador empiecen a caer antes de que 'p2' esté
+   * mirando), acá ambos tableros ya están montados y listos.
+   */
+  retry() {
+    this.start();
+    if (this.role === 'viewer' && this.room) {
+      this.room.send('viewer:retry', {}).catch((error) => {
+        ErrorLogger.log('lettersFall.retry.notifyPeer', error);
+      });
+    }
+  }
+
   reset() {
     // Antes: reset() no ponía active=false, así que si stop() se
     // llamaba mientras el juego estaba en curso (sin haber perdido
@@ -367,6 +389,11 @@ class LettersFallGame {
     this.state.currentInput = '';
     this.ui.lettersInput.value = '';
     this.ui.lettersArea.classList.remove('letters-flash');
+    // Oculta "Jugar de nuevo" acá (no solo en retry()) para cubrir
+    // también el primer start() de la partida, por si gameOver()
+    // llegó a mostrarlo en algún estado previo que reset() no haya
+    // limpiado por otro camino.
+    this.ui.retry.classList.add('hidden');
     // wordSpeed/spawnInterval quedaban en su default de 0 (ver
     // constructor) y nunca se pisaban con la config de dificultad
     // elegida: las palabras se instanciaban con speed:0 en
@@ -521,8 +548,16 @@ class LettersFallGame {
       }
     }
 
+    // checkInputMatch() se llama SOLO al presionar Enter (ver
+    // wireDifficultyAndInput/listenForTyperInput) — antes se llamaba
+    // acá en cada frame de update() (~60/s), así que cualquier valor
+    // parcial tipeado que por casualidad coincidiera con el texto
+    // completo de una palabra en pantalla se "confirmaba" solo, sin
+    // que el jugador hubiera apretado Enter. Escribiendo rápido eso
+    // pasaba seguido: el input se vaciaba a mitad de la palabra
+    // siguiente en cuanto el texto parcial calzaba con alguna palabra
+    // cayendo. Sacar la llamada de acá es el fix.
     this.checkDangerZone();
-    this.checkInputMatch();
 
     if (this.state.lives <= 0) {
       this.gameOver();
@@ -615,6 +650,18 @@ class LettersFallGame {
     this.ui.lettersMessage.textContent = 'GAME OVER';
     this.ui.lettersMessage.classList.add('fail');
     if (window.Leaderboard) window.Leaderboard.save('letters', this.state.score);
+    // Antes no había forma de volver a jugar en la misma sala: el
+    // botón "Iniciar" no se volvía a mostrar tras game over (queda
+    // oculto/deshabilitado desde que arrancó la partida, ver
+    // startGameCard/wireVersusMode) y el typer quedaba con el input
+    // deshabilitado para siempre (ver viewer:gameover en
+    // startTyperMode). Mostrar "Jugar de nuevo" acá, en todos los
+    // roles con tablero propio ('solo'/'viewer'/'p1'/'p2'), es el
+    // punto de entrada para reintentar sin salir de la sala.
+    if (this.role !== 'typer') {
+      this.ui.retry.classList.remove('hidden');
+      this.ui.retry.disabled = false;
+    }
     if (this.role === 'viewer' && this.room) {
       this.room.send('viewer:gameover', { score: this.state.score }).catch((error) => {
         ErrorLogger.log('lettersFall.gameOver.notifyPeer', error);
@@ -629,12 +676,19 @@ class LettersFallGame {
       this.room.send('versus:gameover', { score: this.state.score }).catch((error) => {
         ErrorLogger.log('lettersFall.gameOver.notifyVersusPeer', error);
       });
-      // Reporta el score final a multiplayerSystem para que decida el
-      // ganador (mismo mecanismo que finishRoomMatch/endMatch ya usan
-      // para el resto de la sala — ver multiplayerSystem.ts) cuando
-      // ambos lados hayan reportado el suyo.
-      void multiplayerSystem.finishRoomMatch(this.state.score).catch((error: unknown) => {
-        ErrorLogger.log('lettersFall.gameOver.finishRoomMatch', error);
+      // Reporta el score final vía updateScore() (no finishRoomMatch):
+      // finishRoomMatch() marca la sala 'completed' en la DB y limpia
+      // multiplayerSystem.currentMatch — eso rompía por completo el
+      // botón "Jugar de nuevo" en 1v1, porque room.send() (usado por
+      // start()/spawnWord() del reintento) depende de currentMatch y
+      // se volvía un no-op silencioso una vez limpio, dejando al rival
+      // sin recibir ninguna palabra ni estado de la revancha. Con
+      // updateScore(), el score queda guardado en `scores` (por si el
+      // jugador termina abandonando sin reintentar — ver leave() más
+      // abajo, que si cierra la sala) pero la sala sigue 'playing' y
+      // disponible para un retry() inmediato en el mismo room.
+      void multiplayerSystem.updateScore(this.state.score).catch((error: unknown) => {
+        ErrorLogger.log('lettersFall.gameOver.updateScore', error);
       });
     }
   }
@@ -733,6 +787,8 @@ function wireDifficultyAndInput(ui: LettersFallUi, game: LettersFallGame) {
     if (isVersusRole(game.role) && game.role !== VERSUS_GENERATOR_ROLE) return;
     game.start();
   });
+
+  ui.retry.addEventListener('click', () => game.retry());
 
   ui.lettersInput.addEventListener('input', (event: Event) => {
     const value = (event.target as HTMLInputElement).value;
@@ -927,6 +983,19 @@ function startTyperMode(ui: LettersFallUi, room: RoomSession) {
       ui.lettersInput.disabled = true;
       void score;
     }),
+    // Antes no existía ningún evento de reintento, así que
+    // ui.lettersInput.disabled quedaba en true para siempre tras el
+    // primer game over de la sala — el typer no podía volver a
+    // escribir ni aunque el viewer arrancara una partida nueva. Este
+    // handler responde al `viewer:retry` que LettersFallGame.retry()
+    // emite (ver más arriba) y deja al typer listo para la revancha.
+    room.on('viewer:retry', () => {
+      ui.lettersInput.disabled = false;
+      ui.lettersInput.value = '';
+      ui.lettersMessage.textContent = '';
+      ui.lettersMessage.className = 'letters-message';
+      ui.lettersInput.focus();
+    }),
   ];
 
   GameInstanceRegistry.set('letters', {
@@ -947,6 +1016,13 @@ function listenForTyperInput(room: RoomSession, game: LettersFallGame) {
   room.on('typer:input', (payload) => {
     const { value } = payload as { value: string };
     game.state.currentInput = value;
+    // checkInputMatch() se llama ACÁ, en cuanto llega el evento, y ya
+    // no depende del próximo frame de requestAnimationFrame del
+    // viewer (antes update() la llamaba una vez por frame, ~60/s —
+    // ver el comentario en update()). Elimina hasta ~16ms de espera
+    // extra encima del round-trip real a Supabase, que es la parte
+    // del delay que no se puede evitar del todo (dos clientes reales
+    // sincronizados por DB, no un solo dispositivo).
     game.checkInputMatch();
   });
 }
@@ -1227,5 +1303,7 @@ export function stop() {
     ui.lettersRivalSide?.classList.add('hidden');
     if (ui.start) (ui.start as HTMLButtonElement).disabled = false;
     ui.start?.classList.remove('hidden');
+    ui.retry?.classList.add('hidden');
+    if (ui.retry) (ui.retry as HTMLButtonElement).disabled = false;
   }
 }
