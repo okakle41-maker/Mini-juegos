@@ -1545,69 +1545,29 @@ button {
   }
 }
 
-/* Antes: `filter: blur(18px)` recalculado en CADA FRAME de una
-   animación `infinite` que nunca se detiene mientras el lobby está
-   abierto — 3 elementos (.beam-1/2/3) de 120% de alto cada uno.
-   `filter: blur()` animado NO es compositable por GPU de forma
-   barata: el navegador tiene que repintar el blur sobre toda la
-   región afectada en cada frame, sin importar hover ni ninguna otra
-   interacción del usuario. Esto corría 24/7 en segundo plano y era la
-   explicación de por qué el ratio Rendering/segundo se mantenía fijo
-   (~565ms de Rendering por cada segundo grabado) incluso después de
-   arreglar el `will-change` de las cards: las cards nunca fueron el
-   cuello de botella dominante, este fondo sí.
-
-   Fix: el desenfoque ahora está "pre-cocinado" directamente en el
-   gradiente (varias paradas de color con transiciones suaves en vez
-   de un borde nítido + blur), así el navegador solo compone una
-   textura estática. Lo único que se anima por frame es `transform`
-   (translateX) + `opacity`, ambas compositables por GPU sin
-   recalcular pintura. */
+/* NOTA: se intentó reemplazar `filter: blur()` por un gradiente
+   "pre-cocinado" para bajar el costo de Rendering en reposo, pero:
+   (a) un gradiente lineal solo difumina en un eje y producía una
+   franja sólida en vez de un haz de luz (bug visual), y (b) el fondo
+   `.beam` NO es la causa del problema real reportado por el usuario
+   — este corre igual con o sin hover, y el síntoma real es un pico
+   que sube y baja específicamente con hover rápido sobre las cards
+   (ver fixes de `.game-card` / `contain` / `will-change` más abajo en
+   este archivo y en lobbyRenderer.ts). Se revierte a la versión
+   original con `filter: blur()`, correcta visualmente, para no
+   introducir una regresión nueva mientras se ataca el problema real. */
 .beam {
   position: absolute;
   top: -10%;
-  width: 36px;
+  width: 2px;
   height: 120%;
+  filter: blur(18px);
   opacity: 0;
   animation: beam-sweep 12s ease-in-out infinite;
-  will-change: transform, opacity;
 }
-.beam-1 {
-  left: calc(18% - 17px);
-  background: linear-gradient(to bottom,
-    transparent 0%,
-    transparent 30%,
-    rgba(249,115,22,0.16) 42%,
-    rgba(249,115,22,0.42) 50%,
-    rgba(249,115,22,0.16) 58%,
-    transparent 70%,
-    transparent 100%);
-  animation-delay: 0s;
-}
-.beam-2 {
-  left: calc(54% - 17px);
-  background: linear-gradient(to bottom,
-    transparent 0%,
-    transparent 30%,
-    rgba(255,154,60,0.12) 42%,
-    rgba(255,154,60,0.32) 50%,
-    rgba(255,154,60,0.12) 58%,
-    transparent 70%,
-    transparent 100%);
-  animation-delay: 4s;
-}
-.beam-3 {
-  left: calc(82% - 17px);
-  background: linear-gradient(to bottom,
-    transparent 0%,
-    transparent 30%,
-    rgba(194,65,12,0.1) 42%,
-    rgba(194,65,12,0.28) 50%,
-    rgba(194,65,12,0.1) 58%,
-    transparent 70%,
-    transparent 100%);
-  animation-delay: 8s;
-}
+.beam-1 { left: 18%; background: linear-gradient(to bottom, transparent, rgba(249,115,22,0.42), transparent); animation-delay: 0s; }
+.beam-2 { left: 54%; background: linear-gradient(to bottom, transparent, rgba(255,154,60,0.32), transparent); animation-delay: 4s; }
+.beam-3 { left: 82%; background: linear-gradient(to bottom, transparent, rgba(194,65,12,0.28), transparent); animation-delay: 8s; }
 
 @keyframes beam-sweep {
   0%   { opacity: 0; transform: translateX(-50px); }
