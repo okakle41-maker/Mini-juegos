@@ -102,8 +102,7 @@
   transform: translateY(-3px) scale(1.01);
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent),
-    0 0 40px color-mix(in srgb, var(--accent) 35%, transparent),
-    0 0 80px color-mix(in srgb, var(--accent) 15%, transparent),
+    0 0 48px color-mix(in srgb, var(--accent) 25%, transparent),
     0 16px 48px rgba(0,0,0,0.6);
 }
 

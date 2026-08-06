@@ -159,7 +159,7 @@ body::before {
   transition: filter 0.25s ease;
 }
 .game-card:hover .card-icon-lg svg {
-  filter: drop-shadow(0 0 10px var(--accent, var(--accent))) drop-shadow(0 0 20px color-mix(in srgb, var(--accent, var(--accent)) 65%, transparent));
+  filter: drop-shadow(0 0 14px var(--accent, var(--accent)));
 }
 
 /* Footer de la card: última partida + mejor puntuación */

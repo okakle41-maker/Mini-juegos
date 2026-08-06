@@ -64,8 +64,7 @@
 }
 .game-card[data-category]:hover .card-icon-lg {
   filter:
-    drop-shadow(0 0 8px color-mix(in srgb, var(--cat, var(--cat-default)) 35%, transparent))
-    drop-shadow(0 0 12px color-mix(in srgb, var(--cat, var(--cat-default)) 18%, transparent));
+    drop-shadow(0 0 11px color-mix(in srgb, var(--cat, var(--cat-default)) 30%, transparent));
 }
 .game-card[data-category] .card-bottom-glow {
   background: radial-gradient(
