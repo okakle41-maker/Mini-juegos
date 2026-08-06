@@ -55,7 +55,7 @@ export function sanitizeInput(input: string, options?: {
   // Si no se permite script, remover patrones de script
   if (!allowScript) {
     sanitized = sanitized
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<script\b[^<]*(?:(?!<\/script\s*>)<[^<]*)*<\/script\s*>/gi, '')
       .replace(/javascript:/gi, '')
       .replace(/on\w+\s*=/gi, '');
   }
