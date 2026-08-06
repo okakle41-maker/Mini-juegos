@@ -33,6 +33,12 @@ const template = (): string => {
           </div>
 
           <p class="ol-modal-hint" id="mwCountLabel">0 / 0 jugadores</p>
+          <p class="ol-modal-sub mw-elapsed" id="mwElapsed" aria-live="polite"></p>
+
+          <div class="ol-modal-error hidden" id="mwTimeoutWarning" role="alert">
+            Está tardando más de lo normal. El rival puede haberse desconectado —
+            podés seguir esperando o cancelar.
+          </div>
 
           <div class="ol-modal-error hidden" id="mwError" role="alert"></div>
 

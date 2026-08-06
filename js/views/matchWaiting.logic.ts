@@ -23,6 +23,7 @@
 import GameRegistry from '../core/gameRegistry.js';
 import { getMatchWaitingAdapter, type MatchWaitingAdapter } from '../utils/matchWaitingAdapter.js';
 import { getPending, clearPending } from '../utils/matchWaitingContext.js';
+import { watchConnection, type ConnectionWatcherHandle } from '../utils/connectionWatcher.js';
 import template from './matchWaiting.js';
 
 const GAME_LABELS: Record<string, { icon: string; name: string }> = {
@@ -37,6 +38,25 @@ const GAME_LABELS: Record<string, { icon: string; name: string }> = {
 let activeAdapter: MatchWaitingAdapter | null = null;
 let unsubscribe: (() => void) | null = null;
 let leaveBtnHandler: (() => void) | null = null;
+/**
+ * Timer de "llevás X esperando" (ver renderElapsed más abajo) y de aviso
+ * de timeout — a diferencia del timeout de 10s de Letters Fall
+ * (connectAndWait en lettersFall.logic.ts), que solo cubre la conexión
+ * inicial a la sala, esto cubre la espera del SEGUNDO jugador, que antes
+ * no tenía ningún límite ni feedback: el jugador que crea la partida se
+ * quedaba mirando "1 / 2 jugadores" indefinidamente si nadie se unía, sin
+ * saber si su conexión funcionaba o si simplemente no había venido nadie.
+ * No auto-cancela la espera (el rival todavía podría aparecer) — solo
+ * hace más visible la opción de cancelar y aclara que puede haber pasado
+ * algo raro.
+ */
+let elapsedIntervalId: ReturnType<typeof setInterval> | null = null;
+let waitStartedAt = 0;
+let timeoutWarningShown = false;
+let connectionWatcherHandle: ConnectionWatcherHandle | null = null;
+
+const WAIT_WARNING_MS = 60_000; // 1 minuto sin el segundo jugador
+
 /**
  * true si la salida de esta vista ya fue manejada explícitamente (botón
  * "Salir" -> adapter.leave(), o la espera se completó y se avanzó al
@@ -62,6 +82,41 @@ function el(id: string): HTMLElement | null {
 function renderCount(current: number, required: number): void {
   const label = el('mwCountLabel');
   if (label) label.textContent = `${current} / ${required} jugadores`;
+}
+
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes <= 0) return `Llevás ${seconds}s esperando`;
+  return `Llevás ${minutes} min ${seconds.toString().padStart(2, '0')}s esperando`;
+}
+
+function renderElapsed(): void {
+  const elapsedEl = el('mwElapsed');
+  const elapsedMs = Date.now() - waitStartedAt;
+  if (elapsedEl) elapsedEl.textContent = formatElapsed(elapsedMs);
+
+  if (!timeoutWarningShown && elapsedMs >= WAIT_WARNING_MS) {
+    timeoutWarningShown = true;
+    el('mwTimeoutWarning')?.classList.remove('hidden');
+    el('mwLeaveBtn')?.classList.add('mw-leave-urgent');
+  }
+}
+
+function startElapsedTimer(): void {
+  waitStartedAt = Date.now();
+  timeoutWarningShown = false;
+  el('mwTimeoutWarning')?.classList.add('hidden');
+  renderElapsed();
+  elapsedIntervalId = setInterval(renderElapsed, 1000);
+}
+
+function stopElapsedTimer(): void {
+  if (elapsedIntervalId !== null) {
+    clearInterval(elapsedIntervalId);
+    elapsedIntervalId = null;
+  }
 }
 
 function showError(message: string): void {
@@ -134,6 +189,9 @@ export function init(): void {
     }
   });
 
+  startElapsedTimer();
+  connectionWatcherHandle = watchConnection();
+
   leaveBtnHandler = () => {
     exitHandled = true;
     void adapter.leave();
@@ -145,6 +203,9 @@ export function init(): void {
 
 function proceedToGame(gameId: string): void {
   exitHandled = true;
+  stopElapsedTimer();
+  connectionWatcherHandle?.cleanup();
+  connectionWatcherHandle = null;
   clearPending();
   window.showView?.(gameId);
 }
@@ -152,6 +213,9 @@ function proceedToGame(gameId: string): void {
 export function stop(): void {
   unsubscribe?.();
   unsubscribe = null;
+  stopElapsedTimer();
+  connectionWatcherHandle?.cleanup();
+  connectionWatcherHandle = null;
 
   // Salida "silenciosa": el jugador navegó afuera de esta vista sin
   // pasar por el botón Salir ni por completar la espera (proceedToGame)

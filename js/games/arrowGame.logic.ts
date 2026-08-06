@@ -50,6 +50,26 @@ export function init(ui: GameUi) {
 
   if (!startArrow) return;
 
+  // Si init() se llama de nuevo sin que stop() haya corrido antes (doble
+  // init por routing), la instancia anterior todavía tiene su listener
+  // de teclado y sus listeners de split-view activos — limpiarlos ahora
+  // evita que queden huérfanos para siempre y que el input de teclado o
+  // los eventos del rival se procesen dos veces. A diferencia de stop()
+  // no se llama lobbySystem.leaveCurrentMatch() acá: en un init() normal
+  // (primera vez, sin instancia previa) eso marcaría la sub-partida
+  // recién unida como 'abandoned' antes de siquiera arrancar. Mismo
+  // criterio que termita.logic.ts.
+  const previousClicker = GameInstanceRegistry.get<ArrowClickerInstance>('arrow');
+  if (previousClicker) previousClicker.stop(false, true);
+  if (arrowKeyDownHandler) {
+    document.removeEventListener('keydown', arrowKeyDownHandler);
+    arrowKeyDownHandler = null;
+  }
+  if (arrowSplitCleanup) {
+    arrowSplitCleanup();
+    arrowSplitCleanup = null;
+  }
+
   // Partida de lobby (ver lobbySystem.ts): la sub-partida ya queda en
   // 'playing' con settings fijados por quien la creó apenas se une el
   // segundo jugador — no hay pantalla previa de "esperando anfitrión"
