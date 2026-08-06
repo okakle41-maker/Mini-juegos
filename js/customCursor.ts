@@ -18,6 +18,15 @@
 
 const HOVER_SELECTOR = 'a, button, [role="button"], .game-card, input, select, textarea, .filter-btn, label, [data-clickable]';
 
+// Techo duro de FPS para el loop del anillo. No hace falta correr a
+// 60-144Hz (la frecuencia del monitor) para que el "seguimiento con
+// estela" se vea bien — 30fps ya es imperceptible como delay y corta
+// a la mitad (o más) el trabajo de scripting/style que este RAF puede
+// generar en el peor caso (hover-spam), sin depender de heurísticas
+// de detección de abuso: es un límite matemático fijo.
+const RING_FPS = 30;
+const RING_FRAME_BUDGET_MS = 1000 / RING_FPS;
+
 class CustomCursor {
   private glowEl: HTMLElement | null = null;
   private ringEl: HTMLElement | null = null;
@@ -30,6 +39,7 @@ class CustomCursor {
   private rafId: number | null = null;
   private activated = false;
   private looping = false;
+  private lastFrameTime = 0;
 
   init(): void {
     // Modo bajo consumo: el trace de Performance confirmó que el RAF
@@ -135,8 +145,22 @@ class CustomCursor {
     if (this.ringEl) this.ringEl.style.opacity = '0';
   };
 
-  // Loop con lerp para que el anillo "persiga" al punto con una estela suave
-  private loop = (): void => {
+  // Loop con lerp para que el anillo "persiga" al punto con una estela suave.
+  // Throttleado a RING_FPS: seguimos reprogramando vía requestAnimationFrame
+  // (para que el navegador pueda pausarlo en tabs en background, etc.) pero
+  // solo hacemos el trabajo real (lerp + write de estilo) cuando pasó al
+  // menos RING_FRAME_BUDGET_MS desde el último frame procesado. El resto de
+  // los callbacks de RAF retornan casi inmediatamente.
+  private loop = (timestamp: number): void => {
+    const elapsed = timestamp - this.lastFrameTime;
+
+    if (elapsed < RING_FRAME_BUDGET_MS) {
+      this.rafId = requestAnimationFrame(this.loop);
+      return;
+    }
+
+    this.lastFrameTime = timestamp;
+
     this.ringX += (this.mouseX - this.ringX) * 0.18;
     this.ringY += (this.mouseY - this.ringY) * 0.18;
 
@@ -163,6 +187,12 @@ class CustomCursor {
   private ensureLoop(): void {
     if (this.looping) return;
     this.looping = true;
+    // Reset explícito: si no, `elapsed` en el primer frame se calcularía
+    // contra el `lastFrameTime` de un ciclo de movimiento anterior (a veces
+    // segundos atrás), lo cual da un `elapsed` gigante y de casualidad deja
+    // pasar ese frame sin throttle. Arrancando en 0 forzamos que el primer
+    // frame del nuevo ciclo también respete el budget normal.
+    this.lastFrameTime = 0;
     this.rafId = requestAnimationFrame(this.loop);
   }
 
