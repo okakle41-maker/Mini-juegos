@@ -1545,18 +1545,69 @@ button {
   }
 }
 
+/* Antes: `filter: blur(18px)` recalculado en CADA FRAME de una
+   animación `infinite` que nunca se detiene mientras el lobby está
+   abierto — 3 elementos (.beam-1/2/3) de 120% de alto cada uno.
+   `filter: blur()` animado NO es compositable por GPU de forma
+   barata: el navegador tiene que repintar el blur sobre toda la
+   región afectada en cada frame, sin importar hover ni ninguna otra
+   interacción del usuario. Esto corría 24/7 en segundo plano y era la
+   explicación de por qué el ratio Rendering/segundo se mantenía fijo
+   (~565ms de Rendering por cada segundo grabado) incluso después de
+   arreglar el `will-change` de las cards: las cards nunca fueron el
+   cuello de botella dominante, este fondo sí.
+
+   Fix: el desenfoque ahora está "pre-cocinado" directamente en el
+   gradiente (varias paradas de color con transiciones suaves en vez
+   de un borde nítido + blur), así el navegador solo compone una
+   textura estática. Lo único que se anima por frame es `transform`
+   (translateX) + `opacity`, ambas compositables por GPU sin
+   recalcular pintura. */
 .beam {
   position: absolute;
   top: -10%;
-  width: 2px;
+  width: 36px;
   height: 120%;
-  filter: blur(18px);
   opacity: 0;
   animation: beam-sweep 12s ease-in-out infinite;
+  will-change: transform, opacity;
 }
-.beam-1 { left: 18%; background: linear-gradient(to bottom, transparent, rgba(249,115,22,0.42), transparent); animation-delay: 0s; }
-.beam-2 { left: 54%; background: linear-gradient(to bottom, transparent, rgba(255,154,60,0.32), transparent); animation-delay: 4s; }
-.beam-3 { left: 82%; background: linear-gradient(to bottom, transparent, rgba(194,65,12,0.28), transparent); animation-delay: 8s; }
+.beam-1 {
+  left: calc(18% - 17px);
+  background: linear-gradient(to bottom,
+    transparent 0%,
+    transparent 30%,
+    rgba(249,115,22,0.16) 42%,
+    rgba(249,115,22,0.42) 50%,
+    rgba(249,115,22,0.16) 58%,
+    transparent 70%,
+    transparent 100%);
+  animation-delay: 0s;
+}
+.beam-2 {
+  left: calc(54% - 17px);
+  background: linear-gradient(to bottom,
+    transparent 0%,
+    transparent 30%,
+    rgba(255,154,60,0.12) 42%,
+    rgba(255,154,60,0.32) 50%,
+    rgba(255,154,60,0.12) 58%,
+    transparent 70%,
+    transparent 100%);
+  animation-delay: 4s;
+}
+.beam-3 {
+  left: calc(82% - 17px);
+  background: linear-gradient(to bottom,
+    transparent 0%,
+    transparent 30%,
+    rgba(194,65,12,0.1) 42%,
+    rgba(194,65,12,0.28) 50%,
+    rgba(194,65,12,0.1) 58%,
+    transparent 70%,
+    transparent 100%);
+  animation-delay: 8s;
+}
 
 @keyframes beam-sweep {
   0%   { opacity: 0; transform: translateX(-50px); }
@@ -1935,6 +1986,22 @@ button {
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(8, 12, 20, 0.96) 100%);
   padding: 0;
   cursor: pointer;
+  /* `contain: layout paint` aísla a la card del resto del árbol de
+     render: el navegador ya sabe que nada de lo que pase adentro de
+     esta card (transiciones de hijos, cambios de tamaño) puede afectar
+     el layout de sus hermanas ni de ningún otro elemento fuera de
+     ella, y que su pintura no se "derrama" fuera de sus límites. Sin
+     esto, cada recálculo de estilo/layout de UNA card en hover podía
+     obligar al navegador a re-evaluar el resto del grid "por las
+     dudas" — eso es lo que hacía que pasar el mouse RÁPIDO por muchas
+     cards seguidas (varias por segundo) escalara tan mal: el costo no
+     era proporcional a "1 card en hover", sino que cada hover podía
+     tocar el árbol completo. Con `contain` cada card es una unidad de
+     recálculo aislada, así que N hovers rápidos cuestan ~N × (costo de
+     UNA card), no más que eso. No se usa `content` (que además aísla
+     tamaño/estilo) porque `.card-hero-bg`/`.card-icon-lg` sí dependen
+     de tamaños calculados desde afuera en algunos breakpoints. */
+  contain: layout paint;
   contain: layout paint;
   transition: border-color 0.28s ease, box-shadow 0.28s ease, background 0.28s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: 0 8px 18px rgba(2, 6, 23, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.03);
