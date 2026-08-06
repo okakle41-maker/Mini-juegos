@@ -137,11 +137,22 @@ function updateNoResultsMessage(grid: HTMLElement, query: string, visibleCount: 
     if (!noResultsMsg) {
       noResultsMsg = document.createElement('div');
       noResultsMsg.className = 'no-results-message';
-      noResultsMsg.innerHTML = `
-        <div class="no-results-icon">🔍</div>
-        <div class="no-results-text">No se encontraron resultados para "${query}"</div>
-        <div class="no-results-hint">Intenta con otro término de búsqueda</div>
-      `;
+
+      const icon = document.createElement('div');
+      icon.className = 'no-results-icon';
+      icon.textContent = '🔍';
+
+      const text = document.createElement('div');
+      text.className = 'no-results-text';
+      text.textContent = `No se encontraron resultados para "${query}"`;
+
+      const hint = document.createElement('div');
+      hint.className = 'no-results-hint';
+      hint.textContent = 'Intenta con otro término de búsqueda';
+
+      noResultsMsg.appendChild(icon);
+      noResultsMsg.appendChild(text);
+      noResultsMsg.appendChild(hint);
       grid.appendChild(noResultsMsg);
     }
     noResultsMsg.style.display = 'flex';
