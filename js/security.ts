@@ -60,8 +60,7 @@ export function sanitizeInput(input: string, options?: {
       sanitized = sanitized
         .replace(/<script\b[^<]*(?:(?!<\/script\s*>)<[^<]*)*<\/script\s*>/gi, '')
         .replace(/javascript:/gi, '')
-        .replace(/on\w+\s*=/gi, '')
-        .replace(/[<>]/g, '');
+        .replace(/[<>"'`=]/g, '');
     } while (sanitized !== previous);
   }
   
