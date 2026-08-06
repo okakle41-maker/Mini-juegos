@@ -311,26 +311,6 @@
   letter-spacing: 8px;
   color: var(--accent-orange, #f97316);
 }
-/**
- * Botón "Copiar" para el código de sala 1v1/coop (ver
- * js/utils/copyRoomCode.ts) — mismo componente compartido que en
- * multiplayer.css/onlineLobby, con estilo propio acá porque esta
- * vista no carga esa hoja. .letters-room-status es flex-column, así
- * que el botón queda centrado debajo del código automáticamente.
- */
-.copy-code-btn {
-  cursor: pointer;
-  background: rgba(249, 115, 22, 0.12);
-  border: 1px solid rgba(249, 115, 22, 0.35);
-  color: var(--accent-orange, #f97316);
-  border-radius: 8px;
-  padding: 4px 12px;
-  font-size: 13px;
-  transition: background 0.15s ease;
-}
-.copy-code-btn:hover {
-  background: rgba(249, 115, 22, 0.22);
-}
 .letters-role-badge {
   font-family: var(--font-mono);
   font-size: 12px;

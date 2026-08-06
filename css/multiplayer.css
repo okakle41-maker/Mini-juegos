@@ -484,29 +484,6 @@
   border-radius: 10px;
 }
 
-/**
- * Botón "Copiar" genérico para cualquier código de sala/lobby (ver
- * js/utils/copyRoomCode.ts) — usado en el banner de lobby grupal
- * (arriba), el badge de "Lobby Online" y la sala 1v1/coop de Letters
- * Fall. Estilo neutro a propósito para no atarlo a un solo contexto
- * visual.
- */
-.copy-code-btn {
-  cursor: pointer;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: inherit;
-  border-radius: 6px;
-  padding: 3px 10px;
-  font-size: 12px;
-  line-height: 1.6;
-  transition: background 0.15s ease;
-}
-
-.copy-code-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
-}
-
 .lobby-leave-btn {
   margin-left: auto;
   cursor: pointer;
@@ -745,29 +722,4 @@
 
 .ol-modal-role-name {
   font-weight: 600;
-}
-
-/* ── match-waiting: contador de espera + aviso de timeout ──
- * Ver views/matchWaiting.logic.ts. .mw-elapsed reusa el tono apagado de
- * .ol-modal-sub (de donde copia el estilo base vía esa misma clase en
- * el template) pero un poco más chico, ya que es información secundaria
- * bajo el contador de jugadores. .mw-leave-urgent se agrega al botón
- * "Cancelar y salir" (que ya existe siempre, no es un botón nuevo) recién
- * cuando se cruza WAIT_WARNING_MS, para que la salida sea obvia sin
- * duplicar el botón.
- */
-.mw-elapsed {
-  font-size: 12px;
-  opacity: 0.65;
-  margin-top: -8px;
-  margin-bottom: 14px;
-}
-
-.mw-leave-urgent {
-  background: rgba(255, 107, 107, 0.16) !important;
-  border-color: rgba(255, 107, 107, 0.4) !important;
-  color: #ff8a8a !important;
-}
-.mw-leave-urgent:hover {
-  background: rgba(255, 107, 107, 0.26) !important;
 }

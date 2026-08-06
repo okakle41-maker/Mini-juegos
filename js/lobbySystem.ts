@@ -672,28 +672,9 @@ class LobbySystem {
         .eq('id', this.currentMatch.id)
         .maybeSingle();
 
-      // Si el rival ya cerró la partida (abandonada, o completada por
-      // otra vía) entre este select y el que originó la llamada, no hay
-      // nada que reportar: escribir encima pisaría ese estado terminal
-      // con el `status` desactualizado leído acá (ver bug de abajo).
-      if (row && row.status !== 'waiting' && row.status !== 'playing') return;
-
       const scores = { ...(row?.scores ?? {}), [playerId]: score };
       const bothReported = this.currentMatch.player1Id in scores && this.currentMatch.player2Id && this.currentMatch.player2Id in scores;
-      const observedStatus = row?.status ?? this.currentMatch.status;
 
-      // Antes: `status: bothReported ? 'completed' : row?.status` escribía
-      // el status YA LEÍDO sin condicionar el UPDATE a que la fila siga
-      // en ese mismo status. Si el rival abandonaba (leaveCurrentMatch
-      // marca 'abandoned') mientras esta llamada seguía en vuelo entre el
-      // select y el update, el update de acá revertía silenciosamente el
-      // 'abandoned' de vuelta a 'playing' (el status leído antes del
-      // abandono), dejando la sub-partida en un estado inconsistente: la
-      // fila decía 'playing' pero el jugador que abandonó ya se había
-      // desenganchado del todo en el cliente. `.eq('status', observedStatus)`
-      // cierra esa ventana: si la fila cambió de estado entre medio, este
-      // UPDATE no afecta ninguna fila y el error/no-op se ignora (mismo
-      // patrón que joinMatchAsPlayer/joinRoomMatch en otros métodos).
       await client.from('lobby_matches').update({
         scores,
         // Solo se marca 'completed' (liberando a los jugadores de vuelta
@@ -701,11 +682,9 @@ class LobbySystem {
         // resultado — si se marcara con el primero, el segundo jugador
         // podría quedar con status='playing' en lobby_players sin una
         // sub-partida real que lo respalde del otro lado.
-        status: bothReported ? 'completed' : observedStatus,
+        status: bothReported ? 'completed' : row?.status,
         completed_at: bothReported ? new Date().toISOString() : null
-      })
-        .eq('id', this.currentMatch.id)
-        .eq('status', observedStatus);
+      }).eq('id', this.currentMatch.id);
 
       if (bothReported) {
         await client.from('lobby_players')

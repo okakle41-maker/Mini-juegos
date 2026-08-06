@@ -155,12 +155,6 @@ export function registerSystemViews(): void {
     num: 'SYS-09',
     description: 'Espera genérica de jugadores antes de arrancar una sub-partida multiplayer',
     difficulty: 0,
-    // Reusa multiplayer.css (.ol-modal-*, y ahora .mw-elapsed/.mw-leave-urgent
-    // para el contador de espera y el aviso de timeout — ver
-    // views/matchWaiting.logic.ts). Sin este campo la hoja solo estaba
-    // cargada por accidente si se llegaba acá desde multiplayer/online-lobby
-    // (que sí la declaran) — entrando de otra forma quedaba sin estilos.
-    css: 'css/multiplayer.css',
     hidden: true,
     logic: async () => {
       const { init, stop } = await import('./views/matchWaiting.logic.js');

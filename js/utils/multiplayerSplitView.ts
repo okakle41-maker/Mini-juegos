@@ -48,7 +48,6 @@
 
 import { lobbySystem } from '../lobbySystem.js';
 import type { GameUi } from '../types/game.js';
-import { watchConnection } from './connectionWatcher.js';
 
 export interface SplitViewHandle {
   /** true si hay una sub-partida activa de este juego (jugando o especteando). */
@@ -294,13 +293,6 @@ export function setupSplitView(
     window.addEventListener('lobby:matches_changed', matchesChangedListener);
   }
 
-  // Aviso proactivo de pérdida de conexión (ver utils/connectionWatcher.ts)
-  // — solo mientras hay una sub-partida activa; en modo solo-jugador o
-  // especteando no aplica (especteando no depende de la propia red para
-  // que el rival te vea, y en solo no hay nadie del otro lado a quien
-  // preocuparle un corte).
-  const connectionWatcher = isMultiplayer && !isSpectating ? watchConnection() : null;
-
   return {
     isMultiplayer,
     isSpectating,
@@ -331,7 +323,6 @@ export function setupSplitView(
       if (isMultiplayer && !isSpectating) {
         window.removeEventListener('lobby:matches_changed', matchesChangedListener);
       }
-      connectionWatcher?.cleanup();
       handlers.clear();
       startHandlers.length = 0;
       opponentLeftHandlers.length = 0;

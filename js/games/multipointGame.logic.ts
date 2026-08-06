@@ -154,7 +154,7 @@ export function init() {
 
       // Mark any remaining as missed
       points.forEach(p => {
-        if (!p.hit && !p.missed) {
+        if (!p.hit) {
           p.missed = true;
           p.el.classList.add('mp2-dot--miss');
           misses++;

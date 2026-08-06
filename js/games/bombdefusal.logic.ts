@@ -30,11 +30,10 @@ interface BombState {
 /**
  * Cada módulo de la bomba tenía antes `data: Record<string, any>` y
  * `getSolution: (bomb?) => any` — TypeScript no verificaba nada de la
- * forma real de cada uno de los 31 tipos. `solvePassword` (ver más
- * abajo) tenía justamente ese problema: recibía `clues` pero lo
- * ignoraba al calcular la solución, calculándola sobre el universo
- * completo de palabras en vez del subconjunto realmente mostrado en
- * pantalla — ya arreglado.
+ * forma real de cada uno de los 31 tipos, y de hecho eso fue lo que dejó
+ * pasar sin avisar el bug de `solvePassword` (ver más abajo): `clues` se
+ * recibía pero no se usaba, y nada en el compilador podía notarlo porque
+ * `any` no chequea la forma del valor devuelto contra cómo se consume.
  *
  * Ahora `BombModule` es una discriminated union por `type`: cada
  * `XModule` fija la forma real de `data` y el tipo de retorno real de
@@ -57,7 +56,7 @@ interface WiresModule {
 interface ButtonsModule {
   type: 'buttons';
   solved: boolean;
-  data: { color: string; label: string; pressed: boolean; holding: boolean; strikesAtStart: number };
+  data: { color: string; label: string; pressed: boolean; holding: boolean };
   getSolution: (bomb: BombState) => { action: 'hold' | 'tap'; releaseOnSecondDigit?: number; releaseOnLight?: boolean };
 }
 
@@ -78,7 +77,7 @@ interface MemoryModule {
 interface ScreenModule {
   type: 'screen';
   solved: boolean;
-  data: { msg: string; strikesAtStart: number };
+  data: { msg: string };
   getSolution: (bomb: BombState) => { answer: string };
 }
 
@@ -92,21 +91,21 @@ interface FrequencyModule {
 interface ColorsModule {
   type: 'colors';
   solved: boolean;
-  data: { colors: string[]; step: number; strikesAtStart: number };
+  data: { colors: string[]; step: number };
   getSolution: (bomb: BombState) => { order: string[] };
 }
 
 interface PatternModule {
   type: 'pattern';
   solved: boolean;
-  data: { size: number; litCount: number; decoy: number[]; selected: Set<number>; strikesAtStart: number };
+  data: { size: number; litCount: number; decoy: number[]; selected: Set<number> };
   getSolution: (bomb: BombState) => { cells: number[] };
 }
 
 interface SwitchesModule {
   type: 'switches';
   solved: boolean;
-  data: { states: boolean[]; strikesAtStart: number };
+  data: { states: boolean[] };
   getSolution: (bomb: BombState) => { states: boolean[] };
 }
 
@@ -120,7 +119,7 @@ interface CodeModule {
 interface KeypadModule {
   type: 'keypad';
   solved: boolean;
-  data: { symbols: string[]; step: number; strikesAtStart: number };
+  data: { symbols: string[]; step: number };
   getSolution: (bomb: BombState) => { order: string[] };
 }
 
@@ -141,101 +140,91 @@ interface PasswordModule {
 interface SimonModule {
   type: 'simon';
   solved: boolean;
-  data: { sequenceLength: number; step: number; playerSequence: string[]; strikesAtStart: number };
+  data: { sequenceLength: number; step: number; playerSequence: string[] };
   getSolution: (bomb: BombState) => { colors: string[] };
 }
 
 interface KnobsModule {
   type: 'knobs';
   solved: boolean;
-  data: { positions: number[]; strikesAtStart: number };
+  data: { positions: number[] };
   getSolution: (bomb: BombState) => { positions: string[] };
 }
 
 interface MazeModule {
   type: 'maze';
   solved: boolean;
-  data: { playerRow: number; playerCol: number; strikesAtStart: number };
+  data: { playerRow: number; playerCol: number };
   getSolution: (bomb: BombState) => { row: number; col: number };
 }
 
 interface TimerModule {
   type: 'timer';
   solved: boolean;
-  data: { stopped: boolean; stopSecond: number | null; strikesAtStart: number };
+  data: { stopped: boolean; stopSecond: number | null };
   getSolution: (bomb: BombState) => { targetSecond: number };
 }
 
 interface SequenceModule {
   type: 'sequence';
   solved: boolean;
-  data: { step: number; strikesAtStart: number };
+  data: { step: number };
   getSolution: (bomb: BombState) => { order: string[] };
 }
 
 interface BinaryModule {
   type: 'binary';
   solved: boolean;
-  data: { input: string; strikesAtStart: number };
+  data: { input: string };
   getSolution: (bomb: BombState) => { binary: string };
 }
 
 interface MathModule {
   type: 'math';
   solved: boolean;
-  data: { answer: string; strikesAtStart: number };
+  data: { answer: string };
   getSolution: (bomb: BombState) => { a: number; b: number; op: string; result: number };
 }
 
 interface WordModule {
   type: 'word';
   solved: boolean;
-  data: { word: string; revealed: string[]; input: string; strikesAtStart: number };
+  data: { word: string; revealed: string[]; input: string };
   getSolution: (bomb: BombState) => { word: string };
 }
 
 interface ReactionModule {
   type: 'reaction';
   solved: boolean;
-  data: { lit: boolean; litTime: number | null; pressed: boolean; strikesAtStart: number };
+  data: { lit: boolean; litTime: number | null; pressed: boolean };
   getSolution: (bomb: BombState) => { targetMs: number };
 }
 
 interface MatchingModule {
   type: 'matching';
   solved: boolean;
-  // `board`: el tablero de 8 símbolos (4 pares) ya barajado, fijado una sola
-  // vez al crear el módulo (ver createMatchingModule). Antes no
-  // existía este campo: renderMatching llamaba mod.getSolution(state)
-  // para armar el tablero visible, y como getSolution() invoca
-  // solveMatching() (que hace su propio shuffle() interno cada vez que
-  // se llama), el tablero completo se regeneraba con símbolos y
-  // posiciones NUEVOS en cada re-render — es decir, en cada click del
-  // jugador. El módulo era literalmente imposible de resolver: no
-  // había forma de "recordar" dónde estaba un símbolo, porque cambiaba
-  // antes del segundo click de cada intento de par.
-  data: { selected: number[]; matched: number[]; board: string[] };
+  data: { selected: number[]; matched: number[] };
   getSolution: (bomb: BombState) => { pairs: string[][] };
 }
 
 interface CipherModule {
   type: 'cipher';
   solved: boolean;
-  data: { input: string; strikesAtStart: number };
+  data: { input: string };
   getSolution: (bomb: BombState) => { original: string; encoded: string; shift: number };
 }
 
 interface TimingModule {
   type: 'timing';
   solved: boolean;
-  data: { synced: boolean; strikesAtStart: number };
+  data: { synced: boolean };
   getSolution: (bomb: BombState) => { offset: number };
 }
 
 interface CoordinatesModule {
   type: 'coordinates';
   solved: boolean;
-  data: { x: string; y: string; strikesAtStart: number };
+  data: { x: string; y: string };
   getSolution: (bomb: BombState) => { x: number; y: number };
 }
 
@@ -256,7 +245,7 @@ interface PortsModule {
 interface CompassModule {
   type: 'compass';
   solved: boolean;
-  data: { currentDirection: string; selectedDirection: string | null; strikesAtStart: number };
+  data: { currentDirection: string; selectedDirection: string | null };
   getSolution: (bomb: BombState) => { targetDirection: string };
 }
 
@@ -682,21 +671,19 @@ function solveMorse(code: string) {
   return found ? found.letter : 'E';
 }
 
-// Antes: `clues` se recibía pero no se usaba para calcular la
-// solución — el índice se calculaba sobre las 8 palabras completas de
-// PASSWORD_WORDS, no sobre las 4 `clues` que createPasswordModule
-// elige al azar y muestra como los únicos botones tocables por el
-// jugador (ver renderPassword). Con probabilidad ~50% (la palabra
-// correcta cae fuera de las 4 elegidas al azar) el módulo quedaba sin
-// solución posible en pantalla — el jugador no podía completarlo sin
-// importar qué botón tocara. Fix: el índice se calcula sobre `clues`
-// (el subconjunto real de 4 palabras mostrado), así la respuesta
-// siempre es una de las opciones visibles.
+// BUG DE JUEGO (no código muerto): `clues` se recibe pero no se usa
+// para calcular la solución — el índice se calcula sobre las 8
+// palabras de PASSWORD_WORDS completas, no sobre las 4 `clues` que
+// createPasswordModule muestra como botones al jugador (ver
+// renderPassword). Resultado: la contraseña correcta puede no estar
+// entre los botones visibles, dejando el módulo sin solución posible
+// en pantalla. No lo arreglo acá — es un bug de lógica de juego, fuera
+// del alcance de una limpieza de código muerto.
 function solvePassword(clues: string[], serial: string) {
   const digitSum = serialDigitSum(serial);
   const vowelCount = serialVowelCount(serial);
-  const idx = (digitSum + vowelCount) % clues.length;
-  return clues[idx];
+  const idx = (digitSum + vowelCount) % PASSWORD_WORDS.length;
+  return PASSWORD_WORDS[idx];
 }
 
 function solveSimon(serial: string, strikes: number) {
@@ -860,7 +847,7 @@ function createWiresModule(difficulty: number): WiresModule {
   };
 }
 
-function createButtonsModule(bomb: BombState): ButtonsModule {
+function createButtonsModule(): ButtonsModule {
   return {
     type: 'buttons',
     solved: false,
@@ -868,13 +855,12 @@ function createButtonsModule(bomb: BombState): ButtonsModule {
       color: pick(BTN_COLORS),
       label: pick(BTN_LABELS),
       pressed: false,
-      holding: false,
-      strikesAtStart: bomb.strikes
+      holding: false
     },
     getSolution(this: ButtonsModule, bomb: BombState) {
       return solveButton(
         this.data.color, this.data.label,
-        bomb.serial, this.data.strikesAtStart, bomb.indicatorLit
+        bomb.serial, bomb.strikes, bomb.indicatorLit
       );
     }
   };
@@ -919,14 +905,14 @@ function createMemoryModule(): MemoryModule {
   };
 }
 
-function createScreenModule(bomb: BombState): ScreenModule {
+function createScreenModule(): ScreenModule {
   const msg = pick(SCREEN_MSGS);
   return {
     type: 'screen',
     solved: false,
-    data: { msg, strikesAtStart: bomb.strikes },
+    data: { msg },
     getSolution(this: ScreenModule, bomb: BombState) {
-      return { answer: solveScreen(this.data.msg, bomb.serial, this.data.strikesAtStart) };
+      return { answer: solveScreen(this.data.msg, bomb.serial, bomb.strikes) };
     }
   };
 }
@@ -945,19 +931,19 @@ function createFrequencyModule(): FrequencyModule {
   };
 }
 
-function createColorsModule(bomb: BombState): ColorsModule {
+function createColorsModule(): ColorsModule {
   const colors = GameHelpers.shuffle(COLOR_NAMES.slice());
   return {
     type: 'colors',
     solved: false,
-    data: { colors, step: 0, strikesAtStart: bomb.strikes },
+    data: { colors, step: 0 },
     getSolution(this: ColorsModule, bomb: BombState) {
-      return { order: solveColors(bomb.serial, this.data.strikesAtStart, bomb.indicatorLit, bomb.batteryLevel) };
+      return { order: solveColors(bomb.serial, bomb.strikes, bomb.indicatorLit, bomb.batteryLevel) };
     }
   };
 }
 
-function createPatternModule(bomb: BombState): PatternModule {
+function createPatternModule(): PatternModule {
   const size = 5;
   const litCount = pick([4, 5, 6]);
   const decoy = new Set<number>();
@@ -965,23 +951,22 @@ function createPatternModule(bomb: BombState): PatternModule {
   return {
     type: 'pattern',
     solved: false,
-    data: { size, litCount, decoy: [...decoy], selected: new Set(), strikesAtStart: bomb.strikes },
+    data: { size, litCount, decoy: [...decoy], selected: new Set() },
     getSolution(this: PatternModule, bomb: BombState) {
-      return { cells: solvePattern(this.data.litCount, bomb.serial, this.data.strikesAtStart, bomb.portCount) };
+      return { cells: solvePattern(this.data.litCount, bomb.serial, bomb.strikes, bomb.portCount) };
     }
   };
 }
 
-function createSwitchesModule(bomb: BombState): SwitchesModule {
+function createSwitchesModule(): SwitchesModule {
   return {
     type: 'switches',
     solved: false,
     data: {
-      states: [Math.random() > 0.5, Math.random() > 0.5, Math.random() > 0.5],
-      strikesAtStart: bomb.strikes
+      states: [Math.random() > 0.5, Math.random() > 0.5, Math.random() > 0.5]
     },
     getSolution(this: SwitchesModule, bomb: BombState) {
-      return { states: solveSwitches(bomb.serial, this.data.strikesAtStart, bomb.indicatorLit) };
+      return { states: solveSwitches(bomb.serial, bomb.strikes, bomb.indicatorLit) };
     }
   };
 }
@@ -997,13 +982,13 @@ function createCodeModule(): CodeModule {
   };
 }
 
-function createKeypadModule(bomb: BombState): KeypadModule {
+function createKeypadModule(): KeypadModule {
   return {
     type: 'keypad',
     solved: false,
-    data: { symbols: KEYPAD_GRID.slice(), step: 0, strikesAtStart: bomb.strikes },
+    data: { symbols: KEYPAD_GRID.slice(), step: 0 },
     getSolution(this: KeypadModule, bomb: BombState) {
-      return { order: solveKeypad(bomb.serial, this.data.strikesAtStart, bomb.indicatorLit) };
+      return { order: solveKeypad(bomb.serial, bomb.strikes, bomb.indicatorLit) };
     }
   };
 }
@@ -1036,155 +1021,147 @@ function createPasswordModule(): PasswordModule {
   };
 }
 
-function createSimonModule(bomb: BombState): SimonModule {
+function createSimonModule(): SimonModule {
   const sequenceLength = randInt(4, 6);
   return {
     type: 'simon',
     solved: false,
-    data: { sequenceLength, step: 0, playerSequence: [], strikesAtStart: bomb.strikes },
+    data: { sequenceLength, step: 0, playerSequence: [] },
     getSolution(this: SimonModule, bomb: BombState) {
-      return { colors: solveSimon(bomb.serial, this.data.strikesAtStart) };
+      return { colors: solveSimon(bomb.serial, bomb.strikes) };
     }
   };
 }
 
-function createKnobsModule(bomb: BombState): KnobsModule {
+function createKnobsModule(): KnobsModule {
   return {
     type: 'knobs',
     solved: false,
-    data: { positions: [0, 0, 0], strikesAtStart: bomb.strikes },
+    data: { positions: [0, 0, 0] },
     getSolution(this: KnobsModule, bomb: BombState) {
-      return { positions: solveKnobs(bomb.serial, this.data.strikesAtStart, bomb.indicatorLit, bomb.portType) };
+      return { positions: solveKnobs(bomb.serial, bomb.strikes, bomb.indicatorLit, bomb.portType) };
     }
   };
 }
 
-function createMazeModule(bomb: BombState): MazeModule {
+function createMazeModule(): MazeModule {
   return {
     type: 'maze',
     solved: false,
-    data: { playerRow: 0, playerCol: 0, strikesAtStart: bomb.strikes },
+    data: { playerRow: 0, playerCol: 0 },
     getSolution(this: MazeModule, bomb: BombState) {
-      return solveMaze(bomb.serial, this.data.strikesAtStart, bomb.batteryLevel);
+      return solveMaze(bomb.serial, bomb.strikes, bomb.batteryLevel);
     }
   };
 }
 
-function createTimerModule(bomb: BombState): TimerModule {
+function createTimerModule(): TimerModule {
   return {
     type: 'timer',
     solved: false,
-    data: { stopped: false, stopSecond: null, strikesAtStart: bomb.strikes },
+    data: { stopped: false, stopSecond: null },
     getSolution(this: TimerModule, bomb: BombState) {
-      return { targetSecond: solveTimer(bomb.serial, this.data.strikesAtStart, bomb.portCount) };
+      return { targetSecond: solveTimer(bomb.serial, bomb.strikes, bomb.portCount) };
     }
   };
 }
 
-function createSequenceModule(bomb: BombState): SequenceModule {
+function createSequenceModule(): SequenceModule {
   return {
     type: 'sequence',
     solved: false,
-    data: { step: 0, strikesAtStart: bomb.strikes },
+    data: { step: 0 },
     getSolution(this: SequenceModule, bomb: BombState) {
-      return { order: solveSequence(bomb.serial, this.data.strikesAtStart, bomb.portType) };
+      return { order: solveSequence(bomb.serial, bomb.strikes, bomb.portType) };
     }
   };
 }
 
-function createBinaryModule(bomb: BombState): BinaryModule {
+function createBinaryModule(): BinaryModule {
   return {
     type: 'binary',
     solved: false,
-    data: { input: '', strikesAtStart: bomb.strikes },
+    data: { input: '' },
     getSolution(this: BinaryModule, bomb: BombState) {
-      return { binary: solveBinary(bomb.serial, this.data.strikesAtStart, bomb.batteryLevel) };
+      return { binary: solveBinary(bomb.serial, bomb.strikes, bomb.batteryLevel) };
     }
   };
 }
 
-function createMathModule(bomb: BombState): MathModule {
+function createMathModule(): MathModule {
   return {
     type: 'math',
     solved: false,
-    data: { answer: '', strikesAtStart: bomb.strikes },
+    data: { answer: '' },
     getSolution(this: MathModule, bomb: BombState) {
-      return solveMath(bomb.serial, this.data.strikesAtStart, bomb.portCount);
+      return solveMath(bomb.serial, bomb.strikes, bomb.portCount);
     }
   };
 }
 
-function createWordModule(bomb: BombState): WordModule {
+function createWordModule(): WordModule {
   const word = pick(WORD_WORDS);
   return {
     type: 'word',
     solved: false,
-    data: { word, revealed: [], input: '', strikesAtStart: bomb.strikes },
+    data: { word, revealed: [], input: '' },
     getSolution(this: WordModule, bomb: BombState) {
-      return { word: solveWord(bomb.serial, this.data.strikesAtStart, bomb.portType) };
+      return { word: solveWord(bomb.serial, bomb.strikes, bomb.portType) };
     }
   };
 }
 
-function createReactionModule(bomb: BombState): ReactionModule {
+function createReactionModule(): ReactionModule {
   return {
     type: 'reaction',
     solved: false,
-    data: { lit: false, litTime: null, pressed: false, strikesAtStart: bomb.strikes },
+    data: { lit: false, litTime: null, pressed: false },
     getSolution(this: ReactionModule, bomb: BombState) {
-      return { targetMs: solveReaction(bomb.serial, this.data.strikesAtStart, bomb.batteryLevel) };
+      return { targetMs: solveReaction(bomb.serial, bomb.strikes, bomb.batteryLevel) };
     }
   };
 }
 
 function createMatchingModule(): MatchingModule {
-  // El tablero (8 símbolos, 4 pares, ya barajado) se genera UNA SOLA
-  // VEZ acá y se guarda en `data.board` — no en cada render. Ver el
-  // comentario en la interfaz MatchingModule para el bug que esto
-  // corrige: antes el tablero se recalculaba con símbolos y
-  // posiciones distintos en cada re-render, haciendo el módulo
-  // irresoluble.
-  const pairs = solveMatching();
-  const board = GameHelpers.shuffle(pairs.flat().slice());
   return {
     type: 'matching',
     solved: false,
-    data: { selected: [], matched: [], board },
+    data: { selected: [], matched: [] },
     getSolution(this: MatchingModule, bomb: BombState) {
-      return { pairs };
+      return { pairs: solveMatching() };
     }
   };
 }
 
-function createCipherModule(bomb: BombState): CipherModule {
+function createCipherModule(): CipherModule {
   return {
     type: 'cipher',
     solved: false,
-    data: { input: '', strikesAtStart: bomb.strikes },
+    data: { input: '' },
     getSolution(this: CipherModule, bomb: BombState) {
-      return solveCipher(bomb.serial, this.data.strikesAtStart, bomb.portCount);
+      return solveCipher(bomb.serial, bomb.strikes, bomb.portCount);
     }
   };
 }
 
-function createTimingModule(bomb: BombState): TimingModule {
+function createTimingModule(): TimingModule {
   return {
     type: 'timing',
     solved: false,
-    data: { synced: false, strikesAtStart: bomb.strikes },
+    data: { synced: false },
     getSolution(this: TimingModule, bomb: BombState) {
-      return { offset: solveTiming(bomb.serial, this.data.strikesAtStart, bomb.portType) };
+      return { offset: solveTiming(bomb.serial, bomb.strikes, bomb.portType) };
     }
   };
 }
 
-function createCoordinatesModule(bomb: BombState): CoordinatesModule {
+function createCoordinatesModule(): CoordinatesModule {
   return {
     type: 'coordinates',
     solved: false,
-    data: { x: '', y: '', strikesAtStart: bomb.strikes },
+    data: { x: '', y: '' },
     getSolution(this: CoordinatesModule, bomb: BombState) {
-      return solveCoordinates(bomb.serial, this.data.strikesAtStart, bomb.batteryLevel);
+      return solveCoordinates(bomb.serial, bomb.strikes, bomb.batteryLevel);
     }
   };
 }
@@ -1211,14 +1188,14 @@ function createPortsModule(): PortsModule {
   };
 }
 
-function createCompassModule(bomb: BombState): CompassModule {
+function createCompassModule(): CompassModule {
   const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
   return {
     type: 'compass',
     solved: false,
-    data: { currentDirection: pick(directions), selectedDirection: null, strikesAtStart: bomb.strikes },
+    data: { currentDirection: pick(directions), selectedDirection: null },
     getSolution(this: CompassModule, bomb: BombState) {
-      return { targetDirection: solveCompass(bomb.serial, this.data.strikesAtStart) };
+      return { targetDirection: solveCompass(bomb.serial, bomb.strikes) };
     }
   };
 }
@@ -1234,53 +1211,37 @@ function createSlotsModule(): SlotsModule {
   };
 }
 
-// Bug de "strikes en vivo desincroniza la solución" (mismo patrón que
-// bombdefusalScreenStrikeDrift.test.ts): 19 de los 31 tipos de módulo
-// (buttons, screen, colors, pattern, switches, keypad, simon, knobs,
-// maze, timer, sequence, binary, math, word, reaction, cipher, timing,
-// coordinates, compass) tenían su `solve*` leyendo `bomb.strikes` en
-// vivo desde `getSolution(state)`. Como `getSolution` se invoca de
-// nuevo en cada click/render, un strike en CUALQUIER OTRO módulo
-// cambiaba silenciosamente la respuesta correcta de estos, sin que la
-// pista mostrada en pantalla (fijada una sola vez al crear el módulo)
-// cambiara para avisarlo. La solución: cada módulo afectado guarda
-// `data.strikesAtStart = bomb.strikes` en el momento de su creación
-// (siempre 0, porque `generateBomb` corre una sola vez al iniciar la
-// partida, antes de que exista ningún strike) y su `getSolution` usa
-// ese valor congelado en vez de `bomb.strikes` en vivo. Por eso las
-// factories de estos 19 tipos ahora reciben `bomb: BombState` como
-// segundo parámetro.
-const MODULE_FACTORIES: Record<string, (difficulty: number, bomb: BombState) => BombModule> = {
-  wires: (difficulty) => createWiresModule(difficulty),
-  buttons: (_difficulty, bomb) => createButtonsModule(bomb),
-  symbols: () => createSymbolsModule(),
-  memory: () => createMemoryModule(),
-  screen: (_difficulty, bomb) => createScreenModule(bomb),
-  frequency: () => createFrequencyModule(),
-  colors: (_difficulty, bomb) => createColorsModule(bomb),
-  pattern: (_difficulty, bomb) => createPatternModule(bomb),
-  switches: (_difficulty, bomb) => createSwitchesModule(bomb),
-  code: () => createCodeModule(),
-  keypad: (_difficulty, bomb) => createKeypadModule(bomb),
-  morse: () => createMorseModule(),
-  password: () => createPasswordModule(),
-  simon: (_difficulty, bomb) => createSimonModule(bomb),
-  knobs: (_difficulty, bomb) => createKnobsModule(bomb),
-  maze: (_difficulty, bomb) => createMazeModule(bomb),
-  timer: (_difficulty, bomb) => createTimerModule(bomb),
-  sequence: (_difficulty, bomb) => createSequenceModule(bomb),
-  binary: (_difficulty, bomb) => createBinaryModule(bomb),
-  math: (_difficulty, bomb) => createMathModule(bomb),
-  word: (_difficulty, bomb) => createWordModule(bomb),
-  reaction: (_difficulty, bomb) => createReactionModule(bomb),
-  matching: () => createMatchingModule(),
-  cipher: (_difficulty, bomb) => createCipherModule(bomb),
-  timing: (_difficulty, bomb) => createTimingModule(bomb),
-  coordinates: (_difficulty, bomb) => createCoordinatesModule(bomb),
-  battery: () => createBatteryModule(),
-  ports: () => createPortsModule(),
-  compass: (_difficulty, bomb) => createCompassModule(bomb),
-  slots: () => createSlotsModule()
+const MODULE_FACTORIES: Record<string, (difficulty?: number) => BombModule> = {
+  wires: createWiresModule,
+  buttons: createButtonsModule,
+  symbols: createSymbolsModule,
+  memory: createMemoryModule,
+  screen: createScreenModule,
+  frequency: createFrequencyModule,
+  colors: createColorsModule,
+  pattern: createPatternModule,
+  switches: createSwitchesModule,
+  code: createCodeModule,
+  keypad: createKeypadModule,
+  morse: createMorseModule,
+  password: createPasswordModule,
+  simon: createSimonModule,
+  knobs: createKnobsModule,
+  maze: createMazeModule,
+  timer: createTimerModule,
+  sequence: createSequenceModule,
+  binary: createBinaryModule,
+  math: createMathModule,
+  word: createWordModule,
+  reaction: createReactionModule,
+  matching: createMatchingModule,
+  cipher: createCipherModule,
+  timing: createTimingModule,
+  coordinates: createCoordinatesModule,
+  battery: createBatteryModule,
+  ports: createPortsModule,
+  compass: createCompassModule,
+  slots: createSlotsModule
 };
 
 function buildManualHTML() {
@@ -1718,12 +1679,7 @@ export function init(rawUi: GameUi) {
         used.add(type);
       }
       const factory = MODULE_FACTORIES[type];
-      // `state` ya tiene `strikes = 0` en este punto (generateBomb se
-      // llama una sola vez, al iniciar la partida, antes de que pueda
-      // existir ningún strike). Se lo pasamos a cada factory para que
-      // pueda fijar `data.strikesAtStart` en el momento de creación —
-      // ver el comentario en cada interfaz *Module afectada.
-      if (factory) modules.push(factory(cfg.difficulty, state));
+      if (factory) modules.push(factory(cfg.difficulty));
     }
     return modules;
   }
@@ -2796,11 +2752,10 @@ export function init(rawUi: GameUi) {
     const grid = document.createElement('div');
     grid.className = 'bd-matching-grid';
     grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
-
-    // Usa el tablero ya fijado en data.board (generado una sola vez en
-    // createMatchingModule), no un tablero recalculado en cada render
-    // — ver el comentario en la interfaz MatchingModule.
-    const shuffled = mod.data.board;
+    
+    const sol = mod.getSolution(state).pairs as string[][];
+    const allSymbols = sol.flat();
+    const shuffled = GameHelpers.shuffle(allSymbols.slice());
     
     shuffled.forEach((sym, idx) => {
       const b = document.createElement('button');

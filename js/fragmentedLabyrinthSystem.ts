@@ -300,24 +300,14 @@ class FragmentedLabyrinthSystem extends RoleMatchSystemBase<FLMatch> {
     this.currentMatch = null;
     this.lastView = null;
 
-    // Cualquier estado no-terminal ('waiting' o 'playing') debe cerrarse
-    // acá, no solo 'playing': antes, si el rol A se iba mientras la
-    // partida seguía en 'waiting' (esperando a B/C/D), la fila quedaba
-    // 'waiting' para siempre — el trigger player_already_in_active_fl_match
-    // (ver createMatch/joinMatch) la sigue considerando una partida activa
-    // de ese jugador indefinidamente, y como currentMatch ya se limpió
-    // acá arriba, no había ninguna forma de volver a llamar
-    // leaveCurrentMatch() sobre ella: el jugador quedaba bloqueado para
-    // siempre al intentar crear o unirse a cualquier partida nueva de
-    // Fragmented Labyrinth.
-    if (match.status === 'playing' || match.status === 'waiting') {
+    if (match.status === 'playing') {
       try {
         const client = this.requireClient();
         await client
           .from('fragmented_labyrinth_matches')
           .update({ status: 'over' })
           .eq('id', match.id)
-          .eq('status', match.status);
+          .eq('status', 'playing');
       } catch (e) {
         ErrorLogger?.log('fragmentedLabyrinthSystem.leaveCurrentMatch', e, { matchId: match.id });
       }

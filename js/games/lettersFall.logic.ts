@@ -13,9 +13,6 @@ import GameHelpers from '../utils/gameHelpers.js';
 import audioManager from '../audioManager.js';
 import { multiplayerSystem } from '../multiplayerSystem.js';
 import ErrorLogger from '../core/errorLogger.js';
-import { attachCopyButton } from '../utils/copyRoomCode.js';
-import { withButtonBusy } from '../utils/buttonBusyGuard.js';
-import { watchConnection, type ConnectionWatcherHandle } from '../utils/connectionWatcher.js';
 
 /**
  * Sesión de sala activa para este juego, envuelta sobre
@@ -853,7 +850,6 @@ function startGameCard(ui: LettersFallUi, role: CoopRole, room: RoomSession | nu
 
   if (room) {
     showRoleBadge(ui, role, room.code);
-    connectionWatcherHandle = watchConnection();
     // En coop, el arranque lo dispara el viewer (es quien tiene el
     // botón "Iniciar" visible con sentido — el typer no ve el
     // tablero); le avisamos al typer para que también entre en
@@ -929,7 +925,6 @@ function startTyperMode(ui: LettersFallUi, room: RoomSession) {
   ui.lettersControls.classList.add('hidden'); // el typer no elige dificultad ni ve "Iniciar"
   showRoleBadge(ui, 'typer', room.code);
   ui.lettersInput.focus();
-  connectionWatcherHandle = watchConnection();
 
   const showMessage = (text: string, type: string) => {
     ui.lettersMessage.textContent = text;
@@ -1039,7 +1034,6 @@ function setRoomStatus(ui: LettersFallUi, text: string, code?: string) {
   if (code) {
     ui.roomCodeDisplay.textContent = code;
     ui.roomCodeDisplay.classList.remove('hidden');
-    attachCopyButton(ui.roomCodeDisplay, 'lettersRoomCodeCopyBtn');
   } else {
     ui.roomCodeDisplay.classList.add('hidden');
   }
@@ -1092,14 +1086,14 @@ async function connectAndWait(
     room = await Promise.race([connectPromise, timeoutPromise]);
   } catch (error) {
     ErrorLogger.log('lettersFall.connectAndWait', error, { mode, role, code });
-    // describeMatchError ya distingue sin-conexión / mensaje propio del
-    // sistema (como 'Ese rol ya está ocupado...', que sigue mostrándose
-    // tal cual porque sí es información accionable) / genérico con
-    // sugerencia de reintentar — ver utils/describeMatchError.ts.
-    const message = describeMatchError(
-      error,
-      'No se pudo conectar a la sala. Puede ser que el proyecto no tenga Realtime habilitado.'
-    );
+    // 'Ese rol ya está ocupado...' es el mensaje explícito de
+    // joinRoomMatch (multiplayerSystem.ts) cuando el otro jugador de la
+    // sala ya tomó el mismo rol — vale la pena mostrárselo tal cual en
+    // vez del genérico de conexión, porque acá sí hay algo concreto que
+    // el jugador puede hacer (volver y elegir el otro rol).
+    const message = error instanceof Error && error.message.includes('Ese rol ya está ocupado')
+      ? error.message
+      : 'No se pudo conectar a la sala. Puede ser tu conexión, o que el proyecto no tenga Realtime habilitado. Probá de nuevo o volvé atrás.';
     setRoomStatus(ui, message);
     return;
   }
@@ -1167,15 +1161,6 @@ function launchCoop(ui: LettersFallUi, role: CoopRole, room: RoomSession) {
  */
 let lastUi: LettersFallUi | null = null;
 
-/**
- * Aviso proactivo de pérdida de conexión (ver utils/connectionWatcher.ts)
- * mientras hay una sala coop/1v1 activa — arranca en startGameCard/
- * startTyperMode (solo si `room` no es null: no aplica al modo solo) y
- * se limpia en stop(), igual que el resto del estado de módulo de este
- * archivo (lastUi, etc.).
- */
-let connectionWatcherHandle: ConnectionWatcherHandle | null = null;
-
 export function init(rawUi: GameUi) {
   const ui = rawUi as unknown as LettersFallUi;
   if (!ui.start) return; // sección no presente
@@ -1242,10 +1227,10 @@ export function init(rawUi: GameUi) {
 
   ui.versusBack.addEventListener('click', () => showStep(ui.lettersModePanel));
 
-  ui.versusCreate.addEventListener('click', () => withButtonBusy(ui.versusCreate as HTMLButtonElement, async () => {
+  ui.versusCreate.addEventListener('click', () => {
     showStep(ui.roomStatus);
-    await connectAndWait(ui, 'create', 'p1', '');
-  }));
+    connectAndWait(ui, 'create', 'p1', '');
+  });
 
   ui.versusJoin.addEventListener('click', () => {
     ui.versusJoinCodeRow.classList.remove('hidden');
@@ -1257,11 +1242,11 @@ export function init(rawUi: GameUi) {
     ui.versusJoinConfirm.disabled = ui.versusJoinCodeInput.value.trim().length !== 4;
   });
 
-  ui.versusJoinConfirm.addEventListener('click', () => withButtonBusy(ui.versusJoinConfirm, async () => {
+  ui.versusJoinConfirm.addEventListener('click', () => {
     if (ui.versusJoinCodeInput.value.trim().length !== 4) return;
     showStep(ui.roomStatus);
-    await connectAndWait(ui, 'join', 'p2', ui.versusJoinCodeInput.value);
-  }));
+    connectAndWait(ui, 'join', 'p2', ui.versusJoinCodeInput.value);
+  });
 
   let selectedRole: CoopRole | null = null;
   const selectRole = (role: CoopRole) => {
@@ -1280,11 +1265,11 @@ export function init(rawUi: GameUi) {
     ui.roleConfirm.disabled = !selectedRole || !codeOk;
   });
 
-  ui.roleConfirm.addEventListener('click', () => withButtonBusy(ui.roleConfirm, async () => {
+  ui.roleConfirm.addEventListener('click', () => {
     if (!selectedRole) return;
     showStep(ui.roomStatus);
-    await connectAndWait(ui, pendingMode, selectedRole, ui.joinCodeInput.value);
-  }));
+    connectAndWait(ui, pendingMode, selectedRole, ui.joinCodeInput.value);
+  });
 }
 
 export function stop() {
@@ -1292,9 +1277,6 @@ export function stop() {
   if (instance?.reset) instance.reset();
   if (instance?.leave) instance.leave();
   GameInstanceRegistry.clear('letters');
-
-  connectionWatcherHandle?.cleanup();
-  connectionWatcherHandle = null;
 
   // Restaura la pantalla de selección de modo (Solo / Crear sala /
   // Unirse a sala) para la próxima vez que se entre a la vista — ver
