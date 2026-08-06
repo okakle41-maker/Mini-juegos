@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll } from 'vitest';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { existsSync, readdirSync, rmSync } from 'fs';
 import { resolve } from 'path';
 
@@ -35,7 +35,7 @@ describe('vite build copia css/ y assets/ a dist/ (regresión: activos estático
   beforeAll(() => {
     // outDir separado del dist/ real para no pisar un build que el
     // desarrollador pueda tener abierto en `vite preview` en paralelo.
-    execSync(`npx vite build --outDir ${DIST} --emptyOutDir`, {
+    execFileSync('npx', ['vite', 'build', '--outDir', DIST, '--emptyOutDir'], {
       cwd: resolve(__dirname, '..'),
       stdio: 'pipe'
     });
