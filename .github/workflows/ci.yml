@@ -102,10 +102,19 @@ jobs:
           filename: load-test/load-test.js
         env:
           BASE_URL: http://localhost:3000
-        # El contenedor de k6-action necesita compartir la red del
-        # host del runner para poder llegar al preview server que
-        # levantamos arriba en localhost:3000 (ver comentario previo).
-        options: --net=host
+        # `options: --net=host` se sacó de acá: no es un input válido
+        # de grafana/k6-action (action tipo `docker`, sus únicos inputs
+        # son cloud/token/filename/flags — ver action.yml del repo,
+        # que además está archivado/read-only) ni una clave válida de
+        # step fuera de `with:`. GitHub no podía ni parsear el archivo
+        # con esa línea ahí (error: "Unexpected value 'options'"),
+        # lo cual rompía el workflow ENTERO — ningún job corría, ni
+        # siquiera unit-tests/type-check, que no tienen nada que ver
+        # con k6. Si hace falta host networking real para que el
+        # contenedor de k6 alcance localhost:3000, hay que resolverlo
+        # de otra forma (p.ej. correr k6 directo con la CLI instalada
+        # en el runner, en vez de vía esta action dockerizada) — pero
+        # eso es un cambio aparte, no un fix de sintaxis.
 
       - name: Stop preview server
         if: always()

@@ -81,13 +81,19 @@ function applyCursorEnabled(enabled: boolean): void {
   document.body.classList.toggle('cursor-disabled', !enabled);
   if (!enabled) {
     CustomCursorInstance.destroy();
+  } else {
+    // Reactivar a mitad de sesión SÍ necesita volver a llamar init():
+    // destroy() removió los listeners de mousemove/mouseover/etc, así
+    // que sin este init() el checkbox queda "tildado" (storage en
+    // '1') pero el cursor sigue completamente inerte hasta el próximo
+    // reload — exactamente el bug reportado ("desactivé el cursor y
+    // ya no puedo volver a activarlo"). init() es idempotente respecto
+    // a esto: si ya está activo (nunca se llamó destroy en esta
+    // sesión), simplemente vuelve a adjuntar los mismos listeners; no
+    // hay duplicación posible porque destroy() ya los había sacado a
+    // todos primero.
+    CustomCursorInstance.init();
   }
-  // Si se reactiva a mitad de sesión, no volvemos a llamar init():
-  // mismo motivo documentado en perfMode.ts — evitar duplicar
-  // listeners si el usuario alterna varias veces sin recargar. La
-  // clase CSS por sí sola ya "esconde" el cursor personalizado
-  // aunque sus listeners de mousemove sigan sin correr hasta el
-  // próximo reload.
 }
 
 function isCursorEnabled(): boolean {
