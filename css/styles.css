@@ -1997,7 +1997,7 @@ button {
     0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
     0 18px 36px rgba(2, 6, 23, 0.36),
     0 0 20px color-mix(in srgb, var(--accent) 18%, transparent);
-  will-change: transform, box-shadow, border-color;
+  will-change: transform;
 }
 
 .game-card:hover::before,
@@ -2047,8 +2047,7 @@ button {
         translateY(-3px)
         rotate(-2deg);
     filter:
-        drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 32%, transparent))
-        drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 28%, transparent));
+        drop-shadow(0 0 14px color-mix(in srgb, var(--accent) 30%, transparent));
     transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
 }
 .game-card:hover .diff-dot--filled,

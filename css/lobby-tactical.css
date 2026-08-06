@@ -246,13 +246,16 @@ body::after {
   border-radius: 2px;
 }
 
-/* ---- Cards: glow más intenso en hover (acerca al look de referencia) ---- */
+/* ---- Cards: glow más intenso en hover (acerca al look de referencia) ----
+   Antes eran 4 capas de box-shadow apiladas ENCIMA de las que ya pone
+   .game-card:hover en styles.css — dos hojas de estilo animando
+   box-shadow en el mismo elemento a la vez duplicaba el repintado en
+   cada carta durante toda la transición. Se deja una sola capa extra
+   (el resto del glow ya lo aporta styles.css). */
 .game-card:hover {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
-    0 0 36px color-mix(in srgb, var(--accent) 30%, transparent),
-    0 0 70px color-mix(in srgb, var(--accent) 12%, transparent),
-    0 12px 40px rgba(0,0,0,0.55);
+    0 0 40px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 /* ======================================================================
@@ -354,8 +357,7 @@ body::after {
   background: color-mix(in srgb, var(--accent, #ff8c3c) 22%, transparent);
   border-color: color-mix(in srgb, var(--accent, #ff8c3c) 65%, transparent);
   box-shadow:
-    0 0 26px color-mix(in srgb, var(--accent, #ff8c3c) 55%, transparent),
-    inset 0 0 16px color-mix(in srgb, var(--accent, #ff8c3c) 20%, transparent);
+    0 0 26px color-mix(in srgb, var(--accent, #ff8c3c) 55%, transparent);
 }
 
 /* ----------------------------------------------------------------------
