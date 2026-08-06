@@ -366,11 +366,11 @@ class MultiplayerSystem {
    * de `joinRoomMatch`, nunca la elige él mismo.
    *
    * Nota de alcance (post-lobby grupal): este método, junto con
-   * `joinRoomMatch`/`isRoomHost`/`updateRoomSettings`/`startRoomMatch`/
-   * `finishRoomMatch`/`onRoomUpdate`, hoy solo los usa Caída de Letras
-   * (`js/games/lettersFall.logic.ts`) — un coop asimétrico 1v1 con roles
-   * fijos (viewer/typer) que no encaja en el modelo de lobby grupal de
-   * "cualquiera puede ser rival de cualquiera" (ver js/lobbySystem.ts).
+   * `joinRoomMatch`/`finishRoomMatch`/`onRoomUpdate`, hoy solo los usa
+   * Caída de Letras (`js/games/lettersFall.logic.ts`) — un coop
+   * asimétrico 1v1 con roles fijos (viewer/typer) que no encaja en el
+   * modelo de lobby grupal de "cualquiera puede ser rival de
+   * cualquiera" (ver js/lobbySystem.ts).
    * Simon/Arrow/Termita se movieron al lobby grupal y ya no llaman a
    * ninguno de estos métodos ni pasan por `live_matches` — ver
    * js/games/simon.logic.ts, arrowGame.logic.ts, termita.logic.ts y el
@@ -441,10 +441,9 @@ class MultiplayerSystem {
    *
    * `autoStart` (default true) controla si unirse arranca la partida
    * de inmediato — es el comportamiento que necesita Letters Fall
-   * (coop asimétrico sin lobby, ver lettersFall.logic.ts). Los juegos
-   * con lobby propio (simon/arrow/termita, ver multiplayer.logic.ts)
-   * lo pasan en false: la sala queda en 'waiting' hasta que el creador
-   * la arranca explícitamente con startRoomMatch.
+   * (coop asimétrico sin lobby, ver lettersFall.logic.ts). Ningún juego
+   * hoy pasa `false`: el flujo de sala en espera hasta que el creador
+   * la arranca manualmente quedó sin conectar a ninguna UI.
    */
   async joinRoomMatch(gameId: string, roomCode: string, role: string, autoStart: boolean = true): Promise<Match> {
     await this.waitForInitialization();
@@ -519,62 +518,6 @@ class MultiplayerSystem {
       window.dispatchEvent(new CustomEvent('multiplayer:match_started', { detail: { match } }));
     }
     return match;
-  }
-
-  /**
-   * El id del jugador que creó la sala es siempre el primero en
-   * `players[]` (createRoomMatch lo inserta como único jugador;
-   * joinRoomMatch solo hace push, nunca reordena ni reemplaza esa
-   * posición) — no hace falta una columna `host_id` dedicada.
-   *
-   * Nota de seguridad: el multiplayer de este proyecto es anónimo (sin
-   * auth.uid() real de por medio — ver migración 005/008), así que esto
-   * NO está reforzado por RLS: cualquiera con el match_id técnicamente
-   * podría llamar a updateRoomSettings/startRoomMatch igual. Lo que
-   * evita que pase en la práctica es que el cliente solo expone esos
-   * controles al jugador que detecta como creador (ver
-   * multiplayer.logic.ts) — mismo nivel de confianza que ya existe hoy
-   * para el resto de las acciones de sala.
-   */
-  isRoomHost(match: Match): boolean {
-    return match.players[0]?.id === this.playerStatus?.id;
-  }
-
-  /**
-   * Solo tiene sentido llamarlo mientras la sala sigue en 'waiting' —
-   * el creador ajusta la dificultad en el lobby antes de arrancar.
-   */
-  async updateRoomSettings(matchId: string, settings: Record<string, any>): Promise<void> {
-    if (!this.supabaseClient) return;
-    const { error } = await this.supabaseClient
-      .from('live_matches')
-      .update({ settings })
-      .eq('id', matchId)
-      .eq('status', 'waiting');
-    if (error) throw new Error(`No se pudo actualizar la dificultad: ${error.message}`);
-    if (this.currentMatch?.id === matchId) {
-      this.currentMatch = { ...this.currentMatch, settings };
-    }
-  }
-
-  /**
-   * Pasa la sala de 'waiting' a 'playing'. Solo el creador debería
-   * llamar a esto (ver isRoomHost) y solo si ya hay un segundo jugador
-   * — ambos chequeos los hace la UI antes de mostrar el botón, pero se
-   * validan una vez más acá por si acaso.
-   */
-  async startRoomMatch(matchId: string): Promise<void> {
-    if (!this.supabaseClient) return;
-    const { error } = await this.supabaseClient
-      .from('live_matches')
-      .update({ status: 'playing', started_at: new Date().toISOString() })
-      .eq('id', matchId)
-      .eq('status', 'waiting');
-    if (error) throw new Error(`No se pudo iniciar la partida: ${error.message}`);
-    if (this.currentMatch?.id === matchId) {
-      this.currentMatch = { ...this.currentMatch, status: 'playing', startedAt: Date.now() };
-    }
-    window.dispatchEvent(new CustomEvent('multiplayer:match_started', { detail: { matchId } }));
   }
 
   /**

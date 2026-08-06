@@ -251,6 +251,14 @@ body::before {
   background: var(--accent);
   box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent);
   animation: cyberpulse 1.8s ease-in-out infinite;
+  /* Este dot se repite UNA VEZ POR CARD del grid (ver
+     lobbyRenderer.ts) — con ~10 módulos activos son ~10 animaciones
+     `infinite` corriendo en paralelo, siempre, incluso en reposo.
+     will-change fuerza que cada una viva en su propia capa GPU en
+     vez de repintarse junto con el resto del documento en cada frame
+     (ver el mismo razonamiento en .status-dot / .beam / .particle,
+     css/styles.css). */
+  will-change: opacity, transform;
 }
 .mod-eyebrow-label {
   font-size: 10px;

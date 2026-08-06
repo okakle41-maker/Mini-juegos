@@ -69,13 +69,8 @@ export interface WindowSystems {
   notificationSystem?: {
     success(title: string, message: string): void;
   };
-  themeManager?: unknown;
   socialSystem?: unknown;
   tournamentSystem?: unknown;
-  skeletonSystem?: unknown;
-  soundSystem?: unknown;
-  playerStats?: unknown;
-  productionMonitoring?: unknown;
   pwaSystem?: unknown;
   deferredPrompt?: Event;
 }

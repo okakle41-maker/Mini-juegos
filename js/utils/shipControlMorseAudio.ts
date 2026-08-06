@@ -9,7 +9,7 @@
  * ve el código en sí hasta que el jugador lo decodifica de oído).
  *
  * Deliberadamente un módulo propio y NO una extensión de
- * audioManager.ts/soundSystem.ts: ambos están pensados para bips
+ * audioManager.ts: está pensado para bips
  * puntuales de duración fija (ver audioManager.play — 80ms fijos por
  * sonido), mientras que Morse necesita una SECUENCIA temporal con 3
  * duraciones relativas distintas (punto/raya/pausas) encadenadas con

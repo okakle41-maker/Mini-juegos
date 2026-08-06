@@ -15,9 +15,8 @@ import { devLog } from './core/devLog.js';
 import { errorBoundary } from './errorBoundary.js';
 import { globalRateLimiter } from './security.js';
 import { keyboardShortcuts } from './keyboardShortcuts.js';
-import { preferencesManager } from './preferencesManager.js';
+import './accessibilityToggles.js';
 import { notificationSystem } from './notificationSystem.js';
-import i18nManager from './i18n.js';
 import { devTools } from './devTools.js';
 import { performanceMonitor } from './performanceMonitor.js';
 
@@ -31,15 +30,10 @@ import { socialSystem } from './socialSystem.js';
 import { tournamentSystem } from './tournamentSystem.js';
 
 // Importar sistemas adicionales de mejoras
-import { transitionSystem } from './transitionSystem.js';
-import { badgeSystem } from './badgesSystem.js';
-import { soundSystem } from './soundSystem.js';
 import { accessibilitySystem } from './accessibilitySystem.js';
 
 // Importar sistemas adicionales v3.0.0
 import { pwaSystem } from './pwaSystem.js';
-import { gamificationSystem } from './gamificationSystem.js';
-import { skeletonSystem } from './skeletonSystem.js';
 
 // Registrar vistas del sistema
 import './registerSystemViews.js';
@@ -76,18 +70,12 @@ document.addEventListener('DOMContentLoaded', () => {
       errorBoundary: '✓',
       security: '✓',
       keyboardShortcuts: '✓',
-      preferences: '✓',
-      i18n: '✓',
+      accessibilityToggles: '✓',
       devTools: '✓',
       performanceMonitor: '✓',
       notifications: '✓',
-      transitions: '✓',
-      badges: '✓',
-      sounds: '✓',
       accessibility: '✓',
-      pwa: '✓',
-      gamification: '✓',
-      skeleton: '✓'
+      pwa: '✓'
     });
 
     // Mostrar vista inicial
@@ -120,9 +108,7 @@ interface MinijuegosDebugApi {
   errorBoundary: typeof errorBoundary;
   globalRateLimiter: typeof globalRateLimiter;
   keyboardShortcuts: typeof keyboardShortcuts;
-  preferencesManager: typeof preferencesManager;
   notificationSystem: typeof notificationSystem;
-  i18nManager: typeof i18nManager;
   devTools: typeof devTools;
   performanceMonitor: typeof performanceMonitor;
   achievementManager: typeof achievementManager;
@@ -132,13 +118,8 @@ interface MinijuegosDebugApi {
   multiplayerSystem: typeof multiplayerSystem;
   socialSystem: typeof socialSystem;
   tournamentSystem: typeof tournamentSystem;
-  transitionSystem: typeof transitionSystem;
-  badgeSystem: typeof badgeSystem;
-  soundSystem: typeof soundSystem;
   accessibilitySystem: typeof accessibilitySystem;
   pwaSystem: typeof pwaSystem;
-  gamificationSystem: typeof gamificationSystem;
-  skeletonSystem: typeof skeletonSystem;
   version: string;
 }
 
@@ -150,9 +131,7 @@ interface MinijuegosDebugApi {
   errorBoundary,
   globalRateLimiter,
   keyboardShortcuts,
-  preferencesManager,
   notificationSystem,
-  i18nManager,
   devTools,
   performanceMonitor,
   achievementManager,
@@ -162,13 +141,8 @@ interface MinijuegosDebugApi {
   multiplayerSystem,
   socialSystem,
   tournamentSystem,
-  transitionSystem,
-  badgeSystem,
-  soundSystem,
   accessibilitySystem,
   pwaSystem,
-  gamificationSystem,
-  skeletonSystem,
   version: '3.0.0'
 };
 

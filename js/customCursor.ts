@@ -41,6 +41,26 @@ class CustomCursor {
   private looping = false;
   private lastFrameTime = 0;
 
+  /** Escala aplicada mientras `.cursor-hover` está activa (ver
+   *  #cursorGlow.cursor-hover / #cursorRing.cursor-hover en
+   *  css/styles.css). `handleMouseMove` y `loop()` escriben
+   *  `style.transform` directamente (más abajo) — eso sobrescribe
+   *  CUALQUIER transform que la clase CSS `.cursor-hover` intentara
+   *  aplicar, ya que un estilo inline siempre gana por especificidad.
+   *  Por eso el scale tiene que incluirse acá, a mano, en el mismo
+   *  string, en vez de depender de que la clase CSS lo aplique sola. */
+  private isHovering = false;
+
+  private glowTransform(): string {
+    const scale = this.isHovering ? ' scale(3)' : '';
+    return `translate(${this.mouseX}px, ${this.mouseY}px) translate(-50%, -50%)${scale}`;
+  }
+
+  private ringTransform(): string {
+    const scale = this.isHovering ? ' scale(3.8)' : '';
+    return `translate(${this.ringX}px, ${this.ringY}px) translate(-50%, -50%)${scale}`;
+  }
+
   init(): void {
     // Modo bajo consumo: el trace de Performance confirmó que el RAF
     // `loop()` de este módulo era el disparador directo de los
@@ -87,7 +107,7 @@ class CustomCursor {
     }
 
     if (this.glowEl) {
-      this.glowEl.style.transform = `translate(${this.mouseX}px, ${this.mouseY}px) translate(-50%, -50%)`;
+      this.glowEl.style.transform = this.glowTransform();
     }
 
     this.ensureLoop();
@@ -120,8 +140,15 @@ class CustomCursor {
   private handleMouseOver = (e: MouseEvent): void => {
     const target = e.target as HTMLElement | null;
     if (this.resolveHoverTarget(target)) {
+      this.isHovering = true;
       this.glowEl?.classList.add('cursor-hover');
       this.ringEl?.classList.add('cursor-hover');
+      // Reaplicar el transform ya (no solo esperar al próximo
+      // mousemove/frame del loop) para que el cambio de escala se
+      // vea en el mismo instante en que el mouse entra al elemento,
+      // no con el pequeño delay de esperar el próximo movimiento.
+      if (this.glowEl) this.glowEl.style.transform = this.glowTransform();
+      if (this.ringEl) this.ringEl.style.transform = this.ringTransform();
     }
   };
 
@@ -129,8 +156,11 @@ class CustomCursor {
     const target = e.target as HTMLElement | null;
     const related = e.relatedTarget as HTMLElement | null;
     if (this.resolveHoverTarget(target) && !this.resolveHoverTarget(related)) {
+      this.isHovering = false;
       this.glowEl?.classList.remove('cursor-hover');
       this.ringEl?.classList.remove('cursor-hover');
+      if (this.glowEl) this.glowEl.style.transform = this.glowTransform();
+      if (this.ringEl) this.ringEl.style.transform = this.ringTransform();
     }
   };
 
@@ -165,7 +195,7 @@ class CustomCursor {
     this.ringY += (this.mouseY - this.ringY) * 0.18;
 
     if (this.ringEl) {
-      this.ringEl.style.transform = `translate(${this.ringX}px, ${this.ringY}px) translate(-50%, -50%)`;
+      this.ringEl.style.transform = this.ringTransform();
     }
 
     // Con el mouse quieto, el lerp converge exponencialmente pero

@@ -1498,6 +1498,15 @@ button {
   inset: 0;
   z-index: 1;
   overflow: hidden;
+  /* Sin esto, cada frame de `.beam` (animación `infinite` corriendo
+     TODO el tiempo, con o sin interacción del usuario) repintaba en
+     la capa raíz del documento junto con el resto de la página — el
+     trace de Performance mostró que el 100% de los eventos Paint
+     tenían layerId=0 (la capa base), ninguno aislado en su propia
+     capa. `contain: strict` le dice al navegador que nada de lo que
+     pase adentro de este contenedor puede afectar layout/paint fuera
+     de él, habilitando que se aísle en su propia capa. */
+  contain: strict;
 }
 
 /* Floating particles for ambient effect */
@@ -1507,6 +1516,10 @@ button {
   inset: 0;
   z-index: 1;
   overflow: hidden;
+  /* Mismo razonamiento que `.beams` arriba: aísla el repintado
+     continuo de `.particle` (animación infinita, siempre corriendo)
+     de la capa raíz del documento. */
+  contain: strict;
 }
 
 .particle {
@@ -1518,6 +1531,13 @@ button {
   box-shadow: 0 0 6px var(--border);
   animation: float 15s ease-in-out infinite;
   opacity: 0;
+  /* La animación `float` corre siempre (infinite, sin pausa), sobre
+     `transform` y `opacity` — ambas compositables, pero sin esta
+     pista el navegador no siempre las promueve a su propia capa
+     GPU, y terminan repintándose junto con el resto del documento en
+     cada frame (ver nota en `.beams`/`.floating-particles` arriba:
+     el trace mostró 100% de los Paint en la capa raíz). */
+  will-change: transform, opacity;
 }
 
 .particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 18s; }
@@ -1564,6 +1584,11 @@ button {
   filter: blur(18px);
   opacity: 0;
   animation: beam-sweep 12s ease-in-out infinite;
+  /* Misma razón que `.particle`: animación `infinite` sobre
+     transform/opacity que corre todo el tiempo, sin pista de que
+     debe vivir en su propia capa GPU. Ver nota arriba en
+     `.beams`/`.floating-particles`. */
+  will-change: transform, opacity;
 }
 .beam-1 { left: 18%; background: linear-gradient(to bottom, transparent, rgba(249,115,22,0.42), transparent); animation-delay: 0s; }
 .beam-2 { left: 54%; background: linear-gradient(to bottom, transparent, rgba(255,154,60,0.32), transparent); animation-delay: 4s; }
@@ -1628,6 +1653,10 @@ button {
   box-shadow: 0 0 6px var(--accent-cyan);
   animation: cyberpulse 1.8s ease-in-out infinite;
   flex-shrink: 0;
+  /* Corre siempre, sin pausa, mientras el lobby está en pantalla —
+     misma razón que .beam/.particle: sin esto no siempre queda en su
+     propia capa GPU y puede sumarse al repintado de la capa raíz. */
+  will-change: opacity, transform;
 }
 .status-dot--sm { width: 5px; height: 5px; }
 
@@ -1962,8 +1991,19 @@ button {
      tamaño/estilo) porque `.card-hero-bg`/`.card-icon-lg` sí dependen
      de tamaños calculados desde afuera en algunos breakpoints. */
   contain: layout paint;
-  contain: layout paint;
-  transition: border-color 0.28s ease, box-shadow 0.28s ease, background 0.28s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  /* `background` deliberadamente FUERA de esta transition: es un
+     linear-gradient + radial-gradient compuesto, de las propiedades
+     más caras de repintar en cada frame de una animación. Con
+     `contain: layout paint` + will-change puntual (más abajo) el
+     costo de UNA card en hover ya está resuelto, pero animar un
+     gradient compuesto en cada una de esas transiciones seguía
+     sumando trabajo de Paint innecesario que no se nota a simple
+     vista (el cambio de fondo en :hover salta directo al valor final
+     en vez de interpolar, apenas perceptible en 0.28s). border-color,
+     box-shadow y transform sí quedan animados: son compositables por
+     GPU (transform siempre; box-shadow/border-color son baratas en
+     comparación con recomponer un gradient completo por frame). */
+  transition: border-color 0.28s ease, box-shadow 0.28s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: 0 8px 18px rgba(2, 6, 23, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.03);
   min-height: 196px;
   opacity: 0;
@@ -2958,7 +2998,16 @@ elementos que no lo necesitan.
     pointer-events:none;
     z-index:99999;
     will-change:transform;
-    transition:width .18s,height .18s,background .18s;
+    /* `width`/`height` ya NO se animan aquí (ver .cursor-hover más
+       abajo): son propiedades de Layout, no de composición. Cada
+       mouseover/mouseout sobre una card forzaba un
+       UpdateLayoutTree + Layout completos — confirmado en el trace
+       de Performance (handleMouseOut seguido de ~3ms de Layout cada
+       vez, x193 disparos en la sesión analizada = >1s solo en esto).
+       El tamaño final ahora se logra con `transform: scale()`
+       (compositor-only, no toca Layout ni Paint del árbol), aplicado
+       sobre el tamaño base fijo de 8px. */
+    transition:transform .18s,background .18s;
 }
 
 #cursorGlow::before{
@@ -2991,10 +3040,11 @@ elementos que no lo necesitan.
     transform:
         translate(-50%,-50%);
 
+    /* Igual que #cursorGlow: width/height fuera de la transición
+       animada, reemplazados por transform:scale() en .cursor-hover
+       (ver abajo) para que el cambio sea compositor-only. */
     transition:
-
-        width .22s,
-        height .22s,
+        transform .22s,
         border-color .22s;
 
 }
@@ -3011,12 +3061,14 @@ elementos que no lo necesitan.
     transition:opacity .22s;
 }
 #cursorGlow.cursor-hover{
-
-    width:24px;
-    height:24px;
-
+    /* El `scale(3)` real se aplica desde JS (customCursor.ts,
+       glowTransform()), no acá: handleMouseMove/loop() escriben
+       `style.transform` inline en cada frame de movimiento, y un
+       estilo inline siempre gana por especificidad sobre esta regla
+       — cualquier transform puesto acá sería ignorado en cuanto el
+       mouse se moviera una vez más. Esta regla solo se encarga de lo
+       que JS no toca: el color. */
     background:var(--accent-orange);
-
 }
 
 #cursorGlow.cursor-hover::before{
@@ -3026,12 +3078,10 @@ elementos que no lo necesitan.
 }
 
 #cursorRing.cursor-hover{
-
-    width:38px;
-    height:38px;
-
+    /* Ver nota en #cursorGlow.cursor-hover arriba: el scale real
+       (3.8x) lo aplica JS (ringTransform()), esta regla solo cambia
+       el color del borde. */
     border-color:var(--accent-orange);
-
 }
 
 #cursorRing.cursor-hover::before{
@@ -3478,6 +3528,9 @@ AMBIENT PARTICLES
 .mp-note--playing {
   animation: mpNotePulse 1.6s ease-in-out infinite;
   opacity: 1 !important;
+  /* Corre siempre que hay música sonando (estado por defecto de la
+     app) — misma razón que .status-dot/.particle/.beam más arriba. */
+  will-change: transform, opacity;
 }
 @keyframes mpNotePulse {
   0%, 100% { transform: scale(1); opacity: 1; }
@@ -3498,13 +3551,25 @@ AMBIENT PARTICLES
   height: 4px;
   border-radius: 99px;
   background: var(--accent-orange);
+  /* `transform-origin: bottom` para que el scaleY (ver @keyframes
+     mpEq más abajo) crezca hacia arriba como una barra de ecualizador
+     real, no desde el centro. */
+  transform-origin: bottom;
 }
 .mp-eq--active span:nth-child(1) { animation: mpEq 0.9s ease-in-out infinite; }
 .mp-eq--active span:nth-child(2) { animation: mpEq 0.9s ease-in-out 0.15s infinite; }
 .mp-eq--active span:nth-child(3) { animation: mpEq 0.9s ease-in-out 0.3s infinite; }
 @keyframes mpEq {
-  0%, 100% { height: 4px; opacity: 0.45; }
-  50% { height: 12px; opacity: 1; }
+  /* Antes animaba `height` (4px → 12px): eso es Layout, no
+     composición — igual que el bug ya corregido en
+     #cursorGlow/#cursorRing (ver esa sección más arriba en este
+     archivo). Esta animación corre en 3 barras a la vez, SIEMPRE que
+     hay música sonando — que es el estado por defecto de la app — así
+     que el costo era continuo, no solo durante hover. Reemplazado por
+     `scale()`, compositor-only: 12/4 = 3x de escala vertical máxima
+     equivale visualmente al height original de 4px→12px. */
+  0%, 100% { transform: scaleY(1); opacity: 0.45; }
+  50% { transform: scaleY(3); opacity: 1; }
 }
 
 /* Track selector — prominent row like in the image */
@@ -3817,6 +3882,7 @@ AMBIENT PARTICLES
 .music-player-fab.mp-fab--playing .mp-fab-note {
   animation: mpNotePulse 1.6s ease-in-out infinite;
   opacity: 1;
+  will-change: transform, opacity;
 }
 
 @media (max-width: 480px) {
@@ -4843,6 +4909,13 @@ button:disabled::after { display: none; }
   border-color: rgba(249, 115, 22, 0.22);
   background: rgba(249, 115, 22, 0.04);
 }
+.config-hint {
+  margin: 2px 4px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  opacity: 0.65;
+}
 .config-label {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -5726,8 +5799,27 @@ body.cursor-disabled * {
   transform: translateY(0);
 }
 
-/* Smooth theme transition */
-* {
+/* Smooth theme transition.
+   Antes este selector era `*` sin excepciones: aplicaba
+   `transition: background-color, border-color, color` a TODOS los
+   elementos del documento, cards incluidas. El trace de Performance
+   mostró que esto sumaba trabajo de estilo/paint en cada card durante
+   hover normal (además de su propia `transition` ya definida en
+   `.game-card`), sin aportar nada — el fade de tema es un evento raro
+   (el usuario cambia de tema unas pocas veces por sesión, si acaso),
+   mientras que el hover de cards ocurre docenas de veces por minuto.
+   Se excluyen explícitamente:
+     - .game-card y sus descendientes: ya tienen su propia
+       `transition` específica (border-color, box-shadow, transform)
+       definida más abajo; sumarles ESTA transición también duplicaba
+       trabajo de estilo en cada hover sin cambiar nada visible.
+     - #cursorGlow/#cursorRing y sus pseudo-elementos: se mueven en
+       cada frame de mousemove vía JS (customCursor.ts) — agregarles
+       una transición de color de 0.3s por encima del transform inline
+       no aporta nada y solo suma trabajo por frame.
+     - #particles y sus hijos: partículas de fondo animadas por su
+       cuenta; misma razón que el cursor. */
+*:not(.game-card):not(.game-card *):not(#cursorGlow):not(#cursorGlow *):not(#cursorRing):not(#cursorRing *):not(#particles):not(#particles *) {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 

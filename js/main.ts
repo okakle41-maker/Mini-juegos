@@ -3,14 +3,33 @@
  * Importa todos los módulos necesarios en el orden correcto
  */
 
-// Modo bajo consumo activable por query string (?perf=1), para poder
-// probar/diagnosticar sin tocar config ni requerir build aparte. Debe
-// correr ANTES de cualquier import — en particular antes de
-// customCursor, que chequea esta clase en su init() para decidir si
-// arranca su RAF loop o no. Ver css/styles.css al final del archivo
-// (bloque `body.perf-mode`) para el resto de lo que desactiva.
-if (new URLSearchParams(location.search).get('perf') === '1') {
-  document.body.classList.add('perf-mode');
+// Modo bajo consumo: se activa por (a) preferencia guardada del
+// usuario (toggle en Configuración, ver js/perfMode.ts) o (b) query
+// string ?perf=1 para pruebas puntuales sin tocar la preferencia
+// guardada. Debe correr ANTES de cualquier import — en particular
+// antes de customCursor, que chequea esta clase en su init() para
+// decidir si arranca su RAF loop o no. Ver css/styles.css al final
+// del archivo (bloque `body.perf-mode`) para el resto de lo que
+// desactiva.
+//
+// Leemos localStorage directamente acá (no vía safeStorage, que
+// todavía no se importó) porque este bloque tiene que correr antes
+// que cualquier import — es la misma razón por la que el chequeo de
+// ?perf=1 ya vivía suelto acá arriba. js/perfMode.ts, más abajo en
+// los imports, es la fuente de verdad para escribir/sincronizar esta
+// preferencia; acá solo la leemos una vez para no pintar sin el modo
+// aplicado y que el usuario vea un parpadeo de vuelta a alto consumo.
+try {
+  if (
+    new URLSearchParams(location.search).get('perf') === '1' ||
+    window.localStorage.getItem('st_perf_mode') === '1'
+  ) {
+    document.body.classList.add('perf-mode');
+  }
+} catch {
+  // localStorage bloqueado (modo privado estricto, iframe, etc.): sin
+  // preferencia persistida que leer, seguimos sin perf-mode por
+  // defecto — no debe impedir que el resto de la app arranque.
 }
 
 // Core modules (deben cargarse primero)
@@ -26,13 +45,7 @@ import './accessibility';
 import './performance';
 import './devTools';
 import './gameOptimizations';
-import './productionMonitoring';
-import './i18n';
-import './analytics';
-import './themeManager';
 import './achievements';
-import './playerStats';
-import './practiceMode';
 import './notificationSystem';
 import './difficultyPresets';
 import './difficultySettings';
@@ -46,12 +59,13 @@ import './backgroundManager';
 import './configPanel';
 import './configReset';
 import './customCursor';
+import './perfMode';
 import './statsManager';
 import './authManager';
 import './accountView';
 import './interactionLock';
 import './keyboardShortcuts';
-import './preferencesManager';
+import './accessibilityToggles';
 import './uiSoundEffects';
 import './confettiEffect';
 import './performanceMonitor';
@@ -72,4 +86,5 @@ import './musicPlayerDrag';
 import './musicPlayer';
 import './lobbySidebarUI';
 import './headerUptime';
+import './configTogglesPanel';
 

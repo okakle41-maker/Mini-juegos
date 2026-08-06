@@ -62,6 +62,14 @@ const template = (): string => {
                 <option value="expert">💀 Experto</option>
               </select>
             </div>
+            <div class="config-row">
+              <span class="config-label" id="configPerfModeLabel">MODO BAJO CONSUMO</span>
+              <label class="config-toggle">
+                <input type="checkbox" id="configPerfModeToggle" aria-labelledby="configPerfModeLabel">
+                <span class="config-toggle-slider"></span>
+              </label>
+            </div>
+            <p class="config-hint">Desactiva el cursor personalizado, partículas y efectos de hover en las tarjetas para reducir el uso de CPU/GPU. Recomendado en equipos más lentos.</p>
           </div>
           <div class="config-danger">
             <button id="configResetBtn" class="config-danger-btn">BORRAR TODOS LOS RÉCORDS</button>

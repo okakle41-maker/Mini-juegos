@@ -250,55 +250,6 @@ class ConfettiEffect {
     }, 600);
   }
 
-  rain(options?: ConfettiOptions): void {
-    const opts = { ...this.defaultOptions, ...options, spread: 30, startVelocity: 20 };
-    
-    const interval = setInterval(() => {
-      const x = Math.random() * window.innerWidth;
-      this.burst(x, -20, { ...opts, particleCount: 10 });
-    }, 100);
-
-    setTimeout(() => clearInterval(interval), opts.duration || 3000);
-  }
-
-  cannon(options?: ConfettiOptions): void {
-    const opts = { ...this.defaultOptions, ...options, spread: 45, startVelocity: 50 };
-    
-    // Left cannon
-    this.burst(100, window.innerHeight - 100, { ...opts, particleCount: 30 });
-    
-    // Right cannon
-    setTimeout(() => {
-      this.burst(window.innerWidth - 100, window.innerHeight - 100, { ...opts, particleCount: 30 });
-    }, 300);
-
-    // Center cannon
-    setTimeout(() => {
-      this.burst(window.innerWidth / 2, window.innerHeight - 100, { ...opts, particleCount: 50 });
-    }, 600);
-  }
-
-  spiral(options?: ConfettiOptions): void {
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
-    const opts = { ...this.defaultOptions, ...options, particleCount: 150 };
-    
-    let angle = 0;
-    const radius = 100;
-    const count = opts.particleCount || 150;
-
-    for (let i = 0; i < count; i++) {
-      const x = centerX + Math.cos(angle) * radius;
-      const y = centerY + Math.sin(angle) * radius;
-      
-      setTimeout(() => {
-        this.burst(x, y, { ...opts, particleCount: 1 });
-      }, i * 20);
-
-      angle += (Math.PI * 2) / count;
-    }
-  }
-
   clear(): void {
     this.particles = [];
     if (this.animationId) {
@@ -326,22 +277,6 @@ export const confettiEffect = new ConfettiEffect();
 // Funciones helper para usar en cualquier parte
 export function triggerConfetti(options?: ConfettiOptions): void {
   confettiEffect.celebrate(options);
-}
-
-export function triggerConfettiBurst(x: number, y: number, options?: ConfettiOptions): void {
-  confettiEffect.burst(x, y, options);
-}
-
-export function triggerConfettiRain(options?: ConfettiOptions): void {
-  confettiEffect.rain(options);
-}
-
-export function triggerConfettiCannon(options?: ConfettiOptions): void {
-  confettiEffect.cannon(options);
-}
-
-export function triggerConfettiSpiral(options?: ConfettiOptions): void {
-  confettiEffect.spiral(options);
 }
 
 export default confettiEffect;

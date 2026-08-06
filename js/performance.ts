@@ -331,53 +331,6 @@ export class DOMBatcher {
 }
 
 /**
- * Optimización de imágenes con lazy loading
- */
-export function setupLazyLoading(): void {
-  if ('IntersectionObserver' in window) {
-    const imageObserver = new IntersectionObserver((entries, observer) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const img = entry.target as HTMLImageElement;
-          const src = img.dataset.src;
-          
-          if (src) {
-            img.src = src;
-            img.removeAttribute('data-src');
-            observer.unobserve(img);
-          }
-        }
-      });
-    });
-
-    document.querySelectorAll('img[data-src]').forEach(img => {
-      imageObserver.observe(img);
-    });
-  }
-}
-
-/**
- * Preload de recursos críticos
- */
-export function preloadResource(url: string, as: 'script' | 'style' | 'image' | 'font'): void {
-  const link = document.createElement('link');
-  link.rel = 'preload';
-  link.href = url;
-  link.as = as;
-  document.head.appendChild(link);
-}
-
-/**
- * Prefetch de recursos para navegación futura
- */
-export function prefetchResource(url: string): void {
-  const link = document.createElement('link');
-  link.rel = 'prefetch';
-  link.href = url;
-  document.head.appendChild(link);
-}
-
-/**
  * Mide el tiempo de ejecución de una función
  */
 export function measurePerformance<T extends (...args: any[]) => any>(

@@ -16,22 +16,6 @@ export function escapeHtml(unsafe: string): string {
 }
 
 /**
- * Escapa caracteres especiales de JavaScript
- */
-export function escapeJs(unsafe: string): string {
-  return unsafe
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r')
-    .replace(/\t/g, '\\t')
-    .replace(/\f/g, '\\f')
-    .replace(/\v/g, '\\v')
-    .replace(/\0/g, '\\0');
-}
-
-/**
  * Sanitiza input de usuario para prevenir inyección de código
  */
 export function sanitizeInput(input: string, options?: {
@@ -68,43 +52,6 @@ export function sanitizeInput(input: string, options?: {
 }
 
 /**
- * Valida que un string sea un ID seguro (solo letras, números, guiones, guiones bajos)
- */
-export function isValidId(id: string): boolean {
-  return /^[a-zA-Z0-9_-]+$/.test(id);
-}
-
-/**
- * Valida que una URL sea segura (solo http, https, mailto, tel)
- */
-export function isValidUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return ['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Valida que un email tenga formato válido
- */
-export function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-/**
- * Valida que un número esté en un rango seguro
- */
-export function isSafeNumber(value: number, min?: number, max?: number): boolean {
-  if (!Number.isFinite(value)) return false;
-  if (min !== undefined && value < min) return false;
-  if (max !== undefined && value > max) return false;
-  return true;
-}
-
-/**
  * Valida que un string no contenga patrones peligrosos
  */
 export function isSafeString(input: string): boolean {
@@ -124,17 +71,6 @@ export function isSafeString(input: string): boolean {
   ];
   
   return !dangerousPatterns.some(pattern => pattern.test(input));
-}
-
-/**
- * Sanitiza un nombre de archivo para prevenir path traversal
- */
-export function sanitizeFilename(filename: string): string {
-  return filename
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-    .replace(/\.\./g, '_')
-    .replace(/^\./, '_')
-    .slice(0, 255);
 }
 
 /**
@@ -166,120 +102,6 @@ export function safeJsonParse<T>(json: string, fallback: T): T {
     console.warn('[Security] Failed to parse JSON:', error);
     return fallback;
   }
-}
-
-/**
- * Crea un CSP (Content Security Policy) nonce
- */
-export function generateNonce(): string {
-  const array = new Uint8Array(16);
-  crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-}
-
-/**
- * Valida que un nonce sea seguro
- */
-export function isValidNonce(nonce: string): boolean {
-  return /^[a-f0-9]{32}$/.test(nonce);
-}
-
-/**
- * Sanitiza atributos HTML
- */
-export function sanitizeAttributes(attrs: Record<string, string>): Record<string, string> {
-  const dangerousAttrs = ['onclick', 'onload', 'onerror', 'onmouseover', 'onfocus', 'onblur'];
-  const sanitized: Record<string, string> = {};
-  
-  for (const [key, value] of Object.entries(attrs)) {
-    // Saltar atributos de evento
-    if (dangerousAttrs.includes(key.toLowerCase())) {
-      console.warn('[Security] Skipping dangerous attribute:', key);
-      continue;
-    }
-    
-    // Validar que el valor sea seguro
-    if (key === 'href' || key === 'src') {
-      if (!isValidUrl(value) && !value.startsWith('#') && !value.startsWith('/')) {
-        console.warn('[Security] Skipping unsafe URL in attribute:', key);
-        continue;
-      }
-    }
-    
-    sanitized[key] = escapeHtml(value);
-  }
-  
-  return sanitized;
-}
-
-/**
- * Valida que un objeto de configuración sea seguro
- */
-export function validateConfig(config: Record<string, any>, schema: Record<string, {
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
-  required?: boolean;
-  min?: number;
-  max?: number;
-  pattern?: RegExp;
-  allowedValues?: any[];
-}>): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-  
-  for (const [key, rules] of Object.entries(schema)) {
-    const value = config[key];
-    
-    // Validar required
-    if (rules.required && (value === undefined || value === null)) {
-      errors.push(`Required field missing: ${key}`);
-      continue;
-    }
-    
-    if (value === undefined || value === null) continue;
-    
-    // Validar tipo
-    switch (rules.type) {
-      case 'string':
-        if (typeof value !== 'string') {
-          errors.push(`Invalid type for ${key}: expected string, got ${typeof value}`);
-        } else if (rules.pattern && !rules.pattern.test(value)) {
-          errors.push(`Invalid pattern for ${key}`);
-        } else if (rules.allowedValues && !rules.allowedValues.includes(value)) {
-          errors.push(`Invalid value for ${key}: not in allowed values`);
-        }
-        break;
-        
-      case 'number':
-        if (typeof value !== 'number') {
-          errors.push(`Invalid type for ${key}: expected number, got ${typeof value}`);
-        } else if (!isSafeNumber(value, rules.min, rules.max)) {
-          errors.push(`Invalid number for ${key}: out of safe range`);
-        }
-        break;
-        
-      case 'boolean':
-        if (typeof value !== 'boolean') {
-          errors.push(`Invalid type for ${key}: expected boolean, got ${typeof value}`);
-        }
-        break;
-        
-      case 'object':
-        if (typeof value !== 'object' || Array.isArray(value)) {
-          errors.push(`Invalid type for ${key}: expected object, got ${typeof value}`);
-        }
-        break;
-        
-      case 'array':
-        if (!Array.isArray(value)) {
-          errors.push(`Invalid type for ${key}: expected array, got ${typeof value}`);
-        }
-        break;
-    }
-  }
-  
-  return {
-    valid: errors.length === 0,
-    errors
-  };
 }
 
 /**
