@@ -74,9 +74,33 @@ class CustomCursor {
     this.ensureLoop();
   };
 
+  // `target.closest(HOVER_SELECTOR)` recorre el DOM hacia arriba en
+  // CADA evento — con hover rápido sobre cards (que tienen ~10 hijos
+  // cada una: icon, nombre, descripción, botón favorito...) esto se
+  // dispara una vez por cada hijo cruzado, sumándose directamente
+  // encima del Recalculate Style/Layerize que ya generan las cards en
+  // el mismo instante. `mouseover`/`mouseout` sí necesitan quedarse a
+  // nivel document (a diferencia de mouseenter/mouseleave) porque son
+  // la única forma de delegar sobre cards que TODAVÍA NO EXISTEN al
+  // momento de este `init()` — LobbyRenderer las inserta después vía
+  // `innerHTML`, así que adjuntar listeners directos en cada card acá
+  // se perdería las que se agregan más tarde.
+  //
+  // Optimización: si `e.target` mismo ya es un match directo (lo más
+  // común — la mayoría de los mouseover ocurren sobre el elemento de
+  // interés, no sobre un nieto profundo), `matches()` resuelve en O(1)
+  // sin recorrer nada. Solo se cae a `closest()` (más caro) cuando el
+  // target es un descendiente y hace falta subir a buscar el
+  // ancestro — el caso menos frecuente.
+  private resolveHoverTarget(target: HTMLElement | null): HTMLElement | null {
+    if (!target) return null;
+    if (target.matches(HOVER_SELECTOR)) return target;
+    return target.closest(HOVER_SELECTOR);
+  }
+
   private handleMouseOver = (e: MouseEvent): void => {
     const target = e.target as HTMLElement | null;
-    if (target?.closest(HOVER_SELECTOR)) {
+    if (this.resolveHoverTarget(target)) {
       this.glowEl?.classList.add('cursor-hover');
       this.ringEl?.classList.add('cursor-hover');
     }
@@ -85,7 +109,7 @@ class CustomCursor {
   private handleMouseOut = (e: MouseEvent): void => {
     const target = e.target as HTMLElement | null;
     const related = e.relatedTarget as HTMLElement | null;
-    if (target?.closest(HOVER_SELECTOR) && !related?.closest(HOVER_SELECTOR)) {
+    if (this.resolveHoverTarget(target) && !this.resolveHoverTarget(related)) {
       this.glowEl?.classList.remove('cursor-hover');
       this.ringEl?.classList.remove('cursor-hover');
     }
