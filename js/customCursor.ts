@@ -32,6 +32,15 @@ class CustomCursor {
   private looping = false;
 
   init(): void {
+    // Modo bajo consumo: el trace de Performance confirmó que el RAF
+    // `loop()` de este módulo era el disparador directo de los
+    // recálculos de estilo más caros durante hover-spam. En vez de
+    // solo ocultar el cursor por CSS (que dejaría el RAF corriendo en
+    // segundo plano igual), directamente no inicializamos nada.
+    if (document.body.classList.contains('perf-mode')) {
+      return;
+    }
+
     this.glowEl = document.getElementById('cursorGlow');
     this.ringEl = document.getElementById('cursorRing');
 

@@ -1927,21 +1927,6 @@ button {
   list-style: none;
   position: relative;
   z-index: 2;
-  /* `#cursorGlow`/`#cursorRing` (css ~línea 2933) son `position: fixed`
-     con `z-index: 99999` y capa GPU propia (`will-change: transform`),
-     y se mueven constantemente ENCIMA de este grid con cualquier
-     movimiento de mouse — incluso sin hacer hover real sobre ninguna
-     card. Por la regla de "implicit compositing" del navegador (un
-     elemento compuesto fuerza la promoción de cualquier elemento con
-     menor z-index que se solape visualmente con él, para preservar el
-     orden de pintado), el cursor podía estar arrastrando repromoción
-     de capas de las cards de abajo en cada frame de movimiento, sin
-     que las cards mismas hicieran nada — esto explica por qué "solo
-     mover el mouse" ya subía el consumo, sin necesidad de hover.
-     `isolation: isolate` crea un stacking context propio para el
-     grid: lo aísla del árbol de compositing del cursor, así el
-     solapamiento visual ya no obliga a recomponer las cards. */
-  isolation: isolate;
 }
 @media (min-width: 640px)  { .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 900px)  { .game-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -2945,18 +2930,6 @@ contenedor entero, para no forzar una capa GPU extra e innecesaria en
 elementos que no lo necesitan.
 ==============================*/
 
-/* El trace de Performance (ver análisis de round18) confirmó con datos
-   duros que los 20 eventos UpdateLayoutTree más caros del stress-test
-   están TODOS precedidos por `loop()` de customCursor.ts escribiendo
-   `style.transform` en este elemento cada frame. Ese cambio, sin
-   aislamiento explícito, terminaba arrastrando un recálculo de estilo
-   de ~99 elementos (el grid de cards completo) en el mismo pase,
-   aunque el cursor en sí no toca ni un pixel del grid. `contain:
-   layout style` le dice a Blink que los cambios de layout/estilo
-   dentro de este elemento no pueden afectar ni ser afectados por el
-   resto del documento — así el motor puede resolver el cambio de
-   transform del cursor sin necesidad de re-evaluar el grid al mismo
-   tiempo. */
 #cursorGlow{
     position:fixed;
     width:8px;
@@ -2966,7 +2939,6 @@ elementos que no lo necesitan.
     pointer-events:none;
     z-index:99999;
     will-change:transform;
-    contain: layout style;
     transition:width .18s,height .18s,background .18s;
 }
 
@@ -2996,14 +2968,6 @@ elementos que no lo necesitan.
     pointer-events:none;
 
     z-index:99998;
-
-    /* No tenía `will-change: transform` a diferencia de #cursorGlow —
-       por eso `loop()` (ver customCursor.ts) escribiendo su transform
-       en cada frame no estaba anticipadamente promovido a capa propia.
-       Sumado a `contain`, esto aísla al anillo del árbol de recálculo
-       del resto del documento — mismo fundamento que en #cursorGlow. */
-    will-change: transform;
-    contain: layout style;
 
     transform:
         translate(-50%,-50%);
@@ -5751,4 +5715,53 @@ body.cursor-disabled * {
 /* Override transition for performance-critical elements */
 button, a, input, select {
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* ============================================================
+   MODO BAJO CONSUMO (body.perf-mode)
+   ============================================================
+   Activar agregando la clase `perf-mode` al <body> (manual, por
+   flag de query string, o por config panel) para desactivar de raíz
+   todo lo que pueda sumar carga de Rendering/Scripting durante
+   hover/movimiento intensivo:
+
+   1. Cursor personalizado completo — el trace de Performance
+      (round18) confirmó que los 20 recálculos de estilo más caros
+      del stress-test estaban TODOS precedidos por el RAF `loop()` de
+      customCursor.ts. Es el sospechoso principal confirmado por
+      datos, no por hipótesis.
+   2. Todas las animaciones `infinite` de fondo (.beam, .particle,
+      status dots con `cyberpulse`, glitch, terminal-blink, etc.) —
+      quedan pausadas por completo, cero trabajo en reposo.
+   3. El `will-change` que quedó togglado por JS en `.game-card--hovering`
+      queda anulado con `!important`, para que ni el hover dispare
+      promoción de capa mientras este modo esté activo.
+   4. Transiciones de card recortadas a solo opacity (sin transform/
+      box-shadow/background), evitando trabajo de layout/paint por
+      hover.
+   5. El selector universal `* { transition: ... }` (arriba en este
+      mismo archivo) queda anulado — ese selector aplica transición a
+      TODO elemento del documento sin excepción, incluyendo cursor,
+      cards y sus hijos; en este modo no vale la pena mantenerlo.
+   ============================================================ */
+body.perf-mode * {
+  transition: none !important;
+  animation: none !important;
+  will-change: auto !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+}
+
+body.perf-mode #cursorGlow,
+body.perf-mode #cursorRing,
+body.perf-mode .beams,
+body.perf-mode .floating-particles,
+body.perf-mode #particles {
+  display: none !important;
+}
+
+body.perf-mode .game-card:hover,
+body.perf-mode .game-card:focus-visible {
+  transform: none !important;
+  box-shadow: none !important;
 }

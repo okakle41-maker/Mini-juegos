@@ -3,6 +3,16 @@
  * Importa todos los módulos necesarios en el orden correcto
  */
 
+// Modo bajo consumo activable por query string (?perf=1), para poder
+// probar/diagnosticar sin tocar config ni requerir build aparte. Debe
+// correr ANTES de cualquier import — en particular antes de
+// customCursor, que chequea esta clase en su init() para decidir si
+// arranca su RAF loop o no. Ver css/styles.css al final del archivo
+// (bloque `body.perf-mode`) para el resto de lo que desactiva.
+if (new URLSearchParams(location.search).get('perf') === '1') {
+  document.body.classList.add('perf-mode');
+}
+
 // Core modules (deben cargarse primero)
 import './core/errorLogger';
 import './core/safeStorage';
