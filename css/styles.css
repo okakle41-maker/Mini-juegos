@@ -1996,6 +1996,17 @@ button {
     0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
     0 18px 36px rgba(2, 6, 23, 0.36),
     0 0 20px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+/* `will-change` ya NO vive dentro de `:hover`: declararlo ahí forzaba
+   una promoción/destrucción de capa de composición (GPU "Layerize") en
+   cada entrada y salida del hover, en cada card, en cada pasada del
+   mouse por el grid — eso es lo que el profiler mostraba como 32% del
+   tiempo de Rendering bajo "Layerize". Ahora se activa/desactiva desde
+   JS solo en la card puntual que está en hover (ver
+   lobbyRenderer.ts / mouseenter-mouseleave), así la promoción de capa
+   ocurre una vez por hover real, no atada al recálculo de estilo del
+   pseudo-selector. La clase abajo es el hook que usa ese JS. */
+.game-card--hovering {
   will-change: transform;
 }
 

@@ -248,6 +248,20 @@ class LobbyRenderer {
       card.addEventListener('mouseenter', () => GameRegistry.prefetch(gameId));
       card.addEventListener('focus', () => GameRegistry.prefetch(gameId));
 
+      // Promoción de capa de composición ("will-change: transform") solo
+      // mientras la card puntual está en hover/focus, en vez de tenerlo
+      // declarado dentro de la regla CSS `:hover` (eso hacía que CADA
+      // hover-in/hover-out del grid completo disparara Layerize — ver
+      // nota en styles.css junto a `.game-card--hovering`). Con esto el
+      // navegador crea la capa una sola vez al entrar y la libera al
+      // salir, sin quedar atado al recálculo de estilo del selector.
+      const addHoverClass = () => card.classList.add('game-card--hovering');
+      const removeHoverClass = () => card.classList.remove('game-card--hovering');
+      card.addEventListener('mouseenter', addHoverClass);
+      card.addEventListener('mouseleave', removeHoverClass);
+      card.addEventListener('focus', addHoverClass);
+      card.addEventListener('blur', removeHoverClass);
+
       const favBtn = card.querySelector<HTMLButtonElement>('.card-favorite-btn');
       favBtn?.addEventListener('click', (e: MouseEvent) => {
         e.stopPropagation();
