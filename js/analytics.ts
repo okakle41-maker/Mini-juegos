@@ -33,7 +33,9 @@ class AnalyticsManager {
   }
 
   private generateSessionId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const random = crypto.getRandomValues(new Uint32Array(1))[0];
+    const suffix = random.toString(36).padStart(9, '0').slice(0, 9);
+    return `${Date.now()}-${suffix}`;
   }
 
   private loadConsent(): ConsentSettings {
