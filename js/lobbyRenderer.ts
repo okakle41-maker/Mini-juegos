@@ -30,6 +30,43 @@ const ICON_FALLBACK_SVG =
 
 const MAX_DIFFICULTY_DOTS = 5;
 
+/** Techo duro de cards que pueden estar animando su transición de
+ *  hover/focus EN PARALELO en un momento dado, compartido entre todas
+ *  las instancias de LobbyRenderer (lobby principal + Lobby Online) ya
+ *  que ambas graban en el mismo hilo principal. Un trace de
+ *  Performance con hover-spam mostró ~10 propiedades animadas por
+ *  card (opacity, transform, box-shadow, filter, color, border-*,
+ *  text-shadow...) y el costo escalaba con la cantidad de cards
+ *  tocadas por segundo, no con una constante — porque no había techo
+ *  a cuántas de esas transiciones podían correr a la vez. Con este
+ *  límite, la card número N+1 que entra en hover mientras ya hay
+ *  MAX_CONCURRENT_HOVER_ANIMATIONS animando salta directo al estado
+ *  final (ver `.game-card--hover-instant` en styles.css) en vez de
+ *  sumarse a la cola. El valor 4 es deliberadamente bajo: en un grid
+ *  de 3 columnas, 4 transiciones simultáneas ya cubren cualquier
+ *  hover-spam humano razonable (recorrer una fila completa) sin dejar
+ *  a nadie con la sensación de que "las cards no responden" — un
+ *  hover que salta directo al estado final igual se ve instantáneo,
+ *  solo pierde el suavizado del tránsito. */
+const MAX_CONCURRENT_HOVER_ANIMATIONS = 4;
+
+/** Contador global de cards actualmente en transición de hover/focus.
+ *  Vive a nivel de módulo (no de instancia) porque el límite es sobre
+ *  el trabajo total del hilo principal en un instante dado, sin
+ *  importar de qué grid venga cada card. */
+let activeHoverAnimations = 0;
+
+/** Propiedad que usamos como señal de "la transición de esta card ya
+ *  terminó". `box-shadow` es, de las que animan en `:hover`, de las
+ *  más lentas en la práctica (0.28s) y la más cara de sostener — así
+ *  que decrementar el contador en su `transitionend` es un proxy
+ *  razonable de "el grueso del trabajo de esta card ya terminó",
+ *  incluso si alguna propiedad secundaria en un hijo sigue un pelo
+ *  más. No hace falta esperar a las ~10 propiedades individuales: el
+ *  objetivo es acotar concurrencia aproximada, no sincronizar al
+ *  frame exacto. */
+const HOVER_END_SIGNAL_PROPERTY = 'box-shadow';
+
 /** Techo de "dominio" del ring de progreso: a partir de esta cantidad de
  *  partidas jugadas (con récord guardado) se considera 100%. */
 const MASTERY_PLAYS_FOR_FULL_RING = 5;
@@ -255,8 +292,59 @@ class LobbyRenderer {
       // nota en styles.css junto a `.game-card--hovering`). Con esto el
       // navegador crea la capa una sola vez al entrar y la libera al
       // salir, sin quedar atado al recálculo de estilo del selector.
-      const addHoverClass = () => card.classList.add('game-card--hovering');
-      const removeHoverClass = () => card.classList.remove('game-card--hovering');
+      //
+      // Además: límite duro de concurrencia (ver
+      // MAX_CONCURRENT_HOVER_ANIMATIONS arriba). Si al entrar en
+      // hover/focus ya hay demasiadas cards animando su transición,
+      // esta card se marca `--hover-instant` (transition: none) para
+      // que salte directo al estado final sin sumar otra animación en
+      // paralelo. `hasCountedThisEntry` evita doble-conteo si el
+      // navegador dispara mouseenter+focus casi simultáneos para la
+      // misma entrada de hover (p. ej. click con mouse que también deja
+      // foco), y `transitionend`/mouseleave/blur garantizan liberar el
+      // cupo aunque el usuario se vaya a mitad de la animación.
+      let hasCountedThisEntry = false;
+
+      const onHoverTransitionEnd = (e: TransitionEvent) => {
+        if (e.target !== card || e.propertyName !== HOVER_END_SIGNAL_PROPERTY) return;
+        card.removeEventListener('transitionend', onHoverTransitionEnd);
+        if (hasCountedThisEntry) {
+          hasCountedThisEntry = false;
+          activeHoverAnimations = Math.max(0, activeHoverAnimations - 1);
+        }
+      };
+
+      const addHoverClass = () => {
+        card.classList.add('game-card--hovering');
+
+        if (hasCountedThisEntry || card.classList.contains('game-card--hover-instant')) {
+          return;
+        }
+
+        if (activeHoverAnimations >= MAX_CONCURRENT_HOVER_ANIMATIONS) {
+          // Cupo lleno: esta card salta directo al estado final, sin
+          // sumarse al conteo (no está "animando", así que no ocupa
+          // cupo ni hace falta liberarlo después).
+          card.classList.add('game-card--hover-instant');
+          return;
+        }
+
+        hasCountedThisEntry = true;
+        activeHoverAnimations += 1;
+        card.addEventListener('transitionend', onHoverTransitionEnd);
+      };
+
+      const removeHoverClass = () => {
+        card.classList.remove('game-card--hovering');
+        card.classList.remove('game-card--hover-instant');
+
+        if (hasCountedThisEntry) {
+          hasCountedThisEntry = false;
+          activeHoverAnimations = Math.max(0, activeHoverAnimations - 1);
+          card.removeEventListener('transitionend', onHoverTransitionEnd);
+        }
+      };
+
       card.addEventListener('mouseenter', addHoverClass);
       card.addEventListener('mouseleave', removeHoverClass);
       card.addEventListener('focus', addHoverClass);

@@ -2037,6 +2037,25 @@ button {
   will-change: transform;
 }
 
+/* Límite duro de concurrencia de hover (ver lobbyRenderer.ts,
+   MAX_CONCURRENT_HOVER_ANIMATIONS). El trace de Performance mostró que
+   el costo no viene de UNA transición de card (eso ya está resuelto
+   con `contain` + will-change puntual), sino de que cada card anima
+   ~10 propiedades (opacity, transform, box-shadow, filter, color...)
+   y con hover-spam sobre muchas cards en poco tiempo todas esas
+   transiciones corren EN PARALELO sin ningún techo — el costo escala
+   con cuántas cards tocás por segundo, no con una constante.
+   `game-card--hover-instant` es la clase que JS agrega cuando ya hay
+   demasiadas cards animando a la vez: `transition: none !important`
+   hace que esa card puntual salte directo al estado final de `:hover`
+   en el mismo frame, sin sumar trabajo de Rendering incremental. Solo
+   afecta a la card que llega "tarde" al límite — las que ya estaban
+   animando siguen su transición normal hasta terminar. */
+.game-card--hover-instant,
+.game-card--hover-instant * {
+  transition: none !important;
+}
+
 .game-card:hover::before,
 .game-card:focus-visible::before {
     left:170%;
