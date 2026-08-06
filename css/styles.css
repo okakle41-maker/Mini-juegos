@@ -3007,7 +3007,18 @@ elementos que no lo necesitan.
        El tamaño final ahora se logra con `transform: scale()`
        (compositor-only, no toca Layout ni Paint del árbol), aplicado
        sobre el tamaño base fijo de 8px. */
-    transition:transform .18s,background .18s;
+    /* Sin transition en `transform`: la posición (translate) la
+       escribe customCursor.ts en cada mousemove/frame ya calculada
+       en tiempo real — animarla acá encima metería un segundo
+       suavizado sobre algo que ya se mueve a la velocidad real del
+       mouse, haciendo que el punto se sienta "atrasado" respecto de
+       donde el usuario realmente está apuntando. Solo `background`
+       (el color al hacer hover) se anima. El scale de hover ya viene
+       incluido en el mismo `transform` inline que escribe JS, así
+       que tampoco se pierde suavidad ahí: simplemente ese cambio de
+       escala ahora es instantáneo también (180ms es imperceptible en
+       un elemento de 8px de todos modos). */
+    transition:background .18s;
 }
 
 #cursorGlow::before{

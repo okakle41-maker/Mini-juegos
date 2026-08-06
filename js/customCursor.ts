@@ -18,13 +18,13 @@
 
 const HOVER_SELECTOR = 'a, button, [role="button"], .game-card, input, select, textarea, .filter-btn, label, [data-clickable]';
 
-// Techo duro de FPS para el loop del anillo. No hace falta correr a
-// 60-144Hz (la frecuencia del monitor) para que el "seguimiento con
-// estela" se vea bien — 30fps ya es imperceptible como delay y corta
-// a la mitad (o más) el trabajo de scripting/style que este RAF puede
-// generar en el peor caso (hover-spam), sin depender de heurísticas
-// de detección de abuso: es un límite matemático fijo.
-const RING_FPS = 30;
+// FPS del loop del anillo (estela). El glow (#cursorGlow, el punto
+// principal) NO pasa por este loop — se actualiza directo en cada
+// evento `mousemove` (ver handleMouseMove), así que ya sigue al mouse
+// a la frecuencia nativa del dispositivo/navegador, sin throttle.
+// Este loop es solo para el anillo con lerp: se corrió de 30 a 60fps
+// para que la estela se sienta más ajustada al movimiento real.
+const RING_FPS = 60;
 const RING_FRAME_BUDGET_MS = 1000 / RING_FPS;
 
 class CustomCursor {
