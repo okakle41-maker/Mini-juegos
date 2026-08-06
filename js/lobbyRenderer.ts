@@ -42,13 +42,21 @@ const MAX_DIFFICULTY_DOTS = 5;
  *  límite, la card número N+1 que entra en hover mientras ya hay
  *  MAX_CONCURRENT_HOVER_ANIMATIONS animando salta directo al estado
  *  final (ver `.game-card--hover-instant` en styles.css) en vez de
- *  sumarse a la cola. El valor 4 es deliberadamente bajo: en un grid
- *  de 3 columnas, 4 transiciones simultáneas ya cubren cualquier
- *  hover-spam humano razonable (recorrer una fila completa) sin dejar
- *  a nadie con la sensación de que "las cards no responden" — un
- *  hover que salta directo al estado final igual se ve instantáneo,
- *  solo pierde el suavizado del tránsito. */
-const MAX_CONCURRENT_HOVER_ANIMATIONS = 4;
+ *  sumarse a la cola.
+ *
+ *  Medido en Task Manager: con el techo en 4, recorrer una sola fila
+ *  rápido (3-6 cards) seguía subiendo ~30 puntos de CPU, porque ese
+ *  rango de uso real casi nunca llega a pisar el límite — 4 "cupos"
+ *  alcanzaban para cubrir el caso típico sin que el corte entrara en
+ *  juego. Bajado a 1: como máximo UNA card puede estar animando su
+ *  transición de entrada en un instante dado. La card N+1 que recibe
+ *  hover mientras la anterior todavía está animando salta directo al
+ *  estado final. Esto sacrifica el efecto de "varias cards
+ *  suavizándose a la vez" en un recorrido rápido — pasa a verse casi
+ *  todo instantáneo salvo la card donde el mouse se detiene — pero es
+ *  el único valor que realmente pone un techo en el rango de 3-6
+ *  cards que es el que importa acá. */
+const MAX_CONCURRENT_HOVER_ANIMATIONS = 1;
 
 /** Contador global de cards actualmente en transición de hover/focus.
  *  Vive a nivel de módulo (no de instancia) porque el límite es sobre
