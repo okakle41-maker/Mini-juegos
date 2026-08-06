@@ -58,8 +58,8 @@ export function sanitizeInput(input: string, options?: {
     do {
       previous = sanitized;
       sanitized = sanitized
-        .replace(/<script\b[^<]*(?:(?!<\/script\s*>)<[^<]*)*<\/script\s*>/gi, '')
         .replace(/javascript:/gi, '')
+        .replace(/script/gi, '')
         .replace(/[<>"'`=]/g, '');
     } while (sanitized !== previous);
   }
