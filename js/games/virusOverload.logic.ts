@@ -837,11 +837,11 @@ function updateVirusVisual(virus: Virus): void {
   } else if (['target', 'spam', 'node'].includes(virus.minigame)) {
     const hits = virus.data.hits || 0;
     const required = virus.data.required;
-    label.innerHTML = `${(label.textContent || '').split(' ')[0]} ${hits}/${required}`;
+    label.textContent = `${(label.textContent || '').split(' ')[0]} ${hits}/${required}`;
   } else if (virus.minigame === 'scan') {
     const hits = virus.data.hits || 0;
     const required = virus.data.required;
-    label.innerHTML = `${(label.textContent || '').split(' ')[0]} ${hits}/${required}`;
+    label.textContent = `${(label.textContent || '').split(' ')[0]} ${hits}/${required}`;
   } else if (virus.minigame === 'hold') {
     const elapsed = virus.data.held || 0;
     const required = virus.data.required;
