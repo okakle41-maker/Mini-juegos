@@ -2023,13 +2023,8 @@ button {
 .game-card:focus-visible .card-cta,
 .game-card:focus-visible .card-footer-row {
   opacity: 1;
-  max-height: 120px;
   transform: translateY(0);
   pointer-events: auto;
-}
-.game-card:hover .card-bottom,
-.game-card:focus-visible .card-bottom {
-  max-height: 24px;
 }
 .game-card:hover .card-cta,
 .game-card:focus-visible .card-cta {
@@ -2251,9 +2246,14 @@ button {
   -webkit-line-clamp: 3;
   overflow: hidden;
   opacity: 0;
-  max-height: 0;
+  /* Antes: `max-height: 0 -> 120px` transicionado. `max-height` es una
+   * propiedad de layout — animarla obliga a recalcular el layout de la
+   * carta (y de la fila del grid) en cada frame en vez de solo recomponer
+   * capas por GPU. El espacio para la descripción ahora se reserva
+   * siempre (altura real, sin colapsar) y el hover solo anima opacity +
+   * transform, que son compositables. */
   transform: translateY(6px);
-  transition: opacity 0.22s ease, max-height 0.22s ease, transform 0.22s ease, margin 0.22s ease;
+  transition: opacity 0.22s ease, transform 0.22s ease, margin 0.22s ease;
   pointer-events: none;
 }
 /* Badge de récord persistente (⬡ Xpts) — solo visible tras la primera
@@ -2353,10 +2353,9 @@ button {
   margin-top: auto;
   gap: 10px;
   opacity: 0;
-  max-height: 0;
   overflow: hidden;
   transform: translateY(6px);
-  transition: opacity 0.22s ease, max-height 0.22s ease, transform 0.22s ease;
+  transition: opacity 0.22s ease, transform 0.22s ease;
   pointer-events: none;
 }
 
@@ -2412,10 +2411,9 @@ button {
   letter-spacing: 0.04em;
   line-height: 1;
   opacity: 0;
-  max-height: 0;
   overflow: hidden;
   transform: translateY(6px);
-  transition: opacity 0.22s ease, max-height 0.22s ease, transform 0.22s ease;
+  transition: opacity 0.22s ease, transform 0.22s ease;
   pointer-events: none;
 }
 
