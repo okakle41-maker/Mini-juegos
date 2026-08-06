@@ -29,6 +29,7 @@ class CustomCursor {
 
   private rafId: number | null = null;
   private activated = false;
+  private looping = false;
 
   init(): void {
     this.glowEl = document.getElementById('cursorGlow');
@@ -50,7 +51,11 @@ class CustomCursor {
     document.addEventListener('mouseleave', this.hide, { passive: true });
     document.addEventListener('mouseenter', this.show, { passive: true });
 
-    this.loop();
+    // El loop arranca recién en el primer mousemove (ver
+    // handleMouseMove) en vez de correr desde el init(): con el mouse
+    // quieto no hay nada que animar, así que mantener un RAF
+    // recursivo 24/7 solo quema CPU de scripting sin ningún beneficio
+    // visual.
   }
 
   private handleMouseMove = (e: MouseEvent): void => {
@@ -65,6 +70,8 @@ class CustomCursor {
     if (this.glowEl) {
       this.glowEl.style.transform = `translate(${this.mouseX}px, ${this.mouseY}px) translate(-50%, -50%)`;
     }
+
+    this.ensureLoop();
   };
 
   private handleMouseOver = (e: MouseEvent): void => {
@@ -104,11 +111,31 @@ class CustomCursor {
       this.ringEl.style.transform = `translate(${this.ringX}px, ${this.ringY}px) translate(-50%, -50%)`;
     }
 
+    // Con el mouse quieto, el lerp converge exponencialmente pero
+    // nunca llega a exactamente 0 — sin este corte, `loop()` seguiría
+    // reprogramándose (y el navegador reprogramando el RAF) para
+    // siempre aunque el anillo ya esté visualmente pegado al cursor.
+    // 0.05px de diferencia es imperceptible; cortamos ahí.
+    const dx = this.mouseX - this.ringX;
+    const dy = this.mouseY - this.ringY;
+    if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) {
+      this.looping = false;
+      this.rafId = null;
+      return;
+    }
+
     this.rafId = requestAnimationFrame(this.loop);
   };
 
+  private ensureLoop(): void {
+    if (this.looping) return;
+    this.looping = true;
+    this.rafId = requestAnimationFrame(this.loop);
+  }
+
   destroy(): void {
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    this.looping = false;
     document.removeEventListener('mousemove', this.handleMouseMove);
     document.removeEventListener('mouseover', this.handleMouseOver);
     document.removeEventListener('mouseout', this.handleMouseOut);

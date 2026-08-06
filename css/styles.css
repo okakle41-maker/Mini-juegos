@@ -2873,6 +2873,27 @@ button{min-height:44px}
 
 /*==============================
 CURSOR GAMER
+
+Rediseñado para bajar el costo de CPU/GPU: la versión anterior
+animaba `box-shadow` con blur muy grande (hasta 100px, en 3 capas)
+sobre un elemento que se reposiciona en cada frame de un
+requestAnimationFrame (ver customCursor.ts, loop()). `box-shadow` con
+blur no es compositable por GPU — cada frame forzaba al navegador a
+RECALCULAR y REPINTAR ese blur pesado sobre la región afectada, y
+como esto corre mientras el mouse está sobre casi cualquier elemento
+interactivo (ver HOVER_SELECTOR en customCursor.ts), el costo era
+sostenido, no puntual.
+
+Fix: el glow ahora vive en un pseudo-elemento `::before` con
+`filter: blur(...)` FIJO por CSS (se compone una sola vez en su
+propia capa, no se recalcula por frame) cuya intensidad se controla
+con `opacity` — que sí es GPU-compositable y no dispara repaint. Lo
+único que sigue actualizándose por frame es `transform: translate()`
+en el contenedor (#cursorGlow/#cursorRing), que también es
+compositable y barato. `will-change` está puesto en los pseudo-
+elementos (la capa que realmente tiene el blur) en vez de en el
+contenedor entero, para no forzar una capa GPU extra e innecesaria en
+elementos que no lo necesitan.
 ==============================*/
 
 #cursorGlow{
@@ -2881,11 +2902,22 @@ CURSOR GAMER
     height:8px;
     border-radius:50%;
     background:var(--accent-orange);
-    box-shadow:0 0 15px var(--accent-orange),0 0 40px var(--accent-orange);
     pointer-events:none;
     z-index:99999;
     will-change:transform;
     transition:width .18s,height .18s,background .18s;
+}
+
+#cursorGlow::before{
+    content:'';
+    position:absolute;
+    inset:-12px;
+    border-radius:50%;
+    background:var(--accent-orange);
+    filter:blur(10px);
+    opacity:.55;
+    will-change:opacity;
+    transition:opacity .18s;
 }
 
 #cursorRing{
@@ -2913,6 +2945,18 @@ CURSOR GAMER
         border-color .22s;
 
 }
+
+#cursorRing::before{
+    content:'';
+    position:absolute;
+    inset:-8px;
+    border-radius:50%;
+    background:var(--glow-orange-soft);
+    filter:blur(8px);
+    opacity:0;
+    will-change:opacity;
+    transition:opacity .22s;
+}
 #cursorGlow.cursor-hover{
 
     width:24px;
@@ -2920,11 +2964,12 @@ CURSOR GAMER
 
     background:var(--accent-orange);
 
-    box-shadow:
-        0 0 25px var(--accent-orange),
-        0 0 60px var(--glow-orange),
-        0 0 100px var(--glow-orange-soft);
+}
 
+#cursorGlow.cursor-hover::before{
+    inset:-20px;
+    filter:blur(14px);
+    opacity:.75;
 }
 
 #cursorRing.cursor-hover{
@@ -2934,9 +2979,10 @@ CURSOR GAMER
 
     border-color:var(--accent-orange);
 
-    box-shadow:
-        0 0 15px var(--glow-orange-soft);
+}
 
+#cursorRing.cursor-hover::before{
+    opacity:.6;
 }
 
 body.custom-cursor-active *{
@@ -3346,8 +3392,20 @@ AMBIENT PARTICLES
 /* Hover */
 .game-card:hover .card-border{
     opacity:1;
-    animation:
-        borderGlow 2s linear infinite;
+    /* Antes: `animation: borderGlow 2s linear infinite` — recompone
+     * el `filter: drop-shadow(...)` del borde en loop indefinido
+     * mientras el mouse quede quieto sobre la tarjeta (el usuario
+     * leyendo la descripción, por ejemplo). `filter` sí es
+     * compositable por GPU (más barato que `box-shadow`), pero seguir
+     * animándolo para siempre sin que cambie nada visualmente después
+     * del primer ciclo es trabajo de compositor desperdiciado. Se
+     * reemplaza por una transición de entrada de una sola vez, que
+     * llega al mismo glow máximo y se queda ahí quieto. */
+    filter:
+        drop-shadow(0 0 16px var(--glow-orange));
+    transition:
+        opacity .25s,
+        filter .5s ease-out;
 }
 .game-card:hover .card-shine{
     opacity:1;
@@ -3364,20 +3422,6 @@ AMBIENT PARTICLES
         transform:
             translateX(420%)
             rotate(25deg);
-    }
-}
-@keyframes borderGlow{
-    0%{
-        filter:
-            drop-shadow(0 0 4px var(--glow-orange-soft));
-    }
-    50%{
-        filter:
-            drop-shadow(0 0 16px var(--glow-orange));
-    }
-    100%{
-        filter:
-            drop-shadow(0 0 4px var(--glow-orange-soft));
     }
 }
 .card-icon-lg{
@@ -3518,35 +3562,33 @@ AMBIENT PARTICLES
   border-color: var(--border-hover);
   color: var(--accent-orange);
 }
+/* Botón de filtro "activo" — antes animaba `box-shadow` en 4 capas
+ * (blur hasta 52px, más un `inset`) en loop infinito de 2.2s, y
+ * corría desde el primer momento en que se entra a Logros/Lobby
+ * Online (el botón "Todos" viene --active por defecto, no requiere
+ * hover) — consumo de fondo constante mientras el usuario navega esas
+ * pantallas. Mismo fix que el cursor y el reproductor de música:
+ * `filter: drop-shadow(...)` es compositable por GPU a diferencia de
+ * `box-shadow`, así que animamos su intensidad vía `opacity` en un
+ * wrapper... salvo que acá NO hay pseudo-elemento libre: `::before`
+ * ya lo usa el fondo en hover y `::after` ya lo usa el indicador de
+ * "activo" (la barrita bajo el texto, ver arriba). Por eso el
+ * `drop-shadow` se aplica directo sobre el botón — afecta también al
+ * texto/ícono, pero con un radio chico (16px) el efecto es
+ * indistinguible del glow de borde original y no rompe el layout.
+ * El `inset` se deja estático en su valor medio (8px, barato).
+ */
 .filter-btn--active {
   background: var(--border);
   border-color: var(--border-hover);
   color: var(--accent-orange);
-  box-shadow:
-    0 0 6px rgba(249,115,22,0.50),
-    0 0 18px rgba(249,115,22,0.28),
-    0 0 36px rgba(249,115,22,0.12),
-    inset 0 0 8px rgba(249,115,22,0.10);
-  animation: filter-glow-pulse 2.2s ease-in-out infinite;
+  box-shadow: inset 0 0 8px rgba(249,115,22,0.10);
   text-shadow: 0 0 8px rgba(249,115,22,0.65);
+  animation: filter-glow-pulse 2.2s ease-in-out infinite;
 }
 @keyframes filter-glow-pulse {
-  0%, 100% {
-    box-shadow:
-      0 0 6px rgba(249,115,22,0.50),
-      0 0 18px rgba(249,115,22,0.28),
-      0 0 36px rgba(249,115,22,0.12),
-      inset 0 0 8px rgba(249,115,22,0.10);
-    border-color: var(--border-hover);
-  }
-  50% {
-    box-shadow:
-      0 0 10px rgba(249,115,22,0.75),
-      0 0 28px rgba(249,115,22,0.45),
-      0 0 52px rgba(249,115,22,0.22),
-      inset 0 0 14px rgba(249,115,22,0.18);
-    border-color: rgba(249,115,22,0.95);
-  }
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(249,115,22,0.45)); }
+  50%      { filter: drop-shadow(0 0 16px rgba(249,115,22,0.85)); }
 }
 
 /* Terminal-blink for ONLINE / SECURE / MODS */
@@ -4062,29 +4104,45 @@ AMBIENT PARTICLES
 }
 
 
-/* ── Music player: pulso en borde cuando reproduce ── */
-@keyframes mpBorderPulse {
-  0%   { box-shadow:
-    0 10px 40px rgba(0,0,0,0.65),
-    0 0 0 1px  var(--surface) inset,
-    0 0 0px    var(--glow-orange-soft);
-  }
-  50%  { box-shadow:
-    0 10px 40px rgba(0,0,0,0.65),
-    0 0 0 1px  var(--surface) inset,
-    0 0 22px   var(--glow-orange),
-    0 0 40px   var(--glow-orange-soft);
-  }
-  100% { box-shadow:
-    0 10px 40px rgba(0,0,0,0.65),
-    0 0 0 1px  var(--surface) inset,
-    0 0 0px    var(--glow-orange-soft);
-  }
+/* ── Music player: pulso en borde cuando reproduce ──
+ *
+ * Antes esto animaba `box-shadow` en 4 capas (blur hasta 40px) en
+ * loop infinito de 2s mientras había música sonando — un estado que
+ * puede durar toda la sesión, no un efecto puntual. `box-shadow` con
+ * blur no es compositable por GPU, así que el navegador repintaba
+ * ese blur cada tick del loop de forma sostenida en 2do plano.
+ *
+ * Fix (mismo patrón que #cursorGlow en la sección CURSOR GAMER más
+ * arriba): el pulso ahora vive en un pseudo-elemento con
+ * `filter: drop-shadow(...)` FIJO (se compone una sola vez) animado
+ * por `opacity`, que sí es GPU-compositable y no dispara repaint. El
+ * `.music-player` ya es `position: fixed` (ver arriba), que también
+ * sirve como contenedor de posicionamiento para el pseudo-elemento
+ * (`position: absolute; inset: 0`) — no hace falta agregar
+ * `position: relative` acá.
+ */
+.music-player::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  filter: drop-shadow(0 0 22px var(--glow-orange));
+  opacity: 0;
+  will-change: opacity;
 }
 
 .music-player.mp--playing {
   border-color: var(--accent-orange);
+}
+
+.music-player.mp--playing::after {
   animation: mpBorderPulse 2s ease-in-out infinite;
+}
+
+@keyframes mpBorderPulse {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 1; }
 }
 
 

@@ -16,6 +16,7 @@ import ErrorLogger from '../core/errorLogger.js';
 import { attachCopyButton } from '../utils/copyRoomCode.js';
 import { withButtonBusy } from '../utils/buttonBusyGuard.js';
 import { watchConnection, type ConnectionWatcherHandle } from '../utils/connectionWatcher.js';
+import { describeMatchError } from '../utils/describeMatchError.js';
 
 /**
  * Sesión de sala activa para este juego, envuelta sobre
