@@ -68,6 +68,10 @@ class HoleMatchGame {
   pointerElement: HTMLElement | null;
   stageElement: HTMLElement | null;
   private onKeyDown: (event: KeyboardEvent) => void;
+  /** Guardado para poder desconectarlo en destroy(); antes se creaba
+   *  como objeto anónimo en init() y quedaba observando el tablero
+   *  para siempre, sin forma de limpiarlo. */
+  resizeObserver: ResizeObserver | null = null;
 
   constructor(ui: HoleMatchUi) {
     this.ui = ui;
@@ -91,6 +95,8 @@ class HoleMatchGame {
 
   destroy(): void {
     document.removeEventListener('keydown', this.onKeyDown);
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
   }
 
   initialState(): HoleMatchState {
@@ -464,7 +470,8 @@ export function init(rawUi: GameUi): void {
   const game = new HoleMatchGame(ui);
   GameInstanceRegistry.set('holematch', game);
   if (window.ResizeObserver) {
-    new ResizeObserver(() => game.updateLayout()).observe(ui.holematchBoard);
+    game.resizeObserver = new ResizeObserver(() => game.updateLayout());
+    game.resizeObserver.observe(ui.holematchBoard);
   }
 }
 

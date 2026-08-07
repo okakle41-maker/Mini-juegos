@@ -35,7 +35,6 @@ try {
 // Core modules (deben cargarse primero)
 import './core/errorLogger';
 import './core/safeStorage';
-import './core/supabaseClient';
 import './core/gameRegistry';
 import './core/gameInstanceRegistry';
 import './core/viewManager';

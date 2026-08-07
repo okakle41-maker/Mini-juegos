@@ -111,6 +111,9 @@ let lastFeedback: FeedbackKind = null;
 let exitReason: ExitReason = null;
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+/** Handler de teclado en `window`; se guarda para poder quitarlo en `stop()`
+ *  y no acumular un listener global nuevo por cada init() de la sesión. */
+let keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 
 /* Drag state */
 let dragState: DragState | null = null;
@@ -794,7 +797,13 @@ export function init(_resolvedUi: GameUi) {
   }
 
   // Keyboard
-  window.addEventListener('keydown', function rpKey(e) {
+  // Si ya había un handler de una init() previa (no debería, por el guard
+  // `initialized` de GameRegistry, pero por seguridad), lo quitamos antes
+  // de agregar uno nuevo para no acumular listeners en `window`.
+  if (keydownHandler) {
+    window.removeEventListener('keydown', keydownHandler, true);
+  }
+  keydownHandler = (e: KeyboardEvent) => {
     const sectionEl = document.getElementById('ring-puzzle');
     const inView = sectionEl && !sectionEl.classList.contains('hidden');
     if (!inView) return;
@@ -810,7 +819,8 @@ export function init(_resolvedUi: GameUi) {
     if (e.key === 'ArrowLeft') rotate('left');
     if (e.key === 'ArrowRight') rotate('right');
     if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); confirmRing(); }
-  }, true);
+  };
+  window.addEventListener('keydown', keydownHandler, true);
 
   showPhase('menu');
 }
