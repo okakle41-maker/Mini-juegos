@@ -1999,11 +1999,18 @@ button {
      gradient compuesto en cada una de esas transiciones seguía
      sumando trabajo de Paint innecesario que no se nota a simple
      vista (el cambio de fondo en :hover salta directo al valor final
-     en vez de interpolar, apenas perceptible en 0.28s). border-color,
-     box-shadow y transform sí quedan animados: son compositables por
-     GPU (transform siempre; box-shadow/border-color son baratas en
-     comparación con recomponer un gradient completo por frame). */
-  transition: border-color 0.28s ease, box-shadow 0.28s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+     en vez de interpolar, apenas perceptible en 0.28s).
+     Corrección (trace de Performance, Aug 2026): a diferencia de lo
+     que decía este comentario antes, `box-shadow` y `border-color`
+     NO son compositables por GPU — solo `transform` y `opacity` lo
+     son. Animarlas de forma suave fuerza Paint (y a veces Recalculate
+     Style) en cada frame de la transición, en las ~200 cards del
+     grid con hover-spam. Se dejan como cambios instantáneos (sin
+     transition) — el valor final se ve igual, solo sin la
+     interpolación de por medio, que era el costo real. Solo
+     `transform` sigue animado con transición suave: eso sí es
+     GPU-only. */
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: 0 8px 18px rgba(2, 6, 23, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.03);
   min-height: 196px;
   opacity: 0;
@@ -2139,7 +2146,7 @@ button {
         rotate(-2deg);
     filter:
         drop-shadow(0 0 14px color-mix(in srgb, var(--accent) 30%, transparent));
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .game-card:hover .diff-dot--filled,
 .game-card:focus-visible .diff-dot--filled { box-shadow: 0 0 8px var(--accent); }
@@ -2269,7 +2276,13 @@ button {
   position: relative;
   z-index: 1;
   filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--accent) 25%, transparent));
-  transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), filter 0.28s ease, opacity 0.28s ease;
+  /* `filter` fuera de la transición suave (trace de Performance,
+     Aug 2026): drop-shadow sobre un <svg> fuerza Paint en cada frame
+     de la interpolación — con ~200 cards en hover-spam esto pesaba
+     tanto como el resto de la card junta. El filter cambia igual al
+     entrar/salir del hover, solo sin la interpolación suave, que era
+     el costo real y apenas se notaba a simple vista en 0.28s. */
+  transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), opacity 0.28s ease;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -2461,7 +2474,12 @@ button {
 .diff-dot {
   width: 5px; height: 5px;
   border-radius: 50%;
-  transition: box-shadow 0.25s;
+  /* Sin transition: cada card tiene 3-5 de estos puntos, y todos
+     entraban en el glow del hover a la vez — trace de Performance
+     (Aug 2026) los mostró como el evento de Animation más frecuente
+     de todos (614 en ~8s de hover-spam). El glow sigue apareciendo
+     igual, solo de forma instantánea; a 5px de tamaño la interpolación
+     no se notaba. */
 }
 .diff-dot--filled { background: var(--accent); }
 .diff-dot--empty  { background: rgba(255,255,255,0.08); }
@@ -2486,7 +2504,15 @@ button {
   padding: 4px 8px;
   opacity: 0;
   transform: translateX(0);
-  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  /* Antes animaba 6 propiedades (opacity, transform, background,
+     border-color, color, box-shadow) — trace de Performance (Aug
+     2026) mostró que las 4 no-GPU (background/border-color ×4
+     lados/color/box-shadow) eran el mayor contribuyente de Paint por
+     card en hover-spam. Solo opacity/transform quedan con
+     interpolación suave; el resto cambia igual pero de forma
+     instantánea junto con ellas — la diferencia visual es mínima en
+     una transición de 0.2s. */
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .game-card:hover .card-cta,
 .game-card:focus-visible .card-cta {
