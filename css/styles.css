@@ -1975,8 +1975,8 @@ button {
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(8, 12, 20, 0.96) 100%);
   padding: 0;
   cursor: pointer;
-  /* `contain: layout paint` aísla a la card del resto del árbol de
-     render: el navegador ya sabe que nada de lo que pase adentro de
+  /* `contain: layout paint size` aísla a la card del resto del árbol
+     de render: el navegador ya sabe que nada de lo que pase adentro de
      esta card (transiciones de hijos, cambios de tamaño) puede afectar
      el layout de sus hermanas ni de ningún otro elemento fuera de
      ella, y que su pintura no se "derrama" fuera de sus límites. Sin
@@ -1987,10 +1987,28 @@ button {
      era proporcional a "1 card en hover", sino que cada hover podía
      tocar el árbol completo. Con `contain` cada card es una unidad de
      recálculo aislada, así que N hovers rápidos cuestan ~N × (costo de
-     UNA card), no más que eso. No se usa `content` (que además aísla
-     tamaño/estilo) porque `.card-hero-bg`/`.card-icon-lg` sí dependen
-     de tamaños calculados desde afuera en algunos breakpoints. */
-  contain: layout paint;
+     UNA card), no más que eso.
+     `size` agregado (trace de Performance, Aug 2026): un comentario
+     anterior acá decía que no se podía agregar `size` (ni usar
+     `content`, que lo incluye) porque `.card-hero-bg`/`.card-icon-lg`
+     dependían de tamaños calculados desde afuera en algunos
+     breakpoints — eso ya no es así: ninguno de los dos tiene
+     width/height/font-size dentro de un `@media` en ningún archivo de
+     tema (verificado grep sobre los 5 CSS de tema). El tamaño de
+     `.card-icon-lg` es fijo por tema, y `.game-card` mismo siempre es
+     width/height: 100% de la celda del grid, nunca al revés — así que
+     `size` es seguro: no colapsa a 0×0 porque el tamaño ya viene
+     resuelto desde afuera. Sin `size`, el navegador no podía descartar
+     que un cambio de tamaño interno de la card se propagara hacia el
+     grid padre, y por eso cada hover terminaba disparando un `Layout`
+     de `#document` completo (confirmado en el trace: 183 eventos,
+     partialLayout:false, layoutRoots:#document, 91% correlacionados
+     con hover, ~472ms acumulados) en vez de quedar contenido dentro de
+     la card. Si en el futuro algún elemento dentro de `.game-card`
+     necesita depender de un tamaño calculado desde afuera otra vez,
+     hay que sacar `size` de acá primero o usar `contain-intrinsic-size`
+     puntualmente en ese elemento en vez de romper el contain acá. */
+  contain: layout paint size;
   /* `background` deliberadamente FUERA de esta transition: es un
      linear-gradient + radial-gradient compuesto, de las propiedades
      más caras de repintar en cada frame de una animación. Con

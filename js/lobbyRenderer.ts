@@ -73,7 +73,17 @@ let activeHoverAnimations = 0;
  *  más. No hace falta esperar a las ~10 propiedades individuales: el
  *  objetivo es acotar concurrencia aproximada, no sincronizar al
  *  frame exacto. */
-const HOVER_END_SIGNAL_PROPERTY = 'box-shadow';
+// Debe coincidir con la ÚNICA propiedad que sigue en la `transition`
+// de `.game-card` (css/styles.css) — hoy es `transform` (box-shadow/
+// border-color se sacaron de la transition a propósito, ver el
+// comentario junto a esa regla). Si ese CSS cambia de propiedad otra
+// vez, este valor tiene que actualizarse junto con él: si no,
+// `transitionend` nunca dispara con este propertyName,
+// `activeHoverAnimations` nunca se libera después del primer hover, y
+// TODAS las cards subsiguientes quedan atascadas en
+// `--hover-instant` en vez del round-robin que este límite de
+// concurrencia buscaba lograr.
+const HOVER_END_SIGNAL_PROPERTY = 'transform';
 
 /** Techo de "dominio" del ring de progreso: a partir de esta cantidad de
  *  partidas jugadas (con récord guardado) se considera 100%. */
@@ -323,20 +333,35 @@ class LobbyRenderer {
       };
 
       const addHoverClass = () => {
-        card.classList.add('game-card--hovering');
-
         if (hasCountedThisEntry || card.classList.contains('game-card--hover-instant')) {
+          // Ya está contada o ya quedó marcada instantánea en esta
+          // misma entrada de hover (p. ej. mouseenter + focus casi
+          // simultáneos): no re-evaluar cupo ni tocar will-change de
+          // nuevo.
+          card.classList.add('game-card--hovering');
           return;
         }
 
         if (activeHoverAnimations >= MAX_CONCURRENT_HOVER_ANIMATIONS) {
-          // Cupo lleno: esta card salta directo al estado final, sin
-          // sumarse al conteo (no está "animando", así que no ocupa
-          // cupo ni hace falta liberarlo después).
+          // Cupo lleno: esta card salta directo al estado final SIN
+          // promover a capa de composición. `game-card--hovering` (que
+          // dispara will-change: transform) queda reservado solo para
+          // la card que realmente va a animar su transición — si no
+          // hay transición suave que correr, no hay nada que componer
+          // en GPU. Antes esta clase se agregaba para TODA card en
+          // hover incondicionalmente (línea de arriba, antes de este
+          // chequeo), lo que forzaba un ciclo de Layerize
+          // (crear/destruir capa) en cada card tocada durante
+          // hover-spam, sin importar el límite de concurrencia —
+          // trace de Performance (Aug 2026): 4443 Layer:created en
+          // ~9s, 1.38s acumulados en Layerize, con MAX_CONCURRENT_
+          // HOVER_ANIMATIONS ya en 1. El límite de concurrencia
+          // controlaba la transición pero no la promoción de capa.
           card.classList.add('game-card--hover-instant');
           return;
         }
 
+        card.classList.add('game-card--hovering');
         hasCountedThisEntry = true;
         activeHoverAnimations += 1;
         card.addEventListener('transitionend', onHoverTransitionEnd);

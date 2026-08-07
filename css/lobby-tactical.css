@@ -353,6 +353,13 @@ body::after {
   font-size: 30px !important;
 }
 .card-icon-lg svg { width: 30px; height: 30px; }
+/* IMPORTANTE (trace de Performance, Aug 2026): background/border-color/
+   box-shadow aquí saltan directo al valor final en :hover — NO están en
+   la `transition` de `.card-icon-lg` (definida en styles.css, solo
+   transform/opacity). Si alguna vez se agrega box-shadow/background a
+   esa transition base, este bloque empezará a animarlas también y se
+   reintroduce el costo de Paint por card que se sacó del tema default.
+   No agregar `transition: all` ni una transition propia aquí. */
 .game-card:hover .card-icon-lg {
   background: color-mix(in srgb, var(--accent, #ff8c3c) 22%, transparent);
   border-color: color-mix(in srgb, var(--accent, #ff8c3c) 65%, transparent);
@@ -374,6 +381,8 @@ body::after {
   flex: 1;
   border-radius: 1px;
 }
+/* Igual que arriba: .diff-dot no tiene transition (ver styles.css),
+   así que este box-shadow salta directo al valor final, sin animar. */
 .diff-dot--filled {
   background: var(--accent, #ff8c3c);
   box-shadow: 0 0 5px color-mix(in srgb, var(--accent, #ff8c3c) 70%, transparent);
