@@ -333,12 +333,20 @@ class LobbyRenderer {
       };
 
       const addHoverClass = () => {
-        if (hasCountedThisEntry || card.classList.contains('game-card--hover-instant')) {
-          // Ya está contada o ya quedó marcada instantánea en esta
-          // misma entrada de hover (p. ej. mouseenter + focus casi
-          // simultáneos): no re-evaluar cupo ni tocar will-change de
-          // nuevo.
-          card.classList.add('game-card--hovering');
+        if (card.classList.contains('game-card--hover-instant')) {
+          // Ya saltó al estado final instantáneo (cupo lleno en esta
+          // misma entrada de hover, o entrada duplicada mouseenter+
+          // focus sobre una card que ya quedó marcada instant). No hay
+          // transición corriendo ni por correr, así que NO se agrega
+          // `game-card--hovering` — no hay nada que componer en GPU.
+          return;
+        }
+
+        if (hasCountedThisEntry) {
+          // mouseenter + focus duplicados para la misma entrada de
+          // hover, pero esta card SÍ está animando (tiene cupo): ya
+          // tiene `--hovering` puesta de la primera vez, no hace falta
+          // re-agregarla ni volver a contar.
           return;
         }
 
@@ -349,9 +357,8 @@ class LobbyRenderer {
           // la card que realmente va a animar su transición — si no
           // hay transición suave que correr, no hay nada que componer
           // en GPU. Antes esta clase se agregaba para TODA card en
-          // hover incondicionalmente (línea de arriba, antes de este
-          // chequeo), lo que forzaba un ciclo de Layerize
-          // (crear/destruir capa) en cada card tocada durante
+          // hover incondicionalmente, lo que forzaba un ciclo de
+          // Layerize (crear/destruir capa) en cada card tocada durante
           // hover-spam, sin importar el límite de concurrencia —
           // trace de Performance (Aug 2026): 4443 Layer:created en
           // ~9s, 1.38s acumulados en Layerize, con MAX_CONCURRENT_

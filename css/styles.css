@@ -1952,6 +1952,24 @@ button {
 .game-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* `grid-auto-rows` explícito (trace de Performance, Aug 2026): sin
+     esto la altura de cada fila es `auto` — depende del contenido de
+     sus celdas. Como `.game-card` es `height: 100%` de esa fila (ver
+     más abajo) y además tiene `contain: layout paint size`, quedaba
+     una dependencia circular: la fila necesita medir el contenido de
+     la card para saber su alto, pero la card le dice al navegador
+     "no me midas por contenido, ya sé mi tamaño". Ante esa
+     circularidad el navegador no puede aplicar el containment de
+     tamaño de forma real y cae de vuelta a layout normal sin avisar
+     — confirmado en el trace: `contain: size` no cambió nada
+     (totalObjects idéntico, 100% de los Layout seguían siendo
+     full-document). Con `minmax(196px, auto)` la fila ya tiene un
+     piso resuelto sin depender del contenido — igual al
+     `min-height: 196px` que ya tenía `.game-card` — así el
+     containment de tamaño de la card por fin puede aplicarse de
+     verdad. Si algún tema necesita cards más altas, ajustar el
+     mínimo acá (no solo en `.game-card`), o la circularidad vuelve. */
+  grid-auto-rows: minmax(196px, auto);
   gap: 16px;
   list-style: none;
   position: relative;
