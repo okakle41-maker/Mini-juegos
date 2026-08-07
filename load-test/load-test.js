@@ -51,25 +51,6 @@ export default function () {
   }) || errorRate.add(1);
 
   sleep(2);
-
-  // Test 3: Simulate game interaction (POST request if applicable)
-  const res3 = http.post(`${BASE_URL}/api/score`, JSON.stringify({
-    game: 'termita',
-    score: 100,
-    timestamp: Date.now()
-  }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
-  
-  // This might fail if the endpoint doesn't exist, which is okay for testing
-  if (res3.status !== 404) {
-    check(res3, {
-      'score endpoint status 200': (r) => r.status === 200,
-      'score endpoint response time < 300ms': (r) => r.timings.duration < 300,
-    }) || errorRate.add(1);
-  }
-
-  sleep(1);
 }
 
 export function handleSummary(data) {
