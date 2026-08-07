@@ -97,6 +97,11 @@ describe('Bomb Defusal — un strike en OTRO módulo no debe invalidar la respue
   beforeEach(() => {
     vi.resetModules();
     buildDom();
+    // Fuerza pick(arr) a devolver siempre arr[0] (Math.floor(0 * arr.length) === 0),
+    // así SCREEN_MSGS[0] === 'SÍ' sale siempre en vez de depender del azar en
+    // hasta 30 intentos — ver el comentario del archivo, que ya describía este
+    // mock pero nunca llegó a implementarse (de ahí el test flaky).
+    vi.spyOn(Math, 'random').mockReturnValue(0);
     (window as any).AudioContext = function AudioContextMock(this: any) {
       this.state = 'running';
       this.createOscillator = () => ({ connect: vi.fn(), frequency: { setValueAtTime: vi.fn() }, start: vi.fn(), stop: vi.fn(), type: '' });
