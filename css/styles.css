@@ -2983,6 +2983,77 @@ body[data-theme='orange'] .card { background: rgba(20,8,0,0.92); border-color: r
 body[data-theme='orange'] .glitch-text::before { color: var(--accent-orange); }
 body[data-theme='orange'] button { background: linear-gradient(135deg,#c2410c,#f97316); }
 
+/* ── Theme: Neon ──
+   'neon' aparecía en el selector de temas (#themeSelect /
+   #configThemeSelect, ver configPanel.ts) sin ninguna regla CSS
+   correspondiente: elegirlo cambiaba `data-theme` en el DOM pero el
+   sitio se quedaba con la paleta default de :root sin ningún cambio
+   visible. Esta paleta lleva el cian/magenta del default a full
+   saturación — un "neón" más intenso, no solo el default disfrazado. */
+body[data-theme='neon'] {
+  --bg: #04010a;
+  --surface: rgba(0, 255, 255, 0.14);
+  --surface-strong: rgba(255, 0, 229, 0.18);
+  --border: rgba(0, 255, 255, 0.55);
+  --border-hover: rgba(0, 255, 255, 0.9);
+  --text: #f0fffe;
+  --text-muted: rgba(210, 255, 250, 0.92);
+  --text-dim: rgba(170, 255, 245, 0.7);
+  --accent-cyan: #00fff2;
+  --accent-orange: #ff00e5;
+
+  --accent-orange-2: #b026ff;
+  --bg-1: #04010a;
+  --bg-2: #0c0320;
+  --card: rgba(6, 2, 20, 0.9);
+  --card-hover: linear-gradient(155deg, rgba(10, 0, 40, 0.98) 0%, rgba(40, 0, 60, 0.98) 100%);
+  --panel-gradient: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+
+  --glow-orange: rgba(0, 255, 242, 1);
+  --glow-orange-strong: rgba(255, 0, 229, 1);
+  --glow-orange-soft: rgba(0, 255, 242, 0.3);
+  --neon-cyan: #00fff2;
+  --neon-pink: #ff00e5;
+  --neon-violet: #b026ff;
+}
+body[data-theme='neon'] { background: linear-gradient(180deg,#04010a,#0c0320 50%,#1a0033); }
+body[data-theme='neon'] .card { background: rgba(6,2,20,0.92); border-color: rgba(0,255,242,0.28); }
+body[data-theme='neon'] .glitch-text::before { color: var(--accent-orange); }
+body[data-theme='neon'] button { background: linear-gradient(135deg,#b026ff,#ff00e5); }
+
+/* ── Theme: Ocean ──
+   Mismo problema que 'neon': faltaba por completo. Paleta alineada
+   con theme_ocean ("Océano Profundo") en customizationSystem.ts
+   (#0ea5e9 / #0284c7 / #0369a1) para que ambos sistemas de tema no
+   diverjan visualmente si en algún momento se unifican. */
+body[data-theme='ocean'] {
+  --bg: #020a12;
+  --surface: rgba(14, 165, 233, 0.13);
+  --surface-strong: rgba(3, 105, 161, 0.18);
+  --border: rgba(14, 165, 233, 0.45);
+  --border-hover: rgba(56, 189, 248, 0.85);
+  --text: #eef9ff;
+  --text-muted: rgba(214, 241, 255, 0.9);
+  --text-dim: rgba(170, 220, 245, 0.68);
+  --accent-cyan: #38bdf8;
+  --accent-orange: #0ea5e9;
+
+  --accent-orange-2: #0369a1;
+  --bg-1: #020a12;
+  --bg-2: #0c1929;
+  --card: rgba(6, 20, 32, 0.92);
+  --card-hover: linear-gradient(155deg, rgba(8, 30, 48, 0.98) 0%, rgba(3, 40, 60, 0.98) 100%);
+  --panel-gradient: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+
+  --glow-orange: rgba(56, 189, 248, 0.9);
+  --glow-orange-strong: rgba(14, 165, 233, 1);
+  --glow-orange-soft: rgba(56, 189, 248, 0.25);
+}
+body[data-theme='ocean'] { background: linear-gradient(180deg,#020a12,#0c1929 50%,#0c2a42); }
+body[data-theme='ocean'] .card { background: rgba(6,20,32,0.92); border-color: rgba(14,165,233,0.22); }
+body[data-theme='ocean'] .glitch-text::before { color: var(--accent-orange); }
+body[data-theme='ocean'] button { background: linear-gradient(135deg,#0369a1,#0ea5e9); }
+
 
 /* V4 UI */
 :root{--radius:12px}
