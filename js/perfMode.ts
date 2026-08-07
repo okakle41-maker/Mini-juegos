@@ -11,11 +11,11 @@
  *      preferencia sobreviva a un reload sin depender del query string.
  *   2. Un toggle real en Configuración (#configPerfModeToggle) que
  *      añade/quita la clase en caliente, sin necesitar recargar la
- *      página — `body.perf-mode *` en CSS aplica al instante, y
- *      customCursor solo lee la clase en su init() (una vez al cargar
- *      la página), así que además cancelamos su loop activo a mano
- *      si el usuario lo desactiva a mitad de sesión con el cursor ya
- *      corriendo.
+ *      página — `body.perf-mode *` en CSS aplica al instante. Al
+ *      activarlo apagamos el cursor personalizado a mano (destroy());
+ *      al desactivarlo lo reinicializamos a mano también (destroy()
+ *      + init()), para que el efecto sea reversible en caliente sin
+ *      pedirle al usuario que recargue la página.
  *
  * El query string `?perf=1` (ver main.ts) sigue funcionando igual que
  * antes para pruebas puntuales, pero NO se persiste — es un flag de
@@ -42,12 +42,21 @@ function setPerfMode(enabled: boolean, opts: { persist: boolean } = { persist: t
   // customCursor.init() ya corrió en DOMContentLoaded y solo chequea
   // `perf-mode` una vez; si el usuario activa el modo a mitad de
   // sesión con el cursor personalizado ya en marcha, hay que apagarlo
-  // a mano acá (destroy() cancela el RAF y quita los listeners). Si
-  // lo desactiva, no lo reinicializamos automáticamente: pedimos
-  // recargar, para no duplicar listeners si el usuario alterna varias
-  // veces sin recargar.
-  if (enabled) {
-    CustomCursorInstance.destroy();
+  // a mano acá (destroy() cancela el RAF y quita los listeners).
+  //
+  // Al desactivarlo, reinicializamos también a mano: destroy() es
+  // seguro de llamar siempre (idempotente incluso si el cursor nunca
+  // se había activado, ver customCursor.ts), así que llamarlo antes
+  // de init() evita el riesgo de duplicar listeners sin depender de
+  // si esta llamada activó perf-mode en algún momento anterior de la
+  // sesión. Antes esto quedaba pendiente de un reload manual — exactamente
+  // el bug reportado ("desactivé el modo bajo consumo y el cursor
+  // gamer no volvía a activarse ni con Ctrl+Shift+R", porque el reload
+  // por sí solo no alcanza: la preferencia guardada en localStorage
+  // seguía marcando perf-mode activo, así que initCursor() no hacía nada).
+  CustomCursorInstance.destroy();
+  if (!enabled) {
+    CustomCursorInstance.init();
   }
 }
 
