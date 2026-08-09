@@ -333,6 +333,23 @@ class LobbyRenderer {
       };
 
       const addHoverClass = () => {
+        if (document.body.classList.contains('perf-mode')) {
+          // En perf-mode `.game-card:hover` no tiene transición de
+          // transform (`body.perf-mode .game-card:hover { transform:
+          // none !important }`) y `will-change` ya vuelve a `auto` por
+          // `body.perf-mode * { will-change: auto !important }` — no
+          // hay nada que animar ni que promover a capa. Sin este
+          // corte, el código de abajo igual agregaba `--hovering`,
+          // sumaba al cupo y registraba un listener de `transitionend`
+          // que NUNCA iba a disparar (no hay transición corriendo),
+          // dejando trabajo de JS puro desperdiciado en cada hover —
+          // confirmado en el trace de Performance (Aug 2026, sesión
+          // "bajo consumo"): 615 eventos de Layerize / 1238ms
+          // acumulados con will-change teóricamente anulado por CSS.
+          card.classList.add('game-card--hover-instant');
+          return;
+        }
+
         if (card.classList.contains('game-card--hover-instant')) {
           // Ya saltó al estado final instantáneo (cupo lleno en esta
           // misma entrada de hover, o entrada duplicada mouseenter+
