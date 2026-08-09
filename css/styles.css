@@ -1775,7 +1775,8 @@ button {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
-  color: rgba(174, 230, 255, 0.78);
+  color: rgba(249,160,60,0.95);
+  text-shadow: 0 0 6px rgba(249,115,22,0.4);
   animation: terminal-blink var(--blink-dur, 5s) ease-in-out infinite;
   animation-delay: var(--blink-delay, 0s);
 }
@@ -1963,13 +1964,13 @@ button {
      tamaño de forma real y cae de vuelta a layout normal sin avisar
      — confirmado en el trace: `contain: size` no cambió nada
      (totalObjects idéntico, 100% de los Layout seguían siendo
-     full-document). Con `minmax(196px, auto)` la fila ya tiene un
+     full-document). Con `minmax(220px, auto)` la fila ya tiene un
      piso resuelto sin depender del contenido — igual al
-     `min-height: 196px` que ya tenía `.game-card` — así el
+     `min-height: 220px` que ya tiene `.game-card` — así el
      containment de tamaño de la card por fin puede aplicarse de
      verdad. Si algún tema necesita cards más altas, ajustar el
      mínimo acá (no solo en `.game-card`), o la circularidad vuelve. */
-  grid-auto-rows: minmax(196px, auto);
+  grid-auto-rows: minmax(220px, auto);
   gap: 16px;
   list-style: none;
   position: relative;
@@ -2027,6 +2028,28 @@ button {
      hay que sacar `size` de acá primero o usar `contain-intrinsic-size`
      puntualmente en ese elemento en vez de romper el contain acá. */
   contain: layout paint size;
+  /* `content-visibility: auto` (trace de Performance, Aug 2026): con
+     `contain: size` ya puesto arriba, el navegador puede confiar en
+     que el tamaño de la card no depende de su contenido — la pieza
+     que faltaba para poder saltear por completo el trabajo de
+     Layout/Paint/Recalculate Style de las cards que están fuera del
+     viewport (no solo aislarlo, que es lo que hace `contain` solo).
+     Con ~200 cards en el grid, la enorme mayoría nunca está a la
+     vista en un momento dado — content-visibility las trata como
+     "no renderizadas" hasta que se acercan al viewport, en vez de
+     renderizarlas igual y solo evitar que afecten a sus vecinas.
+     Requiere `contain-intrinsic-size` (ver abajo) para que el
+     navegador tenga un tamaño de reserva mientras la card está oculta
+     — sin eso, cada card oculta mediría 0px, la altura total del
+     grid colapsaría, y el scroll (y el IntersectionObserver del
+     navegador que decide cuándo revelar cada card) se rompería. Como
+     `.game-card` es `height: 100%` de su celda de grid (`grid-auto-rows:
+     minmax(220px, auto)`, ver arriba), 220px es el tamaño de reserva
+     correcto — coincide con el `min-height` de esta misma regla, así
+     que no hay salto de layout perceptible cuando una card entra al
+     viewport y se renderiza de verdad. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 220px;
   /* `background` deliberadamente FUERA de esta transition: es un
      linear-gradient + radial-gradient compuesto, de las propiedades
      más caras de repintar en cada frame de una animación. Con
@@ -2048,7 +2071,7 @@ button {
      GPU-only. */
   transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: 0 8px 18px rgba(2, 6, 23, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  min-height: 196px;
+  min-height: 220px;
   opacity: 0;
   animation: cardAppear 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   animation-delay: var(--stagger-delay, 0s);
@@ -3436,27 +3459,31 @@ AMBIENT PARTICLES
  * indistinguible del glow de borde original y no rompe el layout.
  * El `inset` se deja estático en su valor medio (8px, barato).
  */
+/* Glow estático (ya no se anima `filter`, que fuerza Paint en cada
+ * frame al cambiar de valor). box-shadow + text-shadow ya dan el
+ * efecto de resplandor; se dejan fijos en su intensidad media y no
+ * corren ninguna animación en reposo. */
 .filter-btn--active {
   background: var(--border);
   border-color: var(--border-hover);
   color: var(--accent-orange);
-  box-shadow: inset 0 0 8px rgba(249,115,22,0.10);
+  box-shadow: inset 0 0 8px rgba(249,115,22,0.10), 0 0 11px rgba(249,115,22,0.65);
   text-shadow: 0 0 8px rgba(249,115,22,0.65);
-  animation: filter-glow-pulse 2.2s ease-in-out infinite;
-}
-@keyframes filter-glow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 6px rgba(249,115,22,0.45)); }
-  50%      { filter: drop-shadow(0 0 16px rgba(249,115,22,0.85)); }
 }
 
-/* Terminal-blink for ONLINE / SECURE / MODS */
+/* Terminal-blink for ONLINE / SECURE / MODS — el `color`/`text-shadow`
+ * ya NO se animan (no son compositable, forzaban Paint en cada frame,
+ * y este elemento vive en el header sticky global, así que corría
+ * siempre, incluso en pantallas sin ningún elemento "activo").
+ * `.status-badge` fija su color base; acá solo se anima `opacity`,
+ * que es compositor-only y da el mismo efecto visual de parpadeo. */
 @keyframes terminal-blink {
-  0%, 100% { opacity: 1; color: rgba(253,210,160,0.85); text-shadow: 0 0 6px rgba(249,115,22,0.4); }
+  0%, 100% { opacity: 1; }
   20%       { opacity: 0.92; }
-  35%       { opacity: 0.3;  color: rgba(253,210,160,0.30); text-shadow: none; }
-  38%       { opacity: 1;    color: rgba(253,210,160,0.85); text-shadow: 0 0 6px rgba(249,115,22,0.4); }
+  35%       { opacity: 0.3; }
+  38%       { opacity: 1; }
   50%       { opacity: 0.95; }
-  65%       { opacity: 1;    color: rgba(249,160,60,0.95);  text-shadow: 0 0 9px rgba(249,115,22,0.6); }
+  65%       { opacity: 1; }
   80%       { opacity: 0.88; }
 }
 

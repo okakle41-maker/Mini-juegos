@@ -150,16 +150,18 @@ body::before {
   filter: drop-shadow(0 0 4px #f59e0b);
 }
 
-/* Icono del juego dentro del card-icon-lg (reemplaza el emoji) */
+/* Icono del juego dentro del card-icon-lg (reemplaza el emoji).
+   El glow en hover NO se anima acá con `filter` (Paint caro, no
+   compositable, y esto corre sobre ~200 SVGs del grid) — styles.css
+   ya resuelve el glow de `.card-icon-lg` con un `::after` que solo
+   anima `opacity`; este `filter` estático da un glow base sutil
+   (fijo, se pinta una sola vez) y el hover lo hace visible entero
+   vía el `::after` existente, sin transición propia acá. */
 .card-icon-lg svg {
   width: 30px;
   height: 30px;
   stroke: var(--accent, var(--accent));
   filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent, var(--accent)) 85%, transparent));
-  transition: filter 0.25s ease;
-}
-.game-card:hover .card-icon-lg svg {
-  filter: drop-shadow(0 0 14px var(--accent, var(--accent)));
 }
 
 /* Footer de la card: última partida + mejor puntuación */

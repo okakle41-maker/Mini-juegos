@@ -230,6 +230,22 @@ class CustomCursor {
     document.removeEventListener('mouseout', this.handleMouseOut);
     document.removeEventListener('mouseleave', this.hide);
     document.removeEventListener('mouseenter', this.show);
+
+    // Bug: al activar "modo bajo consumo" con el cursor gamer ya
+    // activo, destroy() apagaba el loop y los listeners pero dejaba
+    // `custom-cursor-active` puesta en <body> — esa clase es la que
+    // hace `cursor: none !important` en TODO (ver styles.css). Sin
+    // el loop de #cursorDot corriendo para dibujar el punto, y sin el
+    // cursor nativo del navegador (oculto por esa clase), el usuario
+    // se quedaba sin ningún cursor visible en pantalla. Sacarla acá
+    // restaura el cursor nativo del navegador de inmediato al entrar
+    // en perf-mode. `activated` también se resetea para que, si el
+    // modo se desactiva más tarde, el próximo mousemove reinicie el
+    // cursor personalizado desde cero limpio (mismo camino que la
+    // primera carga) en vez de arrastrar estado de la activación
+    // anterior.
+    document.body.classList.remove('custom-cursor-active');
+    this.activated = false;
   }
 }
 
