@@ -30,60 +30,29 @@ const ICON_FALLBACK_SVG =
 
 const MAX_DIFFICULTY_DOTS = 5;
 
-/** Techo duro de cards que pueden estar animando su transición de
- *  hover/focus EN PARALELO en un momento dado, compartido entre todas
- *  las instancias de LobbyRenderer (lobby principal + Lobby Online) ya
- *  que ambas graban en el mismo hilo principal. Un trace de
- *  Performance con hover-spam mostró ~10 propiedades animadas por
- *  card (opacity, transform, box-shadow, filter, color, border-*,
- *  text-shadow...) y el costo escalaba con la cantidad de cards
- *  tocadas por segundo, no con una constante — porque no había techo
- *  a cuántas de esas transiciones podían correr a la vez. Con este
- *  límite, la card número N+1 que entra en hover mientras ya hay
- *  MAX_CONCURRENT_HOVER_ANIMATIONS animando salta directo al estado
- *  final (ver `.game-card--hover-instant` en styles.css) en vez de
- *  sumarse a la cola.
+/** Throttle de tiempo para el hover de cards, reescrito de cero (Aug
+ *  2026) reemplazando el sistema anterior de contador/cupo
+ *  (MAX_CONCURRENT_HOVER_ANIMATIONS + activeHoverAnimations +
+ *  transitionend). Ese diseño necesitaba mantener sincronizados tres
+ *  cosas por separado (el nombre de la propiedad CSS que se
+ *  transicionaba, el momento exacto en que JS liberaba el cupo, y el
+ *  comportamiento de perf-mode) — y en la práctica, cada vez que uno
+ *  de los tres cambiaba sin que los otros dos se actualizaran en el
+ *  mismo commit, aparecía un bug nuevo (cupo que nunca se liberaba,
+ *  will-change que se promovía sin necesidad, etc.).
  *
- *  Medido en Task Manager: con el techo en 4, recorrer una sola fila
- *  rápido (3-6 cards) seguía subiendo ~30 puntos de CPU, porque ese
- *  rango de uso real casi nunca llega a pisar el límite — 4 "cupos"
- *  alcanzaban para cubrir el caso típico sin que el corte entrara en
- *  juego. Bajado a 1: como máximo UNA card puede estar animando su
- *  transición de entrada en un instante dado. La card N+1 que recibe
- *  hover mientras la anterior todavía está animando salta directo al
- *  estado final. Esto sacrifica el efecto de "varias cards
- *  suavizándose a la vez" en un recorrido rápido — pasa a verse casi
- *  todo instantáneo salvo la card donde el mouse se detiene — pero es
- *  el único valor que realmente pone un techo en el rango de 3-6
- *  cards que es el que importa acá. */
-const MAX_CONCURRENT_HOVER_ANIMATIONS = 1;
-
-/** Contador global de cards actualmente en transición de hover/focus.
- *  Vive a nivel de módulo (no de instancia) porque el límite es sobre
- *  el trabajo total del hilo principal en un instante dado, sin
- *  importar de qué grid venga cada card. */
-let activeHoverAnimations = 0;
-
-/** Propiedad que usamos como señal de "la transición de esta card ya
- *  terminó". `box-shadow` es, de las que animan en `:hover`, de las
- *  más lentas en la práctica (0.28s) y la más cara de sostener — así
- *  que decrementar el contador en su `transitionend` es un proxy
- *  razonable de "el grueso del trabajo de esta card ya terminó",
- *  incluso si alguna propiedad secundaria en un hijo sigue un pelo
- *  más. No hace falta esperar a las ~10 propiedades individuales: el
- *  objetivo es acotar concurrencia aproximada, no sincronizar al
- *  frame exacto. */
-// Debe coincidir con la ÚNICA propiedad que sigue en la `transition`
-// de `.game-card` (css/styles.css) — hoy es `transform` (box-shadow/
-// border-color se sacaron de la transition a propósito, ver el
-// comentario junto a esa regla). Si ese CSS cambia de propiedad otra
-// vez, este valor tiene que actualizarse junto con él: si no,
-// `transitionend` nunca dispara con este propertyName,
-// `activeHoverAnimations` nunca se libera después del primer hover, y
-// TODAS las cards subsiguientes quedan atascadas en
-// `--hover-instant` en vez del round-robin que este límite de
-// concurrencia buscaba lograr.
-const HOVER_END_SIGNAL_PROPERTY = 'transform';
+ *  Acá no hay nada que sincronizar: `lastHoverAnimationStart` es
+ *  simplemente el timestamp (performance.now()) de la última vez que
+ *  alguna card arrancó su transición de hover, compartido entre todas
+ *  las instancias de LobbyRenderer igual que antes. Si una card nueva
+ *  entra en hover antes de que pase HOVER_THROTTLE_MS desde esa
+ *  marca, salta directo al estado final sin transición
+ *  (`.game-card--hover-instant`, ver styles.css). No hay contador que
+ *  incrementar/decrementar, no hay evento de fin de transición que
+ *  escuchar, no hay cupo que se pueda quedar "trabado" — es una
+ *  lectura de reloj en cada hover, nada más. */
+const HOVER_THROTTLE_MS = 120;
+let lastHoverAnimationStart = 0;
 
 /** Techo de "dominio" del ring de progreso: a partir de esta cantidad de
  *  partidas jugadas (con récord guardado) se considera 100%. */
@@ -303,103 +272,33 @@ class LobbyRenderer {
       card.addEventListener('mouseenter', () => GameRegistry.prefetch(gameId));
       card.addEventListener('focus', () => GameRegistry.prefetch(gameId));
 
-      // Promoción de capa de composición ("will-change: transform") solo
-      // mientras la card puntual está en hover/focus, en vez de tenerlo
-      // declarado dentro de la regla CSS `:hover` (eso hacía que CADA
-      // hover-in/hover-out del grid completo disparara Layerize — ver
-      // nota en styles.css junto a `.game-card--hovering`). Con esto el
-      // navegador crea la capa una sola vez al entrar y la libera al
-      // salir, sin quedar atado al recálculo de estilo del selector.
-      //
-      // Además: límite duro de concurrencia (ver
-      // MAX_CONCURRENT_HOVER_ANIMATIONS arriba). Si al entrar en
-      // hover/focus ya hay demasiadas cards animando su transición,
-      // esta card se marca `--hover-instant` (transition: none) para
-      // que salte directo al estado final sin sumar otra animación en
-      // paralelo. `hasCountedThisEntry` evita doble-conteo si el
-      // navegador dispara mouseenter+focus casi simultáneos para la
-      // misma entrada de hover (p. ej. click con mouse que también deja
-      // foco), y `transitionend`/mouseleave/blur garantizan liberar el
-      // cupo aunque el usuario se vaya a mitad de la animación.
-      let hasCountedThisEntry = false;
-
-      const onHoverTransitionEnd = (e: TransitionEvent) => {
-        if (e.target !== card || e.propertyName !== HOVER_END_SIGNAL_PROPERTY) return;
-        card.removeEventListener('transitionend', onHoverTransitionEnd);
-        if (hasCountedThisEntry) {
-          hasCountedThisEntry = false;
-          activeHoverAnimations = Math.max(0, activeHoverAnimations - 1);
-        }
-      };
-
+      // Hover instantáneo vs. animado: throttle por tiempo, no por
+      // contador. En vez de llevar la cuenta de "cuántas cards están
+      // animando ahora mismo" (el sistema anterior, con un contador
+      // global + liberar el cupo en transitionend/mouseleave/blur —
+      // fuente de varios bugs reales: el nombre de propiedad que
+      // escuchaba `transitionend` quedaba desincronizado del CSS más
+      // de una vez, y en `perf-mode` esa transición ni corría, así
+      // que el cupo nunca se liberaba), acá solo miramos el reloj:
+      // si la última vez que UNA card arrancó su animación de hover
+      // fue hace menos de HOVER_THROTTLE_MS, esta card salta directo
+      // al estado final sin transición. No hay nada que "liberar"
+      // después — es solo una lectura de timestamp en cada hover, así
+      // que no hay estado que pueda quedar inconsistente.
       const addHoverClass = () => {
-        if (document.body.classList.contains('perf-mode')) {
-          // En perf-mode `.game-card:hover` no tiene transición de
-          // transform (`body.perf-mode .game-card:hover { transform:
-          // none !important }`) y `will-change` ya vuelve a `auto` por
-          // `body.perf-mode * { will-change: auto !important }` — no
-          // hay nada que animar ni que promover a capa. Sin este
-          // corte, el código de abajo igual agregaba `--hovering`,
-          // sumaba al cupo y registraba un listener de `transitionend`
-          // que NUNCA iba a disparar (no hay transición corriendo),
-          // dejando trabajo de JS puro desperdiciado en cada hover —
-          // confirmado en el trace de Performance (Aug 2026, sesión
-          // "bajo consumo"): 615 eventos de Layerize / 1238ms
-          // acumulados con will-change teóricamente anulado por CSS.
+        card.classList.remove('game-card--hover-instant');
+
+        const now = performance.now();
+        if (now - lastHoverAnimationStart < HOVER_THROTTLE_MS) {
           card.classList.add('game-card--hover-instant');
           return;
         }
 
-        if (card.classList.contains('game-card--hover-instant')) {
-          // Ya saltó al estado final instantáneo (cupo lleno en esta
-          // misma entrada de hover, o entrada duplicada mouseenter+
-          // focus sobre una card que ya quedó marcada instant). No hay
-          // transición corriendo ni por correr, así que NO se agrega
-          // `game-card--hovering` — no hay nada que componer en GPU.
-          return;
-        }
-
-        if (hasCountedThisEntry) {
-          // mouseenter + focus duplicados para la misma entrada de
-          // hover, pero esta card SÍ está animando (tiene cupo): ya
-          // tiene `--hovering` puesta de la primera vez, no hace falta
-          // re-agregarla ni volver a contar.
-          return;
-        }
-
-        if (activeHoverAnimations >= MAX_CONCURRENT_HOVER_ANIMATIONS) {
-          // Cupo lleno: esta card salta directo al estado final SIN
-          // promover a capa de composición. `game-card--hovering` (que
-          // dispara will-change: transform) queda reservado solo para
-          // la card que realmente va a animar su transición — si no
-          // hay transición suave que correr, no hay nada que componer
-          // en GPU. Antes esta clase se agregaba para TODA card en
-          // hover incondicionalmente, lo que forzaba un ciclo de
-          // Layerize (crear/destruir capa) en cada card tocada durante
-          // hover-spam, sin importar el límite de concurrencia —
-          // trace de Performance (Aug 2026): 4443 Layer:created en
-          // ~9s, 1.38s acumulados en Layerize, con MAX_CONCURRENT_
-          // HOVER_ANIMATIONS ya en 1. El límite de concurrencia
-          // controlaba la transición pero no la promoción de capa.
-          card.classList.add('game-card--hover-instant');
-          return;
-        }
-
-        card.classList.add('game-card--hovering');
-        hasCountedThisEntry = true;
-        activeHoverAnimations += 1;
-        card.addEventListener('transitionend', onHoverTransitionEnd);
+        lastHoverAnimationStart = now;
       };
 
       const removeHoverClass = () => {
-        card.classList.remove('game-card--hovering');
         card.classList.remove('game-card--hover-instant');
-
-        if (hasCountedThisEntry) {
-          hasCountedThisEntry = false;
-          activeHoverAnimations = Math.max(0, activeHoverAnimations - 1);
-          card.removeEventListener('transitionend', onHoverTransitionEnd);
-        }
       };
 
       card.addEventListener('mouseenter', addHoverClass);

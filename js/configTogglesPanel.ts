@@ -69,7 +69,7 @@ function initSfx(): void {
 // Cursor: reusa la clase `body.cursor-disabled` que ya existía en
 // css/styles.css sin que nada la aplicara nunca (ver bloque
 // "Cursor disabled state"). No llamamos a CustomCursorInstance.destroy()
-// aquí: la clase CSS ya oculta #cursorGlow/#cursorRing con
+// aquí: la clase CSS ya oculta #cursorDot con
 // `display:none` y restaura el cursor nativo del sistema
 // (`cursor: auto`), que es toda la superficie visible del feature.
 // Sí seguimos destruyendo los listeners si el usuario lo desactiva a

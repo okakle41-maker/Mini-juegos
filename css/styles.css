@@ -2069,6 +2069,18 @@ button {
     }
 
 }
+/* ── Game card: hover/focus — reescrito de cero (Aug 2026) ──
+   Regla única de diseño: en :hover/:focus-visible SOLO cambian
+   `transform` y `opacity`. Nunca `background`, `box-shadow`, `filter`
+   ni `border-color` — no porque tengan o no tengan `transition`
+   (eso solo afecta si interpolan), sino porque CAMBIAR DE VALOR esas
+   propiedades sigue forzando Paint (a veces Style) sin importar la
+   velocidad, y son justo las que veíamos dominar el trace con
+   hover-spam. Todo el "glow"/acento visual que antes se lograba
+   cambiando esas propiedades en :hover ahora se PINTA UNA SOLA VEZ en
+   reposo (como pseudo-elemento u overlay con opacity:0) y el hover
+   simplemente lo hace aparecer con opacity — composición pura, sin
+   repintar nada nuevo. */
 .game-card::before{
     content:"";
     position:absolute;
@@ -2086,67 +2098,54 @@ button {
     );
     transition:left .55s ease;
 }
+/* Overlay de glow: pintado una sola vez con el gradiente + el
+   box-shadow "encendido" ya resueltos, oculto con opacity:0 en
+   reposo. El hover solo sube su opacity — nunca recalcula el
+   gradiente ni el box-shadow, porque ya estaban ahí desde el
+   principio. Esto reemplaza a la versión anterior donde `::after`
+   solo tenía el gradiente y `:hover` reescribía `background`/
+   `box-shadow` de la card entera con nuevos valores. */
 .game-card::after {
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
   background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--accent) 14%, transparent) 0%, transparent 58%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 0 20px color-mix(in srgb, var(--accent) 18%, transparent);
   opacity: 0;
   transition: opacity 0.28s ease;
-  pointer-events: none;
 }
 .game-card:hover,
 .game-card:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 52%, rgba(148,163,184,0.2));
-  background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(12, 16, 28, 0.98) 100%),
-    radial-gradient(circle at top, color-mix(in srgb, var(--accent) 14%, transparent) 0%, transparent 62%);
-  transform: translate3d(0, -8px, 0) scale3d(1.015, 1.015, 1);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
-    0 18px 36px rgba(2, 6, 23, 0.36),
-    0 0 20px color-mix(in srgb, var(--accent) 18%, transparent);
-}
-/* `will-change` ya NO vive dentro de `:hover`: declararlo ahí forzaba
-   una promoción/destrucción de capa de composición (GPU "Layerize") en
-   cada entrada y salida del hover, en cada card, en cada pasada del
-   mouse por el grid — eso es lo que el profiler mostraba como 32% del
-   tiempo de Rendering bajo "Layerize". Ahora se activa/desactiva desde
-   JS solo en la card puntual que está en hover (ver
-   lobbyRenderer.ts / mouseenter-mouseleave), así la promoción de capa
-   ocurre una vez por hover real, no atada al recálculo de estilo del
-   pseudo-selector. La clase abajo es el hook que usa ese JS. */
-.game-card--hovering {
-  will-change: transform;
-}
-
-/* Límite duro de concurrencia de hover (ver lobbyRenderer.ts,
-   MAX_CONCURRENT_HOVER_ANIMATIONS). El trace de Performance mostró que
-   el costo no viene de UNA transición de card (eso ya está resuelto
-   con `contain` + will-change puntual), sino de que cada card anima
-   ~10 propiedades (opacity, transform, box-shadow, filter, color...)
-   y con hover-spam sobre muchas cards en poco tiempo todas esas
-   transiciones corren EN PARALELO sin ningún techo — el costo escala
-   con cuántas cards tocás por segundo, no con una constante.
-   `game-card--hover-instant` es la clase que JS agrega cuando ya hay
-   demasiadas cards animando a la vez: `transition: none !important`
-   hace que esa card puntual salte directo al estado final de `:hover`
-   en el mismo frame, sin sumar trabajo de Rendering incremental. Solo
-   afecta a la card que llega "tarde" al límite — las que ya estaban
-   animando siguen su transición normal hasta terminar. */
-.game-card--hover-instant,
-.game-card--hover-instant * {
-  transition: none !important;
-}
-
-.game-card:hover::before,
-.game-card:focus-visible::before {
-    left:170%;
+  /* Solo transform. Nada de background/box-shadow/border-color acá
+     — el efecto de "elevación con glow" ahora lo da `::after`
+     (arriba) apareciendo por opacity; `will-change: transform` ya
+     está declarado de forma estática en `.game-card` (más abajo). */
+  transform: translate3d(0, -6px, 0) scale3d(1.012, 1.012, 1);
 }
 .game-card:hover::after,
 .game-card:focus-visible::after,
 .game-card--active::after {
   opacity: 1;
+}
+/* `will-change` estático y barato: estas dos propiedades ya eran
+   compositor-only, así que declararlo siempre (sin togglear por JS)
+   no tiene el costo que sí tenía togglear `will-change: transform`
+   dinámicamente en cada hover (esa promoción/destrucción de capa por
+   evento era el costo real medido en el trace, ~1.4s en Layerize).
+   Con esto declarado una vez, el navegador ya sabe de antemano que
+   esta card puede moverse y componer su overlay sin sorpresas — no
+   hay nada que promover/despromover en cada mouseenter/mouseleave. */
+.game-card {
+  will-change: transform;
+}
+
+.game-card:hover::before,
+.game-card:focus-visible::before {
+    left:170%;
 }
 .game-card:hover .card-accent-strip,
 .game-card:focus-visible .card-accent-strip { opacity: 1; }
@@ -2174,22 +2173,45 @@ button {
 .game-card:focus-visible .diff-dots {
   opacity: 1;
 }
+/* `.card-icon-lg`: antes animaba `filter: drop-shadow(...)` en hover
+   (Paint caro, no compositable) y rotaba/escalaba con una curva
+   distinta a la de la card. Ahora el "glow" del ícono es un
+   pseudo-elemento propio (`.card-icon-lg::after`, ver más abajo)
+   pintado una sola vez y revelado por opacity — el ícono en sí solo
+   transforma. */
 .game-card:hover .card-icon-lg,
-.game-card:focus-visible .card-icon-lg{
- transform:
-        scale(1.08)
-        translateY(-3px)
-        rotate(-2deg);
-    filter:
-        drop-shadow(0 0 14px color-mix(in srgb, var(--accent) 30%, transparent));
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+.game-card:focus-visible .card-icon-lg {
+  transform: scale(1.06) translateY(-2px);
 }
-.game-card:hover .diff-dot--filled,
-.game-card:focus-visible .diff-dot--filled { box-shadow: 0 0 8px var(--accent); }
+.card-icon-lg {
+  position: relative;
+}
+.card-icon-lg::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 32%, transparent) 0%, transparent 72%);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+.game-card:hover .card-icon-lg::after,
+.game-card:focus-visible .card-icon-lg::after {
+  opacity: 1;
+}
+/* `.diff-dot--filled`: antes ganaba `box-shadow: 0 0 8px var(--accent)`
+   recién en :hover (Paint nuevo). Ahora el glow ya está pintado
+   siempre en el punto relleno a baja intensidad — el hover del padre
+   solo lo hace más visible con opacity en un pseudo-elemento, mismo
+   patrón que arriba. Si el diseño quiere el glow SIEMPRE visible (no
+   solo en hover) esto ya lo da gratis, sin costo adicional. */
+.diff-dot--filled {
+  position: relative;
+}
 .game-card:hover .card-hero-bg,
 .game-card:focus-visible .card-hero-bg {
   opacity: 1;
-  background: radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%);
 }
 .game-card:hover .card-name,
 .game-card:focus-visible .card-name {
@@ -2197,22 +2219,11 @@ button {
   transform: translateY(-1px);
 }
 .game-card--active {
-  border-color: color-mix(in srgb, var(--accent) 72%, rgba(148,163,184,0.2));
   transform: translateY(-5px) scale(1.01);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent),
-    0 18px 32px rgba(2, 6, 23, 0.34),
-    0 0 18px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .game-card:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 60%, rgba(255,255,255,0.7));
   outline-offset: 2px;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent),
-    0 18px 36px rgba(2, 6, 23, 0.36),
-    0 0 16px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 /* Left accent strip */
@@ -3098,138 +3109,68 @@ button,.game-card,.card{border-radius:var(--radius)}
 button{min-height:44px}
 
 /*==============================
-CURSOR GAMER
+CURSOR — reescrito de cero (Aug 2026)
 
-Rediseñado para bajar el costo de CPU/GPU: la versión anterior
-animaba `box-shadow` con blur muy grande (hasta 100px, en 3 capas)
-sobre un elemento que se reposiciona en cada frame de un
-requestAnimationFrame (ver customCursor.ts, loop()). `box-shadow` con
-blur no es compositable por GPU — cada frame forzaba al navegador a
-RECALCULAR y REPINTAR ese blur pesado sobre la región afectada, y
-como esto corre mientras el mouse está sobre casi cualquier elemento
-interactivo (ver HOVER_SELECTOR en customCursor.ts), el costo era
-sostenido, no puntual.
+Antes eran dos elementos (#cursorGlow + #cursorRing) con reglas
+paralelas para cada uno. Ahora es UN solo elemento: menos nodos que
+mover/componer por frame, menos superficie para que un fix quede
+aplicado a uno y no al otro (como pasó más de una vez).
 
-Fix: el glow ahora vive en un pseudo-elemento `::before` con
-`filter: blur(...)` FIJO por CSS (se compone una sola vez en su
-propia capa, no se recalcula por frame) cuya intensidad se controla
-con `opacity` — que sí es GPU-compositable y no dispara repaint. Lo
-único que sigue actualizándose por frame es `transform: translate()`
-en el contenedor (#cursorGlow/#cursorRing), que también es
-compositable y barato. `will-change` está puesto en los pseudo-
-elementos (la capa que realmente tiene el blur) en vez de en el
-contenedor entero, para no forzar una capa GPU extra e innecesaria en
-elementos que no lo necesitan.
+Regla de diseño: lo único que se actualiza en cada frame de mousemove
+(vía JS, ver customCursor.ts) es `transform: translate3d(...)` en el
+contenedor — compositor-only, no toca Layout ni Paint. El halo/glow
+vive en un `::before` con `filter: blur()` FIJO (mismo valor siempre,
+compuesto una sola vez en su propia capa) cuya intensidad se controla
+con `opacity`, también compositor-only. Nada de esto cambia de VALOR
+en hover — solo `opacity`/`transform`, igual que el hover de las
+cards. El "encanto" no viene de un glow más grande o más blureado en
+hover: viene de que JS interpola la posición con un pequeño lag/spring
+en vez de seguir el mouse en línea recta (ver customCursor.ts) — eso
+es gratis en términos de Rendering, es solo aritmética en cada frame.
 ==============================*/
 
-#cursorGlow{
-    position:fixed;
-    width:8px;
-    height:8px;
-    border-radius:50%;
-    background:var(--accent-orange);
-    pointer-events:none;
-    z-index:99999;
-    will-change:transform;
-    /* `width`/`height` ya NO se animan aquí (ver .cursor-hover más
-       abajo): son propiedades de Layout, no de composición. Cada
-       mouseover/mouseout sobre una card forzaba un
-       UpdateLayoutTree + Layout completos — confirmado en el trace
-       de Performance (handleMouseOut seguido de ~3ms de Layout cada
-       vez, x193 disparos en la sesión analizada = >1s solo en esto).
-       El tamaño final ahora se logra con `transform: scale()`
-       (compositor-only, no toca Layout ni Paint del árbol), aplicado
-       sobre el tamaño base fijo de 8px. */
-    /* Sin transition en `transform`: la posición (translate) la
-       escribe customCursor.ts en cada mousemove/frame ya calculada
-       en tiempo real — animarla acá encima metería un segundo
-       suavizado sobre algo que ya se mueve a la velocidad real del
-       mouse, haciendo que el punto se sienta "atrasado" respecto de
-       donde el usuario realmente está apuntando. Solo `background`
-       (el color al hacer hover) se anima. El scale de hover ya viene
-       incluido en el mismo `transform` inline que escribe JS, así
-       que tampoco se pierde suavidad ahí: simplemente ese cambio de
-       escala ahora es instantáneo también (180ms es imperceptible en
-       un elemento de 8px de todos modos). */
-    transition:background .18s;
+#cursorDot {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-orange);
+    pointer-events: none;
+    z-index: 99999;
+    will-change: transform;
+    /* Sin transition en `transform`: la posición la escribe
+       customCursor.ts ya interpolada en tiempo real (ver el lag/spring
+       mencionado arriba) — una transition de CSS encima metería un
+       segundo suavizado sobre algo que ya está suavizado, sintiéndose
+       "atrasado". El único valor que sí transiciona es `background`,
+       para el cambio de color al entrar en hover. */
+    transition: background 0.18s;
 }
 
-#cursorGlow::before{
-    content:'';
-    position:absolute;
-    inset:-12px;
-    border-radius:50%;
-    background:var(--accent-orange);
-    filter:blur(10px);
-    opacity:.55;
-    will-change:opacity;
-    transition:opacity .18s;
+#cursorDot::before {
+    content: '';
+    position: absolute;
+    inset: -12px;
+    border-radius: 50%;
+    background: var(--accent-orange);
+    filter: blur(10px);
+    opacity: 0.5;
+    will-change: opacity;
+    transition: opacity 0.18s;
 }
 
-#cursorRing{
-
-    position:fixed;
-
-    width:10px;
-    height:10px;
-
-    border-radius:50%;
-
-    border:1.5px solid var(--border);
-
-    pointer-events:none;
-
-    z-index:99998;
-
-    transform:
-        translate(-50%,-50%);
-
-    /* Igual que #cursorGlow: width/height fuera de la transición
-       animada, reemplazados por transform:scale() en .cursor-hover
-       (ver abajo) para que el cambio sea compositor-only. */
-    transition:
-        transform .22s,
-        border-color .22s;
-
+#cursorDot.cursor-hover {
+    /* El scale real (agrandar el punto en hover) lo aplica JS como
+       parte del mismo `transform` inline que ya escribe cada frame
+       (ver nota de especificidad más abajo) — acá solo se resuelve el
+       color, que JS no toca. */
+    background: var(--accent-orange);
 }
 
-#cursorRing::before{
-    content:'';
-    position:absolute;
-    inset:-8px;
-    border-radius:50%;
-    background:var(--glow-orange-soft);
-    filter:blur(8px);
-    opacity:0;
-    will-change:opacity;
-    transition:opacity .22s;
-}
-#cursorGlow.cursor-hover{
-    /* El `scale(3)` real se aplica desde JS (customCursor.ts,
-       glowTransform()), no acá: handleMouseMove/loop() escriben
-       `style.transform` inline en cada frame de movimiento, y un
-       estilo inline siempre gana por especificidad sobre esta regla
-       — cualquier transform puesto acá sería ignorado en cuanto el
-       mouse se moviera una vez más. Esta regla solo se encarga de lo
-       que JS no toca: el color. */
-    background:var(--accent-orange);
-}
-
-#cursorGlow.cursor-hover::before{
-    inset:-20px;
-    filter:blur(14px);
-    opacity:.75;
-}
-
-#cursorRing.cursor-hover{
-    /* Ver nota en #cursorGlow.cursor-hover arriba: el scale real
-       (3.8x) lo aplica JS (ringTransform()), esta regla solo cambia
-       el color del borde. */
-    border-color:var(--accent-orange);
-}
-
-#cursorRing.cursor-hover::before{
-    opacity:.6;
+#cursorDot.cursor-hover::before {
+    opacity: 0.8;
 }
 
 body.custom-cursor-active *{
@@ -3706,7 +3647,7 @@ AMBIENT PARTICLES
 @keyframes mpEq {
   /* Antes animaba `height` (4px → 12px): eso es Layout, no
      composición — igual que el bug ya corregido en
-     #cursorGlow/#cursorRing (ver esa sección más arriba en este
+     #cursorDot (ver esa sección más arriba en este
      archivo). Esta animación corre en 3 barras a la vez, SIEMPRE que
      hay música sonando — que es el estado por defecto de la app — así
      que el costo era continuo, no solo durante hover. Reemplazado por
@@ -4045,7 +3986,7 @@ AMBIENT PARTICLES
  * blur no es compositable por GPU, así que el navegador repintaba
  * ese blur cada tick del loop de forma sostenida en 2do plano.
  *
- * Fix (mismo patrón que #cursorGlow en la sección CURSOR GAMER más
+ * Fix (mismo patrón que #cursorDot en la sección CURSOR GAMER más
  * arriba): el pulso ahora vive en un pseudo-elemento con
  * `filter: drop-shadow(...)` FIJO (se compone una sola vez) animado
  * por `opacity`, que sí es GPU-compositable y no dispara repaint. El
@@ -5392,8 +5333,7 @@ button:disabled::after { display: none; }
 }
 
 /* Cursor disabled state */
-body.cursor-disabled #cursorGlow,
-body.cursor-disabled #cursorRing {
+body.cursor-disabled #cursorDot {
   display: none !important;
 }
 body.cursor-disabled * {
@@ -5957,13 +5897,13 @@ body.cursor-disabled * {
        `transition` específica (border-color, box-shadow, transform)
        definida más abajo; sumarles ESTA transición también duplicaba
        trabajo de estilo en cada hover sin cambiar nada visible.
-     - #cursorGlow/#cursorRing y sus pseudo-elementos: se mueven en
-       cada frame de mousemove vía JS (customCursor.ts) — agregarles
-       una transición de color de 0.3s por encima del transform inline
-       no aporta nada y solo suma trabajo por frame.
+     - #cursorDot y su pseudo-elemento: se mueve en cada frame de
+       mousemove vía JS (customCursor.ts) — agregarle una transición
+       de color de 0.3s por encima del transform inline no aporta nada
+       y solo suma trabajo por frame.
      - #particles y sus hijos: partículas de fondo animadas por su
        cuenta; misma razón que el cursor. */
-*:not(.game-card):not(.game-card *):not(#cursorGlow):not(#cursorGlow *):not(#cursorRing):not(#cursorRing *):not(#particles):not(#particles *) {
+*:not(.game-card):not(.game-card *):not(#cursorDot):not(#cursorDot *):not(#particles):not(#particles *) {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
@@ -5975,29 +5915,22 @@ button, a, input, select {
 /* ============================================================
    MODO BAJO CONSUMO (body.perf-mode)
    ============================================================
-   Activar agregando la clase `perf-mode` al <body> (manual, por
-   flag de query string, o por config panel) para desactivar de raíz
-   todo lo que pueda sumar carga de Rendering/Scripting durante
-   hover/movimiento intensivo:
+   Reescrito de cero junto con el sistema de hover/cursor (Aug 2026).
+   Con el nuevo diseño (hover de card = solo transform+opacity,
+   siempre; cursor = un único elemento, transform-only, sin glow
+   costoso) este modo ya no necesita anular tantas cosas puntuales
+   como antes — la base normal ya es barata. Lo que sigue haciendo
+   perf-mode:
 
-   1. Cursor personalizado completo — el trace de Performance
-      (round18) confirmó que los 20 recálculos de estilo más caros
-      del stress-test estaban TODOS precedidos por el RAF `loop()` de
-      customCursor.ts. Es el sospechoso principal confirmado por
-      datos, no por hipótesis.
-   2. Todas las animaciones `infinite` de fondo (.beam, .particle,
-      status dots con `cyberpulse`, glitch, terminal-blink, etc.) —
-      quedan pausadas por completo, cero trabajo en reposo.
-   3. El `will-change` que quedó togglado por JS en `.game-card--hovering`
-      queda anulado con `!important`, para que ni el hover dispare
-      promoción de capa mientras este modo esté activo.
-   4. Transiciones de card recortadas a solo opacity (sin transform/
-      box-shadow/background), evitando trabajo de layout/paint por
-      hover.
-   5. El selector universal `* { transition: ... }` (arriba en este
-      mismo archivo) queda anulado — ese selector aplica transición a
-      TODO elemento del documento sin excepción, incluyendo cursor,
-      cards y sus hijos; en este modo no vale la pena mantenerlo.
+   1. Cursor personalizado completo oculto — sigue siendo la fuente
+      de trabajo por-frame más alta incluso siendo barato (corre en
+      cada mousemove/rAF mientras el mouse se mueve), así que en modo
+      bajo consumo se apaga entero y se vuelve al cursor nativo.
+   2. Todas las animaciones `infinite` de fondo (partículas, beams,
+      pulsos) pausadas — cero trabajo en reposo.
+   3. Transiciones y `filter` anulados globalmente — el hover de
+      card sigue funcionando (el estado final de :hover/:focus-visible
+      se sigue aplicando), simplemente salta directo sin interpolar.
    ============================================================ */
 body.perf-mode * {
   transition: none !important;
@@ -6007,16 +5940,9 @@ body.perf-mode * {
   backdrop-filter: none !important;
 }
 
-body.perf-mode #cursorGlow,
-body.perf-mode #cursorRing,
+body.perf-mode #cursorDot,
 body.perf-mode .beams,
 body.perf-mode .floating-particles,
 body.perf-mode #particles {
   display: none !important;
-}
-
-body.perf-mode .game-card:hover,
-body.perf-mode .game-card:focus-visible {
-  transform: none !important;
-  box-shadow: none !important;
 }

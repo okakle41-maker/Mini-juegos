@@ -1,81 +1,81 @@
 /**
- * customCursor.ts — Controla el cursor personalizado (#cursorGlow + #cursorRing).
+ * customCursor.ts — Controla el cursor personalizado (#cursorDot).
  *
- * El HTML y CSS para este cursor ya existían (con el efecto de anillo con
- * glow), pero ningún módulo TS lo posicionaba: el cursor nativo se ocultaba
- * globalmente vía CSS y el cursor personalizado nunca se movía, dejando al
- * usuario sin ningún cursor visible.
+ * Reescrito de cero (Aug 2026) junto con el sistema de hover de
+ * cards. Antes eran dos elementos (#cursorGlow siguiendo al mouse en
+ * línea recta + #cursorRing con lerp para el efecto de estela). Ahora
+ * es UN solo elemento — menos nodos que mover/componer por frame — y
+ * el lerp (que antes solo tenía el ring) se aplica al punto entero:
+ * el cursor completo "persigue" la posición real del mouse con un
+ * pequeño resorte en vez de teletransportarse ahí en línea recta. Es
+ * ese lag sutil el que le da la sensación de vida/peso — no un glow
+ * más grande ni más blureado — y no cuesta nada extra de Rendering:
+ * es solo aritmética (lerp) sumada al mismo write de `transform` que
+ * ya se hacía de todos modos.
  *
- * - #cursorGlow: sigue al mouse de forma inmediata (punto pequeño).
- * - #cursorRing: sigue con un pequeño retraso (efecto de estela).
- * - Ambos crecen y cambian de color al pasar sobre elementos interactivos
- *   (clase .cursor-hover, ya definida en css/styles.css).
- *
- * El cursor nativo solo se oculta (body.custom-cursor-active) una vez que
- * se detecta un movimiento real de mouse, para no romper la experiencia
- * en dispositivos táctiles o trackpads que no disparan 'mousemove'.
+ * El cursor nativo solo se oculta (body.custom-cursor-active) una vez
+ * que se detecta un movimiento real de mouse, para no romper la
+ * experiencia en dispositivos táctiles o trackpads que no disparan
+ * 'mousemove'.
  */
 
 const HOVER_SELECTOR = 'a, button, [role="button"], .game-card, input, select, textarea, .filter-btn, label, [data-clickable]';
 
-// FPS del loop del anillo (estela). El glow (#cursorGlow, el punto
-// principal) NO pasa por este loop — se actualiza directo en cada
-// evento `mousemove` (ver handleMouseMove), así que ya sigue al mouse
-// a la frecuencia nativa del dispositivo/navegador, sin throttle.
-// Este loop es solo para el anillo con lerp: se corrió de 30 a 60fps
-// para que la estela se sienta más ajustada al movimiento real.
-const RING_FPS = 60;
-const RING_FRAME_BUDGET_MS = 1000 / RING_FPS;
+// FPS del loop de seguimiento. Igual que en el diseño anterior:
+// seguimos reprogramando vía requestAnimationFrame (para que el
+// navegador pueda pausarlo en tabs en background, etc.) pero solo
+// hacemos el trabajo real (lerp + write de estilo) cuando pasó al
+// menos FRAME_BUDGET_MS desde el último frame procesado.
+const CURSOR_FPS = 60;
+const FRAME_BUDGET_MS = 1000 / CURSOR_FPS;
+
+// Factor de suavizado del lerp: más alto = persigue más rápido/más
+// ajustado al mouse real, más bajo = más lag/más "resorte". 0.35 da
+// un seguimiento notorio pero sin sentirse desconectado del puntero
+// real (a diferencia del 0.18 que tenía el ring viejo, pensado para
+// una ESTELA visiblemente atrasada detrás de un punto que sí era
+// instantáneo — acá no hay un segundo punto instantáneo de
+// referencia, así que un lag tan grande se sentiría como que el
+// cursor "no responde").
+const LERP_FACTOR = 0.35;
 
 class CustomCursor {
-  private glowEl: HTMLElement | null = null;
-  private ringEl: HTMLElement | null = null;
+  private dotEl: HTMLElement | null = null;
 
   private mouseX = 0;
   private mouseY = 0;
-  private ringX = 0;
-  private ringY = 0;
+  private dotX = 0;
+  private dotY = 0;
 
   private rafId: number | null = null;
   private activated = false;
   private looping = false;
   private lastFrameTime = 0;
 
-  /** Escala aplicada mientras `.cursor-hover` está activa (ver
-   *  #cursorGlow.cursor-hover / #cursorRing.cursor-hover en
-   *  css/styles.css). `handleMouseMove` y `loop()` escriben
-   *  `style.transform` directamente (más abajo) — eso sobrescribe
-   *  CUALQUIER transform que la clase CSS `.cursor-hover` intentara
-   *  aplicar, ya que un estilo inline siempre gana por especificidad.
-   *  Por eso el scale tiene que incluirse acá, a mano, en el mismo
-   *  string, en vez de depender de que la clase CSS lo aplique sola. */
+  /** Ver nota en `dotTransform()`: el scale de hover se incluye a
+   *  mano en el mismo string de `transform` que ya escribe el loop,
+   *  porque un estilo inline siempre gana por especificidad sobre
+   *  cualquier transform que `.cursor-hover` intentara aplicar por
+   *  CSS solo. */
   private isHovering = false;
 
-  private glowTransform(): string {
-    const scale = this.isHovering ? ' scale(3)' : '';
-    return `translate(${this.mouseX}px, ${this.mouseY}px) translate(-50%, -50%)${scale}`;
-  }
-
-  private ringTransform(): string {
-    const scale = this.isHovering ? ' scale(3.8)' : '';
-    return `translate(${this.ringX}px, ${this.ringY}px) translate(-50%, -50%)${scale}`;
+  private dotTransform(): string {
+    const scale = this.isHovering ? ' scale(3.4)' : '';
+    return `translate3d(${this.dotX}px, ${this.dotY}px, 0) translate(-50%, -50%)${scale}`;
   }
 
   init(): void {
-    // Modo bajo consumo: el trace de Performance confirmó que el RAF
-    // `loop()` de este módulo era el disparador directo de los
-    // recálculos de estilo más caros durante hover-spam. En vez de
-    // solo ocultar el cursor por CSS (que dejaría el RAF corriendo en
+    // Modo bajo consumo: el cursor personalizado completo se apaga
+    // — no solo se oculta con CSS (que dejaría el RAF corriendo en
     // segundo plano igual), directamente no inicializamos nada.
     if (document.body.classList.contains('perf-mode')) {
       return;
     }
 
-    this.glowEl = document.getElementById('cursorGlow');
-    this.ringEl = document.getElementById('cursorRing');
+    this.dotEl = document.getElementById('cursorDot');
 
-    if (!this.glowEl || !this.ringEl) {
-      console.warn('[CustomCursor] No se encontraron #cursorGlow / #cursorRing en el DOM');
+    if (!this.dotEl) {
+      console.warn('[CustomCursor] No se encontró #cursorDot en el DOM');
       return;
     }
 
@@ -104,10 +104,13 @@ class CustomCursor {
     if (!this.activated) {
       this.activated = true;
       document.body.classList.add('custom-cursor-active');
-    }
-
-    if (this.glowEl) {
-      this.glowEl.style.transform = this.glowTransform();
+      // Primer movimiento: arrancar el punto YA en la posición real
+      // del mouse en vez de dejar que el lerp lo arrastre desde
+      // (0,0) — sin esto, el cursor "viajaría" visiblemente desde la
+      // esquina superior izquierda en el primer frame.
+      this.dotX = this.mouseX;
+      this.dotY = this.mouseY;
+      if (this.dotEl) this.dotEl.style.transform = this.dotTransform();
     }
 
     this.ensureLoop();
@@ -141,14 +144,12 @@ class CustomCursor {
     const target = e.target as HTMLElement | null;
     if (this.resolveHoverTarget(target)) {
       this.isHovering = true;
-      this.glowEl?.classList.add('cursor-hover');
-      this.ringEl?.classList.add('cursor-hover');
-      // Reaplicar el transform ya (no solo esperar al próximo
-      // mousemove/frame del loop) para que el cambio de escala se
-      // vea en el mismo instante en que el mouse entra al elemento,
-      // no con el pequeño delay de esperar el próximo movimiento.
-      if (this.glowEl) this.glowEl.style.transform = this.glowTransform();
-      if (this.ringEl) this.ringEl.style.transform = this.ringTransform();
+      this.dotEl?.classList.add('cursor-hover');
+      // Reaplicar el transform ya (no solo esperar al próximo frame
+      // del loop) para que el cambio de escala se vea en el mismo
+      // instante en que el mouse entra al elemento, no con el
+      // pequeño delay de esperar el próximo tick.
+      if (this.dotEl) this.dotEl.style.transform = this.dotTransform();
     }
   };
 
@@ -157,54 +158,49 @@ class CustomCursor {
     const related = e.relatedTarget as HTMLElement | null;
     if (this.resolveHoverTarget(target) && !this.resolveHoverTarget(related)) {
       this.isHovering = false;
-      this.glowEl?.classList.remove('cursor-hover');
-      this.ringEl?.classList.remove('cursor-hover');
-      if (this.glowEl) this.glowEl.style.transform = this.glowTransform();
-      if (this.ringEl) this.ringEl.style.transform = this.ringTransform();
+      this.dotEl?.classList.remove('cursor-hover');
+      if (this.dotEl) this.dotEl.style.transform = this.dotTransform();
     }
   };
 
   private show = (): void => {
     if (!this.activated) return;
-    this.glowEl?.style.removeProperty('opacity');
-    this.ringEl?.style.removeProperty('opacity');
+    this.dotEl?.style.removeProperty('opacity');
   };
 
   private hide = (): void => {
-    if (this.glowEl) this.glowEl.style.opacity = '0';
-    if (this.ringEl) this.ringEl.style.opacity = '0';
+    if (this.dotEl) this.dotEl.style.opacity = '0';
   };
 
-  // Loop con lerp para que el anillo "persiga" al punto con una estela suave.
-  // Throttleado a RING_FPS: seguimos reprogramando vía requestAnimationFrame
-  // (para que el navegador pueda pausarlo en tabs en background, etc.) pero
-  // solo hacemos el trabajo real (lerp + write de estilo) cuando pasó al
-  // menos RING_FRAME_BUDGET_MS desde el último frame procesado. El resto de
-  // los callbacks de RAF retornan casi inmediatamente.
+  // Loop con lerp: el punto "persigue" la posición real del mouse con
+  // un resorte suave en vez de saltar ahí directo. Throttleado a
+  // CURSOR_FPS igual que el diseño anterior — el resto de los
+  // callbacks de RAF retornan casi inmediatamente si no pasó
+  // suficiente tiempo desde el último frame procesado.
   private loop = (timestamp: number): void => {
     const elapsed = timestamp - this.lastFrameTime;
 
-    if (elapsed < RING_FRAME_BUDGET_MS) {
+    if (elapsed < FRAME_BUDGET_MS) {
       this.rafId = requestAnimationFrame(this.loop);
       return;
     }
 
     this.lastFrameTime = timestamp;
 
-    this.ringX += (this.mouseX - this.ringX) * 0.18;
-    this.ringY += (this.mouseY - this.ringY) * 0.18;
+    this.dotX += (this.mouseX - this.dotX) * LERP_FACTOR;
+    this.dotY += (this.mouseY - this.dotY) * LERP_FACTOR;
 
-    if (this.ringEl) {
-      this.ringEl.style.transform = this.ringTransform();
+    if (this.dotEl) {
+      this.dotEl.style.transform = this.dotTransform();
     }
 
     // Con el mouse quieto, el lerp converge exponencialmente pero
     // nunca llega a exactamente 0 — sin este corte, `loop()` seguiría
     // reprogramándose (y el navegador reprogramando el RAF) para
-    // siempre aunque el anillo ya esté visualmente pegado al cursor.
+    // siempre aunque el punto ya esté visualmente pegado al cursor.
     // 0.05px de diferencia es imperceptible; cortamos ahí.
-    const dx = this.mouseX - this.ringX;
-    const dy = this.mouseY - this.ringY;
+    const dx = this.mouseX - this.dotX;
+    const dy = this.mouseY - this.dotY;
     if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) {
       this.looping = false;
       this.rafId = null;
