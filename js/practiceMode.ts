@@ -13,10 +13,19 @@ interface PracticeSettings {
   skipTutorial: boolean;
 }
 
+interface PracticeStats {
+  attempts: number;
+  totalScore: number;
+  bestScore: number;
+  averageScore: number;
+  totalHints: number;
+  totalTime: number;
+}
+
 class PracticeModeManager {
   private currentMode: PracticeMode = 'normal';
   private settings: PracticeSettings;
-  private practiceStats: Map<string, any> = new Map();
+  private practiceStats: Map<string, PracticeStats> = new Map();
   private storageKey = 'practice-settings';
 
   constructor() {
@@ -125,18 +134,16 @@ class PracticeModeManager {
 
   // Practice-specific stats (don't affect main stats)
   recordPracticeAttempt(gameId: string, score: number, duration: number, hintsUsed: number): void {
-    if (!this.practiceStats.has(gameId)) {
-      this.practiceStats.set(gameId, {
-        attempts: 0,
-        totalScore: 0,
-        bestScore: 0,
-        averageScore: 0,
-        totalHints: 0,
-        totalTime: 0
-      });
-    }
+    const stats: PracticeStats = this.practiceStats.get(gameId) ?? {
+      attempts: 0,
+      totalScore: 0,
+      bestScore: 0,
+      averageScore: 0,
+      totalHints: 0,
+      totalTime: 0
+    };
+    this.practiceStats.set(gameId, stats);
 
-    const stats = this.practiceStats.get(gameId);
     stats.attempts++;
     stats.totalScore += score;
     stats.totalTime += duration;
@@ -149,11 +156,11 @@ class PracticeModeManager {
     stats.averageScore = stats.totalScore / stats.attempts;
   }
 
-  getPracticeStats(gameId: string): any {
+  getPracticeStats(gameId: string): PracticeStats | undefined {
     return this.practiceStats.get(gameId);
   }
 
-  getAllPracticeStats(): Map<string, any> {
+  getAllPracticeStats(): Map<string, PracticeStats> {
     return new Map(this.practiceStats);
   }
 
@@ -184,7 +191,7 @@ class PracticeModeManager {
   }
 
   // Check if hints should be shown for a game
-  shouldShowHint(gameId: string, context: any): boolean {
+  shouldShowHint(_gameId: string, _context: any): boolean {
     if (!this.settings.showHints) return false;
     if (this.currentMode === 'normal') return false;
     
@@ -194,7 +201,7 @@ class PracticeModeManager {
   }
 
   // Get hint text for a game and context
-  getHint(gameId: string, context: any): string {
+  getHint(gameId: string, _context: any): string {
     const hints: Record<string, any> = {
       simon: 'Observa el patrón de colores y repítelo en el mismo orden',
       termita: 'Encuentra los pares de cartas. Recuerda dónde están las que ya viste',
@@ -217,7 +224,7 @@ export const practiceMode = new PracticeModeManager();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).practiceMode = practiceMode;
+  window.practiceMode = practiceMode;
 }
 
 export default practiceMode;

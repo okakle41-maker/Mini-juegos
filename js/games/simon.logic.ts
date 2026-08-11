@@ -24,6 +24,9 @@ export function init(ui: GameUi) {
   const backToLobbyBtn = ui.backToLobby as HTMLButtonElement | undefined;
 
   if (!startSimon) return;
+  // Ver mismo motivo en rhythmclick.logic.ts: closures más abajo
+  // (startSimonRound, listeners) necesitan el tipo ya no-nulo.
+  const startSimonBtn: HTMLButtonElement = startSimon;
 
   const simonColors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple'];
 
@@ -105,7 +108,7 @@ export function init(ui: GameUi) {
    * Sencillo por ahora: si isSpectating, el propio tablero también
    * queda deshabilitado apenas se construye (ver setupSimonBoard).
    */
-  let simonState = {
+  const simonState = {
     colorCount: 4,
     baseLength: 3,
     speed: 700,
@@ -222,7 +225,7 @@ export function init(ui: GameUi) {
     simonState.playing = false;
     simonState.playerTurn = false;
     disableSimonButtons(true);
-    startSimon.disabled = false;
+    startSimonBtn.disabled = false;
     const info = simonInfo as HTMLElement;
     info.textContent = message;
     if (window.Leaderboard) window.Leaderboard.save('simon', simonState.score, simonState.rounds);
@@ -284,7 +287,7 @@ export function init(ui: GameUi) {
     simonState.playing = true;
     setupSimonBoard(simonState.colorCount);
     (simonBoard as HTMLElement).classList.add('hidden');
-    startSimon.disabled = true;
+    startSimonBtn.disabled = true;
     startSimonRound();
   }
 

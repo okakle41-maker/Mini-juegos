@@ -18,6 +18,7 @@
 import Auth from './authManager.js';
 import { getSupabaseClient } from './core/supabaseClient.js';
 import ErrorLogger from './core/errorLogger.js';
+import type { SupabaseClient, RealtimePostgresChangesPayload, RealtimeChannel } from '@supabase/supabase-js';
 
 export type LobbyGameId = 'simon' | 'arrow' | 'termita';
 export type LobbyPlayerStatus = 'idle' | 'waiting_match' | 'playing' | 'spectating';
@@ -43,7 +44,7 @@ export interface LobbyMatch {
   status: 'waiting' | 'playing' | 'completed' | 'abandoned';
   player1Id: string;
   player2Id: string | null;
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
   spectatorIds: string[];
   /**
    * Puntaje reportado por cada jugador (player_id -> score), ver
@@ -57,8 +58,55 @@ export interface LobbyMatch {
 const MAX_LOBBY_PLAYERS = 8;
 const ANON_ID_STORAGE_KEY = 'lobby_anon_player_id';
 
+/**
+ * Filas crudas tal como llegan de Supabase (snake_case), ver
+ * supabase/migration_008_lobbies.sql. Se usan para tipar tanto las
+ * respuestas de `select()` como los payloads de Realtime (`payload.new`/
+ * `payload.old`), en vez de `any`.
+ */
+interface LobbyRow {
+  id: string;
+  room_code: string;
+  host_id: string;
+  status: 'open' | 'closed';
+  created_at: string;
+  closed_at: string | null;
+}
+
+interface LobbyPlayerRow {
+  lobby_id: string;
+  player_id: string;
+  username: string;
+  status: LobbyPlayerStatus;
+  current_match_id: string | null;
+  joined_at: string;
+}
+
+interface LobbyMatchRow {
+  id: string;
+  lobby_id: string;
+  game_id: LobbyGameId;
+  status: LobbyMatch['status'];
+  player1_id: string;
+  player2_id: string | null;
+  settings: Record<string, unknown>;
+  scores: Record<string, number>;
+  winner_id: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+interface LobbyMatchMessageRow {
+  id: string;
+  lobby_match_id: string;
+  player_id: string;
+  message: string;
+  created_at: string;
+}
+
 class LobbySystem {
-  private supabaseClient: any = null;
+  private supabaseClient: SupabaseClient | null = null;
   private isConnected = false;
   private currentLobby: Lobby | null = null;
   private currentMatch: LobbyMatch | null = null;
@@ -131,7 +179,7 @@ class LobbySystem {
     return code;
   }
 
-  private requireClient(): any {
+  private requireClient(): SupabaseClient {
     if (!this.supabaseClient || !this.isConnected) {
       throw new Error('No hay conexión con el servidor. Revisá tu internet e intentá de nuevo.');
     }
@@ -262,7 +310,7 @@ class LobbySystem {
       .eq('lobby_id', lobbyRow.id);
     if (playersError) throw new Error(`No se pudo leer el lobby: ${playersError.message}`);
 
-    const existing = (playerRows ?? []).find((p: any) => p.player_id === playerId);
+    const existing = (playerRows ?? []).find((p: LobbyPlayerRow) => p.player_id === playerId);
     if (!existing) {
       if ((playerRows?.length ?? 0) >= MAX_LOBBY_PLAYERS) {
         throw new Error('El lobby ya tiene 8 jugadores. No hay lugar disponible.');
@@ -311,12 +359,12 @@ class LobbySystem {
       .in('status', ['waiting', 'playing']);
 
     this.matches.clear();
-    (matchRows ?? []).forEach((row: any) => {
+    (matchRows ?? []).forEach((row: LobbyMatchRow) => {
       this.matches.set(row.id, this.rowToMatch(row));
     });
 
     this.lobbyPlayerJoinedAt.clear();
-    (playerRows ?? []).forEach((row: any) => {
+    (playerRows ?? []).forEach((row: LobbyPlayerRow) => {
       this.lobbyPlayerJoinedAt.set(row.player_id, new Date(row.joined_at).getTime());
     });
 
@@ -324,7 +372,7 @@ class LobbySystem {
       id: lobbyId,
       roomCode,
       hostId,
-      players: (playerRows ?? []).map((row: any) => ({
+      players: (playerRows ?? []).map((row: LobbyPlayerRow) => ({
         id: row.player_id,
         username: row.username,
         status: row.status,
@@ -335,7 +383,7 @@ class LobbySystem {
     return lobby;
   }
 
-  private rowToMatch(row: any): LobbyMatch {
+  private rowToMatch(row: LobbyMatchRow): LobbyMatch {
     return {
       id: row.id,
       lobbyId: row.lobby_id,
@@ -428,7 +476,7 @@ class LobbySystem {
    * importa para decidir cuándo cerrar el lobby entero al vaciarse
    * (leaveLobby), no para moderar quién puede jugar qué.
    */
-  async createMatch(gameId: LobbyGameId, settings: Record<string, any> = {}): Promise<LobbyMatch> {
+  async createMatch(gameId: LobbyGameId, settings: Record<string, unknown> = {}): Promise<LobbyMatch> {
     if (!this.currentLobby) throw new Error('No estás en ningún lobby.');
     // Evita que un mismo jugador quede como player1Id de dos sub-partidas
     // a la vez: sin este guard, this.currentMatch se pisa con la nueva
@@ -663,7 +711,6 @@ class LobbySystem {
     const client = this.supabaseClient;
     if (!client || !this.isConnected) return;
     const playerId = this.currentPlayerId();
-    const isPlayer1 = this.currentMatch.player1Id === playerId;
 
     try {
       const { data: row } = await client
@@ -739,7 +786,7 @@ class LobbySystem {
 
   // ── Realtime ─────────────────────────────────────────────────────────
 
-  private channels: any[] = [];
+  private channels: RealtimeChannel[] = [];
 
   private setupRealtimeSubscriptions(): void {
     if (!this.supabaseClient || !this.isConnected || !this.currentLobby) return;
@@ -748,28 +795,28 @@ class LobbySystem {
 
     const lobbyChannel = this.supabaseClient
       .channel(`lobby_${lobbyId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lobbies', filter: `id=eq.${lobbyId}` }, (payload: any) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lobbies', filter: `id=eq.${lobbyId}` }, (payload: RealtimePostgresChangesPayload<LobbyRow>) => {
         this.handleLobbyUpdate(payload);
       })
       .subscribe();
 
     const playersChannel = this.supabaseClient
       .channel(`lobby_players_${lobbyId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lobby_players', filter: `lobby_id=eq.${lobbyId}` }, (payload: any) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lobby_players', filter: `lobby_id=eq.${lobbyId}` }, (payload: RealtimePostgresChangesPayload<LobbyPlayerRow>) => {
         this.handlePlayerUpdate(payload);
       })
       .subscribe();
 
     const matchesChannel = this.supabaseClient
       .channel(`lobby_matches_${lobbyId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lobby_matches', filter: `lobby_id=eq.${lobbyId}` }, (payload: any) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lobby_matches', filter: `lobby_id=eq.${lobbyId}` }, (payload: RealtimePostgresChangesPayload<LobbyMatchRow>) => {
         this.handleMatchUpdate(payload);
       })
       .subscribe();
 
     const messagesChannel = this.supabaseClient
       .channel(`lobby_match_messages_${lobbyId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lobby_match_messages' }, (payload: any) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lobby_match_messages' }, (payload: RealtimePostgresChangesPayload<LobbyMatchMessageRow>) => {
         this.handleMatchMessage(payload);
       })
       .subscribe();
@@ -778,8 +825,13 @@ class LobbySystem {
   }
 
   private teardownRealtimeSubscriptions(): void {
-    if (!this.supabaseClient) return;
-    this.channels.forEach((ch) => this.supabaseClient.removeChannel(ch));
+    const client = this.supabaseClient;
+    if (!client) return;
+    this.channels.forEach((ch) => {
+      Promise.resolve(client.removeChannel(ch)).catch((error: unknown) => {
+        ErrorLogger.log('LobbySystem.teardownRealtimeSubscriptions', error);
+      });
+    });
     this.channels = [];
   }
 
@@ -791,10 +843,10 @@ class LobbySystem {
    * de quién es el nuevo host — solo quien ejecutó la reasignación lo
    * sabía localmente.
    */
-  private handleLobbyUpdate(payload: any): void {
+  private handleLobbyUpdate(payload: RealtimePostgresChangesPayload<LobbyRow>): void {
     if (!this.currentLobby) return;
-    const newRow = payload.new;
-    if (!newRow) return;
+    const newRow = payload.new as Partial<LobbyRow>;
+    if (!newRow || Object.keys(newRow).length === 0) return;
 
     if (newRow.host_id && newRow.host_id !== this.currentLobby.hostId) {
       this.currentLobby.hostId = newRow.host_id;
@@ -805,14 +857,16 @@ class LobbySystem {
     }
   }
 
-  private handlePlayerUpdate(payload: any): void {
+  private handlePlayerUpdate(payload: RealtimePostgresChangesPayload<LobbyPlayerRow>): void {
     if (!this.currentLobby) return;
-    const { eventType, new: newRow, old: oldRow } = payload;
+    const { eventType } = payload;
 
     if (eventType === 'DELETE') {
+      const oldRow = payload.old as Partial<LobbyPlayerRow>;
       this.currentLobby.players = this.currentLobby.players.filter((p) => p.id !== oldRow.player_id);
-      this.lobbyPlayerJoinedAt.delete(oldRow.player_id);
+      if (oldRow.player_id) this.lobbyPlayerJoinedAt.delete(oldRow.player_id);
     } else {
+      const newRow = payload.new;
       const player: LobbyPlayer = {
         id: newRow.player_id,
         username: newRow.username,
@@ -828,14 +882,21 @@ class LobbySystem {
     window.dispatchEvent(new CustomEvent('lobby:players_changed', { detail: { players: this.currentLobby.players } }));
   }
 
-  private handleMatchUpdate(payload: any): void {
-    const { newRow, oldRow } = { newRow: payload.new, oldRow: payload.old };
+  private handleMatchUpdate(payload: RealtimePostgresChangesPayload<LobbyMatchRow>): void {
+    const newRow = payload.new as Partial<LobbyMatchRow>;
+    const oldRow = payload.old as Partial<LobbyMatchRow>;
     const eventType = payload.eventType;
 
     if (eventType === 'DELETE' || newRow?.status === 'abandoned' || newRow?.status === 'completed') {
       const id = newRow?.id ?? oldRow?.id;
+      if (!id) return;
       this.matches.delete(id);
-      if (this.currentMatch?.id === id) {
+      if (this.currentMatch && this.currentMatch.id === id) {
+        // Igual que en pairs.logic.ts: this.currentMatch es una
+        // propiedad de instancia, TS no retiene el narrowing hacia
+        // las líneas siguientes — se fija una referencia local
+        // no-nula, ya verificada por el guard explícito de arriba.
+        const current = this.currentMatch;
         // No se limpia this.currentMatch acá de forma agresiva: el
         // propio juego (simon/arrow/termita .logic.ts) necesita seguir
         // leyendo el resultado final (status/scores) hasta que termine
@@ -849,13 +910,13 @@ class LobbySystem {
         // seguía viendo currentMatch.scores vacío/desactualizado justo
         // cuando el juego necesita mostrar el resultado final de ambos.
         this.currentMatch = {
-          ...this.currentMatch,
+          ...current,
           status: newRow?.status ?? 'abandoned',
-          scores: newRow?.scores ?? this.currentMatch.scores
+          scores: newRow?.scores ?? current.scores
         };
       }
     } else {
-      const match = this.rowToMatch(newRow);
+      const match = this.rowToMatch(newRow as LobbyMatchRow);
       this.matches.set(match.id, match);
       if (this.currentMatch?.id === match.id) this.currentMatch = match;
     }
@@ -863,16 +924,16 @@ class LobbySystem {
     window.dispatchEvent(new CustomEvent('lobby:matches_changed', { detail: { matches: this.getMatches() } }));
   }
 
-  private handleMatchMessage(payload: any): void {
-    const record = payload.new;
-    if (!record || !this.currentMatch || record.lobby_match_id !== this.currentMatch.id) return;
+  private handleMatchMessage(payload: RealtimePostgresChangesPayload<LobbyMatchMessageRow>): void {
+    const record = payload.new as Partial<LobbyMatchMessageRow>;
+    if (!record.lobby_match_id || !this.currentMatch || record.lobby_match_id !== this.currentMatch.id) return;
     // No reflejar los propios eventos, mismo criterio que
     // MultiplayerSystem.handleMatchMessage.
     if (record.player_id === this.currentPlayerId()) return;
 
-    let parsed: { type: string; payload: unknown } | null = null;
+    let parsed: { type: string; payload: unknown } | null;
     try {
-      parsed = JSON.parse(record.message);
+      parsed = record.message ? JSON.parse(record.message) : null;
     } catch {
       return;
     }

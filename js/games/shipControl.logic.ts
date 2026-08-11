@@ -143,7 +143,6 @@ export function init(ui: GameUi) {
 
   let myRole: SCRole | null = shipControlSystem.myRole();
   let refreshTimer: ReturnType<typeof setInterval> | null = null;
-  let lastEventIds = new Set<string>();
   let currentMorsePattern: string | null = null;
   let activeMorsePlayback: MorsePlaybackHandle | null = null;
 
@@ -439,8 +438,6 @@ export function init(ui: GameUi) {
       // romper nada, ver migración sección 6).
       renderSequenceButtons(!!primary);
     }
-
-    lastEventIds = new Set(events.map((e) => e.id));
   }
 
   // ── Loop de refresco de estado propio + eventos ──────────────────────

@@ -51,11 +51,11 @@
 
 /* Meta readouts (UPTIME / LATENCIA / SESIÓN) */
 .header-meta {
-  display: none !important;
+  display: none;
 }
 
 @media (max-width: 1180px) {
-  .header-meta { display: none !important; }
+  .header-meta { display: none; }
   .header-inner { grid-template-columns: auto 1fr; }
 }
 

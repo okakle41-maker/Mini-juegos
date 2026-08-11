@@ -716,7 +716,7 @@ export const progressionSystem = new ProgressionSystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).progressionSystem = progressionSystem;
+  window.progressionSystem = progressionSystem;
 }
 
 export default progressionSystem;

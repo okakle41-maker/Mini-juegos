@@ -36,10 +36,11 @@ Plataforma PWA de minijuegos de entrenamiento cognitivo: reflejos, memoria, lóg
 12. [Testing](#testing)
 13. [Build y bundling](#build-y-bundling)
 14. [CI/CD](#cicd)
-15. [Convenciones de código](#convenciones-de-código)
-16. [Deuda técnica conocida](#deuda-técnica-conocida)
-17. [Cómo agregar un minijuego nuevo](#cómo-agregar-un-minijuego-nuevo)
-18. [Troubleshooting](#troubleshooting)
+15. [Calidad de código (ESLint)](#calidad-de-código-eslint)
+16. [Convenciones de código](#convenciones-de-código)
+17. [Deuda técnica conocida](#deuda-técnica-conocida)
+18. [Cómo agregar un minijuego nuevo](#cómo-agregar-un-minijuego-nuevo)
+19. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -84,6 +85,7 @@ npm run dev          # Servidor de desarrollo con HMR
 npm run build        # Build para producción
 npm run preview      # Preview del build de producción
 npm run type-check   # Verificación de tipos TypeScript
+npm run lint         # Análisis estático con ESLint (ver sección "Calidad de código")
 ```
 
 ### Scripts de Testing
@@ -1242,10 +1244,45 @@ El frontend se despliega en **GitHub Pages** vía `.github/workflows/deploy.yml`
 
 ---
 
+## Calidad de código (ESLint)
+
+**ESLint** es una herramienta de *análisis estático*: lee el código sin ejecutarlo y señala patrones sospechosos, errores probables o inconsistencias de estilo, según un conjunto de "reglas" configurables. Es un chequeo distinto y complementario al de `tsc` (verificación de tipos) y al de los tests (comportamiento en runtime) — ESLint no sabe si el código *funciona*, pero sí detecta cosas como una variable que se declaró y nunca se usó, un `any` que tapa un tipo real, o una `Promise` a la que se le olvidó el `await`.
+
+Correr el linter:
+
+```bash
+npm run lint            # analiza todo el proyecto (equivalente a `eslint .`)
+npx eslint archivo.ts   # analiza un solo archivo
+```
+
+Cada resultado es un **error** o un **warning**:
+- Un *error* rompe el build/CI — el proyecto no debería tener ninguno.
+- Un *warning* no bloquea nada, pero señala algo que vale la pena revisar cuando se toque ese código.
+
+### Qué reglas están activas y por qué
+
+La configuración vive en `eslint.config.js`, con cada bloque de reglas comentado en el propio archivo. En resumen:
+
+| Regla | Nivel | Motivo |
+|---|---|---|
+| `@typescript-eslint/no-unused-vars` | warning | Imports o variables declaradas y nunca usadas — la razón original por la que se agregó linting al proyecto: `tsc` con `strict: false` no los marca por sí solo. |
+| `@typescript-eslint/no-explicit-any` | warning | `any` explícito desactiva el chequeo de tipos justo donde se usa. El proyecto ya corre con `strictNullChecks`/`noImplicitAny`, así que un `any` debería ser una excepción consciente, documentada en el propio código, no el default. |
+| `@typescript-eslint/no-floating-promises` / `no-misused-promises` | **error** | Una `Promise` a la que nunca se le puso `await` ni `.catch()` falla en silencio — con Supabase Realtime y varios `await import(...)` de por medio, este es un bug real y no solo un estilo. |
+| `no-console` | warning (permite `warn`/`error`) | `console.log` suelto es aceptable para debug rápido, pero tiende a quedarse olvidado; `console.error`/`warn` deberían ser siempre intencionales. |
+| `eqeqeq`, `no-debugger`, `no-var` | error | Errores clásicos de JavaScript que no tienen justificación válida en este proyecto. |
+
+Los tests (`test/**`, `e2e/**`, `*.test.ts`) tienen reglas más permisivas (`any` y `console` libres) porque un mock o un assert suelto no tiene el mismo costo que código de producción. El service worker (`sw.ts`) también tiene una excepción para `no-console`: sus logs son trazas de instalación/activación de caché pensadas para depurarse desde devtools en producción, no ruido de desarrollo.
+
+### Estado actual
+
+El proyecto corre con **0 errores** de ESLint (obligatorio para CI) y un número de warnings que baja progresivamente a medida que se toca código viejo — no es una meta de "cero warnings de una sola vez", sino ir reemplazando `any` por tipos reales (muchos venían de payloads de Supabase sin tipar) cada vez que se entra a un archivo por otro motivo. Si vas a tocar un archivo con warnings existentes, es buena práctica dejarlo con menos de los que tenía, pero no es bloqueante arreglar warnings ajenos a tu cambio.
+
+---
+
 ## Convenciones de código
 
 - **Comentarios que explican el "por qué", no el "qué".** Es la convención más consistente del proyecto: casi todo módulo no trivial tiene un comentario de cabecera explicando qué problema resuelve, qué patrón reemplaza, y qué pasaría si se hiciera de la forma "obvia" en su lugar. Al modificar un módulo existente, mantené ese estilo — si tu cambio invalida el razonamiento de un comentario existente, actualizalo en el mismo commit.
-- **Tipado estricto, con pocas excepciones documentadas.** El proyecto completo (≈20.000 líneas de TypeScript) tiene 3 usos de `any`, todos en `Record<string, any>` para datos de minijuego intencionalmente polimórficos (`ModuleData` en `bombdefusal.logic.ts`, `MinigameData` en `virusOverload.logic.ts`) — cada módulo/minijuego trae su propia forma de datos y tipar la unión completa no aportaría seguridad real, solo ruido. Evitá introducir `any` fuera de ese patrón; si un tipo es genuinamente difícil de expresar, es preferible `unknown` + un type guard explícito (patrón usado en `safeStorage.ts` y `leaderboardManager.ts`).
+- **Tipado estricto, con `any` como excepción documentada, no como default.** El caso legítimo que sigue en el código es `Record<string, any>` para datos de minijuego intencionalmente polimórficos (`MinigameData` en `virusOverload.logic.ts`) — cada minijuego trae su propia forma de datos y tipar la unión completa no aportaría seguridad real, solo ruido. Fuera de ese patrón, preferí `unknown` + un type guard explícito (patrón usado en `safeStorage.ts` y `leaderboardManager.ts`) o, si se conoce la forma real (por ejemplo una fila de Supabase), una interfaz concreta con los campos reales de la tabla en vez de `any`. El conteo exacto de `any` restantes en el proyecto no se documenta acá porque cambia con cada cambio — corré `npm run lint` para verlo (ver [Calidad de código](#calidad-de-código-eslint)).
 - **`data-ui`, no `id`, para elementos que la lógica de un juego necesita tocar.** Ver [`data-ui`: el contrato entre vista y lógica](#data-ui-el-contrato-entre-vista-y-lógica). Si agregás una clave nueva en un `.logic.ts`, agregá el `data-ui` correspondiente en la vista **en el mismo cambio** — el test `dataUiIntegrity.test.ts` te lo va a exigir igual, pero es más fácil no olvidarlo que depurarlo después.
 - **Guards defensivos en vez de asunciones sobre el DOM.** Los elementos resueltos vía `data-ui` son `HTMLElement | undefined` en el tipo `GameUi`; el patrón estándar es `if (!elemento) return;` antes de usarlo, no un `!` de aserción no nula.
 - **Eventos custom para desacoplar, no imports cruzados.** `view-shown`, `leaderboard:updated`, `theme-changed` son el mecanismo preferido para que un módulo reaccione a algo que pasa en otro sin importarlo directamente. Antes de agregar un import cruzado entre dos módulos de UI que no tienen relación jerárquica clara, considerá si un evento custom encaja mejor.

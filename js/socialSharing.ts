@@ -17,7 +17,12 @@ class SocialSharing {
   private baseUrl = window.location.origin;
 
   share(data: ShareData): Promise<void> {
-    if (navigator.share) {
+    // navigator.share existe en el tipo DOM estándar como método
+    // siempre presente (no opcional), pero en runtime NO está en todos
+    // los navegadores (ej. la mayoría de desktop) — 'in' chequea la
+    // propiedad en el objeto real sin que TS asuma que la función
+    // "siempre está definida" y marque el if como redundante.
+    if ('share' in navigator) {
       return this.nativeShare(data);
     } else {
       return this.fallbackShare(data);
@@ -44,8 +49,8 @@ class SocialSharing {
     
     try {
       await navigator.clipboard.writeText(text);
-      if ((window as any).notificationSystem) {
-        (window as any).notificationSystem.success('¡Copiado!', 'Texto copiado al portapapeles');
+      if (window.notificationSystem) {
+        window.notificationSystem.success('¡Copiado!', 'Texto copiado al portapapeles');
       }
     } catch (error) {
       console.error('[SocialSharing] Clipboard failed:', error);
@@ -184,8 +189,8 @@ class SocialSharing {
     const text = `${data.title}\n${data.description}\n${url}`;
     
     return navigator.clipboard.writeText(text).then(() => {
-      if ((window as any).notificationSystem) {
-        (window as any).notificationSystem.success('¡Enlace copiado!', 'Enlace copiado al portapapeles');
+      if (window.notificationSystem) {
+        window.notificationSystem.success('¡Enlace copiado!', 'Enlace copiado al portapapeles');
       }
     });
   }
@@ -210,7 +215,7 @@ class SocialSharing {
 export const socialSharing = new SocialSharing();
 
 if (typeof window !== 'undefined') {
-  (window as any).socialSharing = socialSharing;
+  window.socialSharing = socialSharing;
 }
 
 export default socialSharing;

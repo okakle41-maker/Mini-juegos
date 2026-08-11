@@ -33,6 +33,7 @@ import { attachCopyButton } from '../utils/copyRoomCode.js';
 import { withButtonBusy } from '../utils/buttonBusyGuard.js';
 import { runCreateMatchAction } from '../utils/createMatchAction.js';
 import { describeMatchError } from '../utils/describeMatchError.js';
+import { onClickAsync, onClickAsyncVoid } from '../utils/asyncEventHandler.js';
 
 export function init(): void {
   const container = document.getElementById('online-lobby');
@@ -125,7 +126,7 @@ function setupConfigModal(): void {
 
   // Signal Triangulation: crear partida
   const stCreateBtn = modalEl('olConfigStCreateBtn') as HTMLButtonElement | null;
-  stCreateBtn?.addEventListener('click', () => withButtonBusy(stCreateBtn, () => runCreateMatchAction({
+  stCreateBtn?.addEventListener('click', onClickAsyncVoid(() => withButtonBusy(stCreateBtn, () => runCreateMatchAction({
     clearError: () => clearConfigError('olConfigStError'),
     showError: (msg) => showConfigError('olConfigStError', msg),
     checkEligibility: () => signalTriangulationSystem.isPlayerEligible()
@@ -138,11 +139,11 @@ function setupConfigModal(): void {
       setPending('signal_triangulation', 'online-lobby');
       window.showView?.('match-waiting');
     }
-  })));
+  }))));
 
   // Fragmented Labyrinth: crear partida (quien crea ocupa el rol A)
   const flCreateBtn = modalEl('olConfigFlCreateBtn') as HTMLButtonElement | null;
-  flCreateBtn?.addEventListener('click', () => withButtonBusy(flCreateBtn, () => runCreateMatchAction({
+  flCreateBtn?.addEventListener('click', onClickAsyncVoid(() => withButtonBusy(flCreateBtn, () => runCreateMatchAction({
     clearError: () => clearConfigError('olConfigFlError'),
     showError: (msg) => showConfigError('olConfigFlError', msg),
     checkEligibility: () => fragmentedLabyrinthSystem.isPlayerEligible()
@@ -155,10 +156,10 @@ function setupConfigModal(): void {
       setPending('fragmented_labyrinth', 'online-lobby');
       window.showView?.('match-waiting');
     }
-  })));
+  }))));
 
   // Centro de Control: elegir rol para crear
-  modalEl('olConfigScRolePicker')?.addEventListener('click', async (event) => {
+  modalEl('olConfigScRolePicker')?.addEventListener('click', onClickAsync(async (event) => {
     const btn = (event.target as HTMLElement).closest<HTMLButtonElement>('.ol-modal-role-btn[data-role]');
     if (!btn) return;
     await withButtonBusy(btn, () => runCreateMatchAction({
@@ -175,11 +176,11 @@ function setupConfigModal(): void {
         window.showView?.('match-waiting');
       }
     }));
-  });
+  }));
 
   // Simon/Arrow/Termita: crear partida 1v1
   const lobbyCreateBtn = modalEl('olConfigLobbyCreateBtn') as HTMLButtonElement | null;
-  lobbyCreateBtn?.addEventListener('click', () => withButtonBusy(lobbyCreateBtn, async () => {
+  lobbyCreateBtn?.addEventListener('click', onClickAsyncVoid(() => withButtonBusy(lobbyCreateBtn, async () => {
     // Guard silencioso, no un error mostrable (no debería poder pasar:
     // el botón vive dentro de olConfigLobbySection, que solo se muestra
     // tras haber seteado currentLobbyGameId al abrir el modal) — se
@@ -202,7 +203,7 @@ function setupConfigModal(): void {
         window.showView?.('match-waiting');
       }
     });
-  }));
+  })));
 
   // Se registra una sola vez en todo el ciclo de vida de la app para no
   // acumular listeners duplicados cada vez que se entra a la vista.
@@ -363,7 +364,7 @@ function renderStMatches(): void {
   }).join('');
 
   list.querySelectorAll('button[data-action]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', onClickAsyncVoid(async () => {
       const el = btn as HTMLElement;
       const action = el.dataset.action;
       const matchId = el.dataset.matchId;
@@ -381,7 +382,7 @@ function renderStMatches(): void {
       } catch (e) {
         showConfigError('olConfigStError', describeMatchError(e, 'No se pudo completar la acción.'));
       }
-    });
+    }));
   });
 }
 
@@ -431,7 +432,7 @@ function renderScMatches(): void {
   }).join('');
 
   list.querySelectorAll('button[data-action]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', onClickAsyncVoid(async () => {
       const el = btn as HTMLElement;
       const action = el.dataset.action;
       const matchId = el.dataset.matchId;
@@ -450,7 +451,7 @@ function renderScMatches(): void {
       } catch (e) {
         showConfigError('olConfigScError', describeMatchError(e, 'No se pudo completar la acción.'));
       }
-    });
+    }));
   });
 }
 
@@ -502,7 +503,7 @@ function renderFlMatches(): void {
   }).join('');
 
   list.querySelectorAll('button[data-action]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', onClickAsyncVoid(async () => {
       const el = btn as HTMLElement;
       const action = el.dataset.action;
       const matchId = el.dataset.matchId;
@@ -520,7 +521,7 @@ function renderFlMatches(): void {
       } catch (e) {
         showConfigError('olConfigFlError', describeMatchError(e, 'No se pudo completar la acción.'));
       }
-    });
+    }));
   });
 }
 
@@ -568,7 +569,7 @@ function renderLobbyMatches(): void {
   }).join('');
 
   list.querySelectorAll('button[data-action]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', onClickAsyncVoid(async () => {
       const el = btn as HTMLElement;
       const action = el.dataset.action;
       const matchId = el.dataset.matchId;
@@ -590,7 +591,7 @@ function renderLobbyMatches(): void {
       } catch (e) {
         showConfigError('olConfigLobbyError', describeMatchError(e, 'No se pudo completar la acción.'));
       }
-    });
+    }));
   });
 }
 

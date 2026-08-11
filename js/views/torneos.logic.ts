@@ -8,20 +8,9 @@ import { template } from './torneos.js';
 import type { TournamentEvent, EventChallenge } from '../types/game';
 import { escapeHtml } from '../security.js';
 import { hydrateBackButtons } from '../utils/backButton.js';
+import { onClickAsync } from '../utils/asyncEventHandler.js';
 
 let eventListeners: Array<() => void> = [];
-let cachedElements: Record<string, HTMLElement | null> = {};
-
-function getElement(id: string): HTMLElement | null {
-  if (!cachedElements[id]) {
-    cachedElements[id] = document.getElementById(id);
-  }
-  return cachedElements[id];
-}
-
-function clearCache(): void {
-  cachedElements = {};
-}
 
 export function init(): void {
   const container = document.getElementById('torneos');
@@ -114,17 +103,17 @@ function setupEventListeners(): void {
 
   // Registrarse en torneo
   document.querySelectorAll('.tournament-btn--register').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', onClickAsync(async () => {
       const tournamentId = (btn as HTMLElement).dataset.tournamentId;
       if (tournamentId) {
         try {
           await tournamentSystem.registerForTournament(tournamentId);
           renderTournaments();
-        } catch (e) {
+        } catch {
           alert('Error al registrarse en el torneo');
         }
       }
-    });
+    }));
   });
 
   // Ver evento
@@ -247,9 +236,6 @@ export function stop(): void {
   // Limpiar event listeners
   eventListeners.forEach(cleanup => cleanup());
   eventListeners = [];
-  
-  // Limpiar caché de elementos
-  clearCache();
   
   // Limpiar contenido del contenedor
   const container = document.getElementById('torneos');

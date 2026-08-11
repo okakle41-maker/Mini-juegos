@@ -75,11 +75,17 @@ const OPP = { n: 's', e: 'w', s: 'n', w: 'e' } as const;
 const DELTA = { n: [-1, 0], e: [0, 1], s: [1, 0], w: [0, -1] } as const;
 
 export function init() {
-  const gridEl = document.getElementById('paGrid');
+  const gridElRef = document.getElementById('paGrid');
   const startBtn = document.getElementById('paStart');
-  const result = document.getElementById('paResult');
+  const resultRef = document.getElementById('paResult');
   const timerFill = document.getElementById('paTimerFill');
-  if (!gridEl || !startBtn || !result || !timerFill) return;
+  if (!gridElRef || !startBtn || !resultRef || !timerFill) return;
+
+  // Ver mismo motivo en rhythmclick.logic.ts: closures más abajo
+  // necesitan el tipo ya no-nulo, TS no propaga el narrowing del if
+  // de arriba hacia adentro de funciones anidadas.
+  const gridEl: HTMLElement = gridElRef;
+  const result: HTMLElement = resultRef;
 
   const scoreEl = document.getElementById('paScore');
   const levelEl = document.getElementById('paLevel');

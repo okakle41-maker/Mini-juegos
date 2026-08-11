@@ -23,23 +23,38 @@ import { AnimationOptimizer } from '../gameOptimizations.js';
 let cleanup: (() => void) | null = null;
 
 export function init() {
-    const start    = document.getElementById('startRhythm') as HTMLButtonElement | null;
-    if (!start) return;
+    const startEl    = document.getElementById('startRhythm') as HTMLButtonElement | null;
+    const arenaEl    = document.getElementById('rhythmArena') as HTMLElement | null;
+    const levelElEl  = document.getElementById('rhythmLevel') as HTMLElement | null;
+    const scoreElEl  = document.getElementById('rhythmScore') as HTMLElement | null;
+    const timeElEl   = document.getElementById('rhythmTime') as HTMLElement | null;
+    const resultElEl = document.getElementById('rhythmResult') as HTMLElement | null;
 
-    const arena    = document.getElementById('rhythmArena') as HTMLElement | null;
-    const levelEl  = document.getElementById('rhythmLevel') as HTMLElement | null;
-    const scoreEl  = document.getElementById('rhythmScore') as HTMLElement | null;
-    const timeEl   = document.getElementById('rhythmTime') as HTMLElement | null;
-    const resultEl = document.getElementById('rhythmResult') as HTMLElement | null;
+    if (!startEl || !arenaEl || !levelElEl || !scoreElEl || !timeElEl || !resultElEl) return;
 
-    if (!arena || !levelEl || !scoreEl || !timeEl || !resultEl) return;
+    // Con strictNullChecks, TS no propaga el narrowing del guard de
+    // arriba hacia adentro de las funciones anidadas más abajo
+    // (startTimer, spawnCore, startGame, cleanup) porque son closures
+    // sobre estas variables, no usos directos en el mismo scope — para
+    // TS, en teoría podrían reasignarse a null entre la verificación y
+    // el uso. Re-declararlas como const con un tipo ya no-nulo (mismo
+    // valor, ya verificado arriba) resuelve esto sin tocar la lógica:
+    // son const, nunca se reasignan, así que el tipo no-nulo es
+    // correcto en todo el resto de la función.
+    const start: HTMLButtonElement = startEl;
+    const arena: HTMLElement = arenaEl;
+    const levelEl: HTMLElement = levelElEl;
+    const scoreEl: HTMLElement = scoreElEl;
+    const timeEl: HTMLElement = timeElEl;
+    const resultEl: HTMLElement = resultElEl;
 
     const animationOptimizer = new AnimationOptimizer();
 
     let running = false;
     let level = 1, score = 0;
     let time = 30, timer: ReturnType<typeof setInterval> | null = null;
-    let spawnInterval: ReturnType<typeof setInterval> | null = null, spawnDelay = 1000;
+    let spawnInterval: ReturnType<typeof setInterval> | null = null;
+    const spawnDelay = 1000;
     let activeCores = 0, maxCores = 1;
     let nextAnimId = 0;
 
@@ -62,7 +77,16 @@ export function init() {
         timeEl.classList.toggle('danger', time <= 10);
         if (time === 10) audioManager.play('beep');
         if (time <= 0) {
-          clearInterval(timer); timer = null;
+          // clearInterval acepta undefined pero no null en su firma de
+          // tipos; timer siempre está asignado acá (viene de la propia
+          // llamada a setInterval que definió este callback), pero por
+          // ser una variable let capturada por closure, TS no puede
+          // descartar que algo la haya vuelto a poner en null entre el
+          // if de arriba y esta línea. El guard es redundante en
+          // runtime pero resuelve el desajuste de tipos sin cambiar
+          // comportamiento (clearInterval(null) ya era un no-op).
+          if (timer) clearInterval(timer);
+          timer = null;
           if (spawnInterval) { clearInterval(spawnInterval); spawnInterval = null; }
           running = false;
           audioManager.play('gameover');
@@ -93,14 +117,19 @@ export function init() {
       const coreAnimId = nextAnimId++;
       animationOptimizer.registerAnimation(coreAnimId);
 
-      const ring = core.querySelector('.core-ring') as HTMLElement | null;
-      const center = core.querySelector('.core-center') as HTMLElement | null;
-      if (!ring || !center) {
+      const ringEl = core.querySelector('.core-ring') as HTMLElement | null;
+      const centerEl = core.querySelector('.core-center') as HTMLElement | null;
+      if (!ringEl || !centerEl) {
         core.remove();
         activeCores = Math.max(0, activeCores - 1);
         animationOptimizer.unregisterAnimation(coreAnimId);
         return;
       }
+      // Mismo motivo que start/arena/etc. arriba: ring/center ya
+      // verificados, se re-tipan como no-nulos para las closures
+      // (el listener de click y animate()) definidas más abajo.
+      const ring: HTMLElement = ringEl;
+      const center: HTMLElement = centerEl;
       let scale = 3, clicked = false;
       const shrinkSpeed = 0.012 + level * 0.002;
 

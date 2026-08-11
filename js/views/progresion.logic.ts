@@ -7,18 +7,9 @@ import { progressionSystem } from '../progressionSystem.js';
 import { template } from './progresion.js';
 
 let eventListeners: Array<() => void> = [];
-let cachedElements: Record<string, HTMLElement | null> = {};
-
-function getElement(id: string): HTMLElement | null {
-  if (!cachedElements[id]) {
-    cachedElements[id] = document.getElementById(id);
-  }
-  return cachedElements[id];
-}
-
-function clearCache(): void {
-  cachedElements = {};
-}
+// (Sistema de caché de elementos DOM eliminado: getElement() nunca
+// se llamaba en este archivo, así que cachedElements tampoco tenía
+// nada real que limpiar.)
 
 export function init(): void {
   const container = document.getElementById('progresion');
@@ -82,7 +73,9 @@ function renderDailyQuests(): void {
 function renderSkillTree(): void {
   const skillTree = progressionSystem.getSkillTree();
   const unlockedSkills = progressionSystem.getUnlockedSkills();
-  const skillPoints = progressionSystem.getSkillPoints();
+  // (El total de skill points ya se muestra en #skill-points vía otra
+  // función — ver más arriba en este archivo — así que no hace falta
+  // recalcularlo acá; esta función solo pinta el árbol de habilidades.)
   const skillTreeGrid = document.getElementById('skill-tree');
 
   if (skillTreeGrid) {
@@ -243,8 +236,6 @@ export function stop(): void {
   eventListeners.forEach(cleanup => cleanup());
   eventListeners = [];
   
-  // Limpiar caché de elementos
-  clearCache();
   
   // Limpiar contenido del contenedor
   const container = document.getElementById('progresion');

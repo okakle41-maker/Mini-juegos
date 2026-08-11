@@ -140,13 +140,14 @@ class RapidLines {
 
   stop() {
     this.running = false;
-    clearInterval(this.timer); this.timer = null;
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
     this.clearArena();
     document.removeEventListener('keydown', this.boundKeyDown);
   }
 
   startTimer() {
-    clearInterval(this.timer);
+    if (this.timer) clearInterval(this.timer);
     this.timer = setInterval(() => {
       this.time--;
       this.timeEl.textContent = String(this.time);
@@ -156,7 +157,7 @@ class RapidLines {
 
   gameOver(text: string) {
     this.running = false;
-    clearInterval(this.timer);
+    if (this.timer) clearInterval(this.timer);
     if (text !== 'MISS') audioManager.play('gameover');
     this.result.innerHTML = `<span style="color:#ff5555">${text}</span>`;
     this.clearArena();

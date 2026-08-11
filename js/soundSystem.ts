@@ -145,7 +145,7 @@ class SoundSystem {
         oscillator.stop(now + 0.2);
         break;
 
-      case 'achievement':
+      case 'achievement': {
         // Fanfare de logro
         const now2 = this.audioContext.currentTime;
         const osc1 = this.audioContext.createOscillator();
@@ -182,8 +182,9 @@ class SoundSystem {
         osc2.stop(now2 + 0.4);
         osc3.stop(now2 + 0.5);
         break;
+      }
 
-      case 'level_up':
+      case 'level_up': {
         // Sonido de nivel up más dramático
         const now3 = this.audioContext.currentTime;
         const osc = this.audioContext.createOscillator();
@@ -203,6 +204,7 @@ class SoundSystem {
         osc.start(now3);
         osc.stop(now3 + 0.5);
         break;
+      }
 
       case 'notification':
         oscillator.frequency.setValueAtTime(600, now);
@@ -301,7 +303,7 @@ export const soundSystem = new SoundSystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).soundSystem = soundSystem;
+  window.soundSystem = soundSystem;
 }
 
 export default soundSystem;

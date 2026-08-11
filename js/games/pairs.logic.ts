@@ -45,6 +45,17 @@ export function init(ui: GameUi) {
   // flip, esos setTimeout igual disparaban después y tocaban cards/el
   // de una vista que ya no estaba visible.
   cleanup = GameHelpers.createCleanupManager();
+  // Igual que en rhythmclick.logic.ts: las funciones anidadas más
+  // abajo (startGame, flip handlers, etc.) son closures sobre la
+  // variable de módulo `cleanup` — TS no puede garantizar que siga
+  // no-nula en el momento en que esas closures se ejecuten (en teoría
+  // podría llamarse stop() entre medio y ponerla en null vía el
+  // manejo externo, aunque en la práctica stop() la deja asignada,
+  // solo limpia sus timers). Se fija una referencia local no-nula
+  // para el resto de init(): es la misma instancia, y stop() sigue
+  // usando `cleanup?.cleanup()` con su propio optional chaining para
+  // el caso de llamarse antes de que init() corra.
+  const cleanupManager = cleanup;
 
   const ICONS = [
     'skull','flame','bolt','star','moon','sun','cloud','snowflake',
@@ -84,7 +95,7 @@ export function init(ui: GameUi) {
   // de comportamiento (copia en vez de mutación) es transparente aquí.
 
   function startGame() {
-    cleanup.cleanup();
+    cleanupManager.cleanup();
     flipped = []; matched = 0; moves = 0; lock = false;
     timeLeft = totalTime;
     pairsMovesEl.textContent = '0';
@@ -104,7 +115,7 @@ export function init(ui: GameUi) {
     })));
 
     renderBoard();
-    cleanup.addInterval(tick, 1000);
+    cleanupManager.addInterval(tick, 1000);
   }
 
   function tick() {
@@ -115,7 +126,7 @@ export function init(ui: GameUi) {
     pairsTimerBar.style.background =
       pct > 50 ? '#22d3ee' : pct > 25 ? '#f97316' : '#f43f5e';
     if (timeLeft <= 0) {
-      cleanup.cleanup();
+      cleanupManager.cleanup();
       endGame(false);
     }
   }
@@ -191,7 +202,7 @@ export function init(ui: GameUi) {
 
       if (cards[a.i].icon === cards[b.i].icon) {
         if (audioManager) audioManager.play('good');
-        cleanup.addTimeout(() => {
+        cleanupManager.addTimeout(() => {
           cards[a.i].matched = cards[b.i].matched = true;
           a.el.classList.add('pairs-card--matched');
           b.el.classList.add('pairs-card--matched');
@@ -204,10 +215,10 @@ export function init(ui: GameUi) {
         }, 350);
       } else {
         if (audioManager) audioManager.play('miss');
-        cleanup.addTimeout(() => {
+        cleanupManager.addTimeout(() => {
           a.el.classList.add('pairs-card--shake');
           b.el.classList.add('pairs-card--shake');
-          cleanup.addTimeout(() => {
+          cleanupManager.addTimeout(() => {
             cards[a.i].flipped = false;
             cards[b.i].flipped = false;
             a.el.classList.remove('pairs-card--flipped', 'pairs-card--shake');
@@ -222,7 +233,7 @@ export function init(ui: GameUi) {
   }
 
   function endGame(won: boolean) {
-    cleanup.cleanup();
+    cleanupManager.cleanup();
     lock = true;
     const msgEl = pairsMessage as HTMLElement;
     if (won) {

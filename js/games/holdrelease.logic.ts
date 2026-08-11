@@ -8,11 +8,16 @@ import audioManager from '../audioManager.js';
 let cleanup: (() => void) | null = null;
 
 export function init() {
-  const fill = document.getElementById('hrFill');
-  const zone = document.getElementById('hrZone');
+  const fillRef = document.getElementById('hrFill');
+  const zoneRef = document.getElementById('hrZone');
   const startBtn = document.getElementById('hrStart');
-  const result = document.getElementById('hrResult');
-  if (!fill || !zone || !startBtn || !result) return;
+  const resultRef = document.getElementById('hrResult');
+  if (!fillRef || !zoneRef || !startBtn || !resultRef) return;
+
+  // Ver mismo motivo en rhythmclick.logic.ts.
+  const fill: HTMLElement = fillRef;
+  const zone: HTMLElement = zoneRef;
+  const result: HTMLElement = resultRef;
 
   const scoreEl = document.getElementById('hrScore');
   const comboEl = document.getElementById('hrCombo');

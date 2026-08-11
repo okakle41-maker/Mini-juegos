@@ -197,7 +197,9 @@ function initAudio(): void {
     audioContext = new AudioCtx();
   }
   if (audioContext.state === 'suspended') {
-    audioContext.resume();
+    void audioContext.resume().catch((err: unknown) => {
+      console.error('[VirusOverload] Error al reanudar el audio:', err);
+    });
   }
 }
 

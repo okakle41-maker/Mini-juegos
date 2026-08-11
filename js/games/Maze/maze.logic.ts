@@ -78,7 +78,7 @@ export function init() {
   const onKeyDown = (e: KeyboardEvent) => {
     const mazeView = document.getElementById('maze-game');
     if (!player || !mazeView || mazeView.classList.contains('hidden')) return;
-    let moved = false;
+    let moved: boolean;
     switch (e.key.toLowerCase()) {
       case 'w': case 'arrowup':    moved = player.move(0, -1); break;
       case 's': case 'arrowdown':  moved = player.move(0,  1); break;

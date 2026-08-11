@@ -21,14 +21,19 @@
 
 const HOVER_SELECTOR = 'a, button, [role="button"], .game-card, input, select, textarea, .filter-btn, label, [data-clickable]';
 
-// FPS del loop de seguimiento. Igual que en el diseño anterior:
-// seguimos reprogramando vía requestAnimationFrame (para que el
-// navegador pueda pausarlo en tabs en background, etc.) pero solo
-// hacemos el trabajo real (lerp + write de estilo) cuando pasó al
-// menos FRAME_BUDGET_MS desde el último frame procesado.
-const CURSOR_FPS = 60;
-const FRAME_BUDGET_MS = 1000 / CURSOR_FPS;
-
+// Antes el loop se auto-throttleaba a mano a 60fps (`elapsed <
+// FRAME_BUDGET_MS`), comparando contra un timestamp fijo de 16.66ms.
+// Eso en la práctica bajaba los fps reales del cursor en vez de
+// subirlos: RAF en un monitor de 60Hz ya llama cada ~16.67ms con
+// jitter normal de timing, así que ese corte descartaba frames
+// válidos seguido y el cursor terminaba corriendo más cerca de 30fps
+// que de 60. En monitores de 120/144Hz el efecto era peor: se tiraban
+// la mitad o más de los frames que el navegador ya estaba dispuesto a
+// dar gratis. Sacamos el throttle manual y dejamos que el loop corra
+// a la cadencia nativa de RAF — que ya respeta el refresh rate real
+// del monitor sin necesidad de este cálculo, y el costo por frame acá
+// es solo aritmética (lerp) + un write de `transform`, así que no hay
+// razón de negocio para limitarlo por debajo de eso.
 // Factor de suavizado del lerp: más alto = persigue más rápido/más
 // ajustado al mouse real, más bajo = más lag/más "resorte". 0.35 da
 // un seguimiento notorio pero sin sentirse desconectado del puntero
@@ -50,7 +55,6 @@ class CustomCursor {
   private rafId: number | null = null;
   private activated = false;
   private looping = false;
-  private lastFrameTime = 0;
 
   /** Ver nota en `dotTransform()`: el scale de hover se incluye a
    *  mano en el mismo string de `transform` que ya escribe el loop,
@@ -173,20 +177,11 @@ class CustomCursor {
   };
 
   // Loop con lerp: el punto "persigue" la posición real del mouse con
-  // un resorte suave en vez de saltar ahí directo. Throttleado a
-  // CURSOR_FPS igual que el diseño anterior — el resto de los
-  // callbacks de RAF retornan casi inmediatamente si no pasó
-  // suficiente tiempo desde el último frame procesado.
-  private loop = (timestamp: number): void => {
-    const elapsed = timestamp - this.lastFrameTime;
-
-    if (elapsed < FRAME_BUDGET_MS) {
-      this.rafId = requestAnimationFrame(this.loop);
-      return;
-    }
-
-    this.lastFrameTime = timestamp;
-
+  // un resorte suave en vez de saltar ahí directo. Corre a la
+  // cadencia nativa de RAF (sin throttle manual, ver comentario más
+  // arriba) — cada frame que el navegador esté dispuesto a dar se
+  // usa entero.
+  private loop = (): void => {
     this.dotX += (this.mouseX - this.dotX) * LERP_FACTOR;
     this.dotY += (this.mouseY - this.dotY) * LERP_FACTOR;
 
@@ -213,12 +208,6 @@ class CustomCursor {
   private ensureLoop(): void {
     if (this.looping) return;
     this.looping = true;
-    // Reset explícito: si no, `elapsed` en el primer frame se calcularía
-    // contra el `lastFrameTime` de un ciclo de movimiento anterior (a veces
-    // segundos atrás), lo cual da un `elapsed` gigante y de casualidad deja
-    // pasar ese frame sin throttle. Arrancando en 0 forzamos que el primer
-    // frame del nuevo ciclo también respete el budget normal.
-    this.lastFrameTime = 0;
     this.rafId = requestAnimationFrame(this.loop);
   }
 

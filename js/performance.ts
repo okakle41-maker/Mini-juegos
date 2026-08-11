@@ -1,12 +1,23 @@
 /**
  * Performance Optimization Utilities
  * Memoización, debounce, throttle, y otras optimizaciones de rendimiento
+ *
+ * Nota sobre `any` en las firmas genéricas de este archivo: en un
+ * constraint `T extends (...args: unknown[]) => any`, el `any` del
+ * retorno es la única opción que compila — acotarlo a `unknown` rompe
+ * la inferencia de `ReturnType<T>` en el cuerpo de la función (TS2322,
+ * probado). Los argumentos sí están acotados a `unknown[]` (más seguro
+ * que `any[]`); el `any` restante es una limitación conocida de
+ * TypeScript con constraints genéricos de funciones, no una omisión.
  */
+
+import { devLog } from './core/devLog.js';
 
 /**
  * Memoiza una función pura para cachear resultados
  */
-export function memoize<T extends (...args: any[]) => any>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
+export function memoize<T extends (...args: unknown[]) => any>(
   fn: T,
   keyGenerator?: (...args: Parameters<T>) => string
 ): T {
@@ -28,7 +39,8 @@ export function memoize<T extends (...args: any[]) => any>(
 /**
  * Memoiza una función asíncrona
  */
-export function memoizeAsync<T extends (...args: any[]) => Promise<any>>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
+export function memoizeAsync<T extends (...args: unknown[]) => Promise<any>>(
   fn: T,
   keyGenerator?: (...args: Parameters<T>) => string
 ): T {
@@ -50,7 +62,8 @@ export function memoizeAsync<T extends (...args: any[]) => Promise<any>>(
 /**
  * Debounce - retrasa la ejecución de una función
  */
-export function debounce<T extends (...args: any[]) => any>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
+export function debounce<T extends (...args: unknown[]) => any>(
   fn: T,
   delay: number
 ): (...args: Parameters<T>) => void {
@@ -71,7 +84,8 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Debounce asíncrono
  */
-export function debounceAsync<T extends (...args: any[]) => Promise<any>>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
+export function debounceAsync<T extends (...args: unknown[]) => Promise<any>>(
   fn: T,
   delay: number
 ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
@@ -83,11 +97,19 @@ export function debounceAsync<T extends (...args: any[]) => Promise<any>>(
       clearTimeout(timeoutId);
     }
     
-    return new Promise((resolve) => {
-      timeoutId = window.setTimeout(async () => {
+    return new Promise((resolve, reject) => {
+      timeoutId = window.setTimeout(() => {
         lastPromise = fn(...args);
-        resolve(await lastPromise);
-        timeoutId = null;
+        lastPromise
+          .then((result) => {
+            resolve(result);
+          })
+          .catch((err: unknown) => {
+            reject(err as Error);
+          })
+          .finally(() => {
+            timeoutId = null;
+          });
       }, delay);
     });
   };
@@ -96,7 +118,8 @@ export function debounceAsync<T extends (...args: any[]) => Promise<any>>(
 /**
  * Throttle - limita la frecuencia de ejecución de una función
  */
-export function throttle<T extends (...args: any[]) => any>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
+export function throttle<T extends (...args: unknown[]) => any>(
   fn: T,
   limit: number
 ): (...args: Parameters<T>) => void {
@@ -118,7 +141,8 @@ export function throttle<T extends (...args: any[]) => any>(
 /**
  * Throttle asíncrono
  */
-export function throttleAsync<T extends (...args: any[]) => Promise<any>>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
+export function throttleAsync<T extends (...args: unknown[]) => Promise<any>>(
   fn: T,
   limit: number
 ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
@@ -140,7 +164,8 @@ export function throttleAsync<T extends (...args: any[]) => Promise<any>>(
 /**
  * RequestAnimationFrame throttle para animaciones
  */
-export function rafThrottle<T extends (...args: any[]) => any>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
+export function rafThrottle<T extends (...args: unknown[]) => any>(
   fn: T
 ): (...args: Parameters<T>) => void {
   let rafId: number | null = null;
@@ -333,7 +358,8 @@ export class DOMBatcher {
 /**
  * Mide el tiempo de ejecución de una función
  */
-export function measurePerformance<T extends (...args: any[]) => any>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
+export function measurePerformance<T extends (...args: unknown[]) => any>(
   fn: T,
   label: string
 ): T {
@@ -342,7 +368,7 @@ export function measurePerformance<T extends (...args: any[]) => any>(
     const result = fn(...args);
     const end = performance.now();
     
-    console.log(`[Performance] ${label}: ${(end - start).toFixed(2)}ms`);
+    devLog(`[Performance] ${label}: ${(end - start).toFixed(2)}ms`);
     
     return result;
   }) as T;
@@ -351,7 +377,8 @@ export function measurePerformance<T extends (...args: any[]) => any>(
 /**
  * Mide el tiempo de ejecución de una función asíncrona
  */
-export async function measurePerformanceAsync<T extends (...args: any[]) => Promise<any>>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
+export async function measurePerformanceAsync<T extends (...args: unknown[]) => Promise<any>>(
   fn: T,
   label: string,
   ...args: Parameters<T>
@@ -360,7 +387,7 @@ export async function measurePerformanceAsync<T extends (...args: any[]) => Prom
   const result = await fn(...args);
   const end = performance.now();
   
-  console.log(`[Performance] ${label}: ${(end - start).toFixed(2)}ms`);
+  devLog(`[Performance] ${label}: ${(end - start).toFixed(2)}ms`);
   
   return result;
 }
@@ -368,10 +395,18 @@ export async function measurePerformanceAsync<T extends (...args: any[]) => Prom
 /**
  * Detecta si el dispositivo es de baja potencia
  */
+// navigator.deviceMemory (Device Memory API) no está en lib.dom.d.ts de
+// TypeScript porque no es un estándar W3C, solo la soportan navegadores
+// basados en Chromium — se tipa acá localmente en vez de usar any.
+interface NavigatorWithDeviceMemory extends Navigator {
+  deviceMemory?: number;
+}
+
 export function isLowEndDevice(): boolean {
   return (
     navigator.hardwareConcurrency <= 2 ||
-    (navigator as any).deviceMemory <= 2 ||
+    (navigator as NavigatorWithDeviceMemory).deviceMemory !== undefined &&
+      (navigator as NavigatorWithDeviceMemory).deviceMemory! <= 2 ||
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   );
 }

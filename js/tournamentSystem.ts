@@ -3,8 +3,8 @@
  * Sistema de torneos y eventos con brackets, fases y recompensas
  */
 
-import type { SupabasePayload, WindowSystems } from './types/game';
 import Auth from './authManager.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface Tournament {
   id: string;
@@ -102,16 +102,6 @@ interface EventTheme {
   customIcons: Map<string, string>;
 }
 
-interface TournamentParticipant {
-  playerId: string;
-  playerName: string;
-  avatar: string;
-  seed: number;
-  currentRank: number;
-  eliminated: boolean;
-  eliminatedAt?: number;
-}
-
 class TournamentSystem {
   private tournaments: Map<string, Tournament> = new Map();
   private events: Map<string, Event> = new Map();
@@ -129,12 +119,17 @@ class TournamentSystem {
     eventHistory: 'tournament-event-history'
   };
 
-  private supabaseClient: any = null;
+  private supabaseClient: SupabaseClient | null = null;
   private isConnected: boolean = false;
+  // Ver el mismo patrón/nota en socialSystem.ts: guardada para un
+  // futuro disconnect(), que hoy no existe en este sistema tampoco.
+  private realtimeSubscriptions: Map<string, unknown> = new Map();
 
   constructor() {
     this.loadLocalData();
-    this.initializeSupabase();
+    void this.initializeSupabase().catch((err: unknown) => {
+      console.error('[TournamentSystem] Error durante la inicialización:', err);
+    });
     this.generateWeeklyTournament();
     this.initializeSeasonalEvents();
   }
@@ -179,6 +174,7 @@ class TournamentSystem {
         this.handleTournamentUpdate(payload);
       })
       .subscribe();
+    this.realtimeSubscriptions.set('tournaments', tournamentSubscription);
 
     // Nota: NO hay suscripción a una tabla `events` — no existe en el
     // schema real (supabase/schema.sql + migraciones): los "eventos
@@ -398,8 +394,8 @@ class TournamentSystem {
       const eventId = `event_${eventData.id}_${currentYear}`;
       if (!this.events.has(eventId)) {
         const event: Event = {
-          id: eventId,
           ...eventData,
+          id: eventId,
           startDate: new Date(currentYear, currentMonth, 1).getTime(),
           endDate: new Date(currentYear, currentMonth + 1, 0).getTime(),
           isActive: now >= new Date(currentYear, currentMonth, 1).getTime() && 
@@ -427,7 +423,7 @@ class TournamentSystem {
     this.saveLocalData();
   }
 
-  private getSeasonalEvents(month: number, year: number): Array<{ id: string; name: string; description: string; type: Event['type'] }> {
+  private getSeasonalEvents(month: number, _year: number): Array<{ id: string; name: string; description: string; type: Event['type'] }> {
     const events: Array<{ id: string; name: string; description: string; type: Event['type'] }> = [];
 
     // Holiday events
@@ -607,7 +603,6 @@ class TournamentSystem {
   }
 
   getActiveTournaments(): Tournament[] {
-    const now = Date.now();
     return [...this.tournaments.values()].filter(t => 
       t.status === 'registration' || t.status === 'in_progress'
     );
@@ -654,8 +649,8 @@ class TournamentSystem {
       challenge.completed = true;
       
       // Grant reward
-      if (typeof window !== 'undefined' && (window as WindowSystems).progressionSystem) {
-        (window as WindowSystems).progressionSystem!.addXP(challenge.reward.xp, 'event');
+      if (typeof window !== 'undefined' && window.progressionSystem) {
+        window.progressionSystem.addXP(challenge.reward.xp, 'event');
       }
 
       window.dispatchEvent(new CustomEvent('event:challenge_completed', {
@@ -778,7 +773,7 @@ export const tournamentSystem = new TournamentSystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).tournamentSystem = tournamentSystem;
+  window.tournamentSystem = tournamentSystem;
 }
 
 export default tournamentSystem;

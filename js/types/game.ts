@@ -50,32 +50,6 @@ export interface ScoreEventDetail extends CustomEventDetail {
 }
 
 /**
- * Tipos para Supabase payloads
- */
-export interface SupabasePayload {
-  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
-  new: Record<string, unknown>;
-  old: Record<string, unknown>;
-}
-
-/**
- * Tipos para sistemas de ventana global
- */
-export interface WindowSystems {
-  progressionSystem?: {
-    getCurrentLevel(): string;
-    addXP(amount: number, source: string): void;
-  };
-  notificationSystem?: {
-    success(title: string, message: string): void;
-  };
-  socialSystem?: unknown;
-  tournamentSystem?: unknown;
-  pwaSystem?: unknown;
-  deferredPrompt?: Event;
-}
-
-/**
  * Tipos para datos de eventos y torneos
  */
 export interface EventChallenge {

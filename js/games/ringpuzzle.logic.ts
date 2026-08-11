@@ -347,7 +347,7 @@ function renderBoard(svgEl_: SVGSVGElement) {
 }
 
 /* ── UI references ── */
-let ui: UiMap = {};
+const ui: UiMap = {};
 
 function showPhase(name: string) {
   ['rp-phase-menu', 'rp-phase-playing', 'rp-phase-result'].forEach(id => {
@@ -584,7 +584,7 @@ function onPointerDown(e: PointerEvent) {
   if (rings[ringIndex].locked) return;
 
   const target = e.currentTarget as Element & { setPointerCapture?: (id: number) => void };
-  target.setPointerCapture && target.setPointerCapture(e.pointerId);
+  target.setPointerCapture?.(e.pointerId);
   const pt = getSVGPoint(ui.rpSvg as SVGSVGElement, e.clientX, e.clientY);
   dragState = {
     startAngle: angleBetween(layout.cx, layout.cy, pt.x, pt.y),

@@ -48,7 +48,11 @@ export function init(ui: GameUi) {
     arrowSequence
   } = ui;
 
-  if (!startArrow) return;
+  if (!startArrow || !arrowLengthEl || !arrowTimeInput) return;
+  // Ver mismo motivo en rhythmclick.logic.ts: closures más abajo
+  // (el handler de teclado, el listener de split.onOpponentLeft, etc.)
+  // necesitan el tipo ya no-nulo.
+  const startArrowBtn: HTMLButtonElement = startArrow;
 
   // Si init() se llama de nuevo sin que stop() haya corrido antes (doble
   // init por routing), la instancia anterior todavía tiene su listener
@@ -210,7 +214,7 @@ export function init(ui: GameUi) {
       this.state.lastResult = null;
       this.clearMessage();
       this.clearDisplayState();
-      startArrow.disabled = true;
+      startArrowBtn.disabled = true;
       this.updateUI();
       this.startTimer();
       return true;
@@ -233,7 +237,7 @@ export function init(ui: GameUi) {
       const wasForcedExit = isExit;
       this.state.active = false;
       this.cleanup.cleanup();
-      startArrow.disabled = false;
+      startArrowBtn.disabled = false;
       this.state.lastResult = success;
       let finalPercent: number;
       if (success) {
@@ -332,7 +336,7 @@ export function init(ui: GameUi) {
       return `${Math.max(0, value).toFixed(1)}s`;
     }
 
-    handleInput(key: string) {
+    handleInput(key: string): void {
       if (!this.state.active) return;
       if (split.isSpectating) return;
       const expected = this.state.sequence[this.state.currentStep];
@@ -349,7 +353,13 @@ export function init(ui: GameUi) {
         if (audioManager) audioManager.play('click');
         split.sendEvent('arrow:input', { symbol: expected.symbol, correct: true, combo: this.state.combo });
         if (this.state.currentStep >= this.state.sequence.length) {
-          return this.stop(true);
+          // handleInput es un event handler (void); stop() devuelve
+          // un boolean que acá no se usa — antes era `return this.stop(true)`,
+          // que con noImplicitReturns exigía que TODOS los caminos de
+          // esta función también devolvieran boolean (incluyendo el
+          // camino final sin return, que hoy solo llama a updateUI()).
+          this.stop(true);
+          return;
         }
       } else {
         this.state.combo = 0;
@@ -362,7 +372,8 @@ export function init(ui: GameUi) {
         this.flashButton(key, false);
         split.sendEvent('arrow:input', { symbol: expected.symbol, correct: false, combo: 0 });
         if (this.state.timeLeft <= 0) {
-          return this.stop(false);
+          this.stop(false);
+          return;
         }
       }
       this.updateUI();

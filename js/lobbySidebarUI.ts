@@ -127,10 +127,10 @@ function performSearch(query: string, grid: HTMLElement): void {
   });
 
   // Mostrar mensaje si no hay resultados
-  updateNoResultsMessage(grid, query, visibleCount, cards.length);
+  updateNoResultsMessage(grid, query, visibleCount);
 }
 
-function updateNoResultsMessage(grid: HTMLElement, query: string, visibleCount: number, totalCount: number): void {
+function updateNoResultsMessage(grid: HTMLElement, query: string, visibleCount: number): void {
   let noResultsMsg = grid.querySelector('.no-results-message') as HTMLElement;
   
   if (query && visibleCount === 0) {
@@ -188,7 +188,9 @@ function initFavoritesCounter(): void {
   // nuevo.
   document.getElementById('gameList')?.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('.card-favorite-btn')) {
-      Promise.resolve().then(updateFavCount);
+      void Promise.resolve().then(updateFavCount).catch((err: unknown) => {
+        console.error('[LobbySidebar] Error al actualizar el contador de favoritos:', err);
+      });
     }
   }, true);
 }

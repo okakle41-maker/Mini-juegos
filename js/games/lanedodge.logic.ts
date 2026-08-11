@@ -8,11 +8,16 @@ import audioManager from '../audioManager.js';
 let cleanup: (() => void) | null = null;
 
 export function init() {
-  const track = document.getElementById('ldTrack');
-  const player = document.getElementById('ldPlayer');
+  const trackRef = document.getElementById('ldTrack');
+  const playerRef = document.getElementById('ldPlayer');
   const startBtn = document.getElementById('ldStart');
-  const result = document.getElementById('ldResult');
-  if (!track || !player || !startBtn || !result) return;
+  const resultRef = document.getElementById('ldResult');
+  if (!trackRef || !playerRef || !startBtn || !resultRef) return;
+
+  // Ver mismo motivo en rhythmclick.logic.ts.
+  const track: HTMLElement = trackRef;
+  const player: HTMLElement = playerRef;
+  const result: HTMLElement = resultRef;
 
   const scoreEl = document.getElementById('ldScore');
   const bestEl = document.getElementById('ldBest');

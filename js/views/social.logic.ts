@@ -7,20 +7,13 @@ import { socialSystem } from '../socialSystem.js';
 import { template } from './social.js';
 import { escapeHtml } from '../security.js';
 import { hydrateBackButtons } from '../utils/backButton.js';
+import { onClickAsync } from '../utils/asyncEventHandler.js';
+import { describeMatchError } from '../utils/describeMatchError.js';
 
 let eventListeners: Array<() => void> = [];
-let cachedElements: Record<string, HTMLElement | null> = {};
-
-function getElement(id: string): HTMLElement | null {
-  if (!cachedElements[id]) {
-    cachedElements[id] = document.getElementById(id);
-  }
-  return cachedElements[id];
-}
-
-function clearCache(): void {
-  cachedElements = {};
-}
+// (Sistema de caché de elementos DOM eliminado: getElement() nunca
+// se llamaba en este archivo, así que cachedElements tampoco tenía
+// nada real que limpiar.)
 
 export function init(): void {
   const container = document.getElementById('social');
@@ -69,14 +62,18 @@ function setupEventListeners(): void {
   });
 
   // Añadir amigo
-  document.getElementById('add-friend-btn')?.addEventListener('click', () => {
+  document.getElementById('add-friend-btn')?.addEventListener('click', onClickAsync(async () => {
     const playerId = prompt('Ingresa el ID del jugador:');
     const playerName = prompt('Ingresa el nombre del jugador:');
     if (playerId && playerName) {
-      socialSystem.sendFriendRequest(playerId, playerName);
-      alert('Solicitud enviada');
+      try {
+        await socialSystem.sendFriendRequest(playerId, playerName);
+        alert('Solicitud enviada');
+      } catch (err) {
+        alert(describeMatchError(err, 'No se pudo enviar la solicitud.'));
+      }
     }
-  });
+  }));
 
   // Solicitudes de amistad
   document.getElementById('friend-requests-btn')?.addEventListener('click', () => {
@@ -109,14 +106,14 @@ function setupEventListeners(): void {
   });
 
   // Enviar mensaje social
-  document.getElementById('social-chat-send-btn')?.addEventListener('click', () => {
+  document.getElementById('social-chat-send-btn')?.addEventListener('click', onClickAsync(async () => {
     const input = document.getElementById('social-chat-input') as HTMLInputElement;
     const message = input.value.trim();
     if (message) {
-      socialSystem.sendChatMessage('global', message);
+      await socialSystem.sendChatMessage('global', message);
       input.value = '';
     }
-  });
+  }));
 }
 
 function switchSocialTab(tab: string): void {
@@ -157,23 +154,23 @@ function renderFriendRequests(): void {
 
     // Añadir listeners a los botones
     document.querySelectorAll('.request-accept-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', onClickAsync(async () => {
         const playerId = (btn as HTMLElement).dataset.playerId;
         if (playerId) {
-          socialSystem.acceptFriendRequest(playerId);
+          await socialSystem.acceptFriendRequest(playerId);
           renderFriendRequests();
         }
-      });
+      }));
     });
 
     document.querySelectorAll('.request-decline-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', onClickAsync(async () => {
         const playerId = (btn as HTMLElement).dataset.playerId;
         if (playerId) {
-          socialSystem.declineFriendRequest(playerId);
+          await socialSystem.declineFriendRequest(playerId);
           renderFriendRequests();
         }
-      });
+      }));
     });
   }
 }
@@ -254,8 +251,6 @@ export function stop(): void {
   eventListeners.forEach(cleanup => cleanup());
   eventListeners = [];
   
-  // Limpiar caché de elementos
-  clearCache();
   
   // Limpiar contenido del contenedor
   const container = document.getElementById('social');

@@ -3,6 +3,8 @@
  * Sistema de analytics respetuoso de la privacidad con gestión de consentimiento
  */
 
+import { devLog } from './core/devLog.js';
+
 interface ConsentSettings {
   analytics: boolean;
   performance: boolean;
@@ -86,19 +88,19 @@ class AnalyticsManager {
 
   private initAnalytics(): void {
     // Initialize analytics provider (e.g., Google Analytics, Plausible, etc.)
-    console.log('[Analytics] Analytics initialized');
+    devLog('[Analytics] Analytics initialized');
     // Actual implementation would initialize the analytics SDK
   }
 
   private initPerformanceTracking(): void {
     // Initialize performance tracking
-    console.log('[Analytics] Performance tracking initialized');
+    devLog('[Analytics] Performance tracking initialized');
     // Hook into performance monitoring
   }
 
   private initErrorTracking(): void {
     // Initialize error tracking
-    console.log('[Analytics] Error tracking initialized');
+    devLog('[Analytics] Error tracking initialized');
     // Hook into error tracker
   }
 
@@ -134,7 +136,7 @@ class AnalyticsManager {
     if (!this.consent.analytics) return;
     
     this.userId = userId;
-    console.log('[Analytics] User ID set:', userId);
+    devLog('[Analytics] User ID set:', userId);
     // Actual implementation would set user ID in analytics SDK
   }
 
@@ -150,7 +152,7 @@ class AnalyticsManager {
       userAgent: navigator.userAgent
     };
 
-    console.log('[Analytics] Event tracked:', eventData);
+    devLog('[Analytics] Event tracked:', eventData);
     // Actual implementation would send to analytics provider
   }
 
@@ -224,7 +226,7 @@ class AnalyticsManager {
       label: error.name,
       customDimensions: {
         message: error.message,
-        stack: error.stack?.substring(0, 500),
+        stack: error.stack?.substring(0, 500) ?? '',
         ...context
       }
     });
@@ -286,7 +288,7 @@ class AnalyticsManager {
     localStorage.removeItem('analytics-data');
     
     // Request deletion from analytics provider
-    console.log('[Analytics] Data deletion requested');
+    devLog('[Analytics] Data deletion requested');
     // Actual implementation would call analytics provider's deletion API
   }
 }
@@ -296,7 +298,7 @@ export const analytics = new AnalyticsManager();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).analytics = analytics;
+  window.analytics = analytics;
 }
 
 export default analytics;

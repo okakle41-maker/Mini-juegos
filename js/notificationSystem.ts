@@ -399,7 +399,7 @@ export const notificationSystem = new NotificationSystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).notificationSystem = notificationSystem;
+  window.notificationSystem = notificationSystem;
 }
 
 export default notificationSystem;

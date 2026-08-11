@@ -352,7 +352,7 @@ export const accessibilitySystem = new AccessibilitySystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).accessibilitySystem = accessibilitySystem;
+  window.accessibilitySystem = accessibilitySystem;
 }
 
 export default accessibilitySystem;

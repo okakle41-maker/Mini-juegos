@@ -539,9 +539,14 @@ class I18nManager {
 
     // Replace parameters
     if (params && typeof value === 'string') {
+      // Igual que en los .logic.ts: TS no propaga el narrowing de
+      // typeof value === 'string' hacia dentro del forEach (closure
+      // anidada) — se fija una referencia local ya tipada como string.
+      let strValue = value;
       Object.entries(params).forEach(([param, replacement]) => {
-        value = value.replace(`{${param}}`, String(replacement));
+        strValue = strValue.replace(`{${param}}`, String(replacement));
       });
+      value = strValue;
     }
 
     return value;
@@ -607,8 +612,8 @@ export const i18n = new I18nManager();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).i18n = i18n;
-  (window as any).t = (key: string, params?: Record<string, string | number>) => i18n.t(key, params);
+  window.i18n = i18n;
+  window.t = (key: string, params?: Record<string, string | number>) => i18n.t(key, params);
 }
 
 export default i18n;

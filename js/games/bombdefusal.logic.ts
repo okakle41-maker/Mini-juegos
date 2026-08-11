@@ -279,7 +279,7 @@ let timerInterval: ReturnType<typeof setInterval> | null = null;
 let holdInterval: ReturnType<typeof setInterval> | null = null;
 let activeState: BombState | null = null;
 let audioContext: AudioContext | null = null;
-let soundEnabled = true;
+const soundEnabled = true;
 let soundVolume = 0.3;
 
 function initAudio() {
@@ -287,7 +287,9 @@ function initAudio() {
     audioContext = new ((window.AudioContext || window.webkitAudioContext) as typeof AudioContext)();
   }
   if (audioContext.state === 'suspended') {
-    audioContext.resume();
+    void audioContext.resume().catch((err: unknown) => {
+      console.error('[BombDefusal] Error al reanudar el audio:', err);
+    });
   }
 }
 
@@ -910,7 +912,7 @@ function createMemoryModule(): MemoryModule {
       labels,
       history: []
     },
-    getSolution(this: MemoryModule, bomb: BombState) {
+    getSolution(this: MemoryModule, _bomb: BombState) {
       const d = this.data;
       return {
         position: solveMemoryStage(d.stage, d.display, d.history)
@@ -1150,7 +1152,7 @@ function createMatchingModule(): MatchingModule {
     type: 'matching',
     solved: false,
     data: { selected: [], matched: [], board },
-    getSolution(this: MatchingModule, bomb: BombState) {
+    getSolution(this: MatchingModule, _bomb: BombState) {
       return { pairs };
     }
   };
@@ -1622,7 +1624,7 @@ export function init(rawUi: GameUi) {
     });
   });
 
-  let state: BombState = {
+  const state: BombState = {
     playing: false,
     serial: '',
     timeLeft: 300,
@@ -1688,7 +1690,7 @@ export function init(rawUi: GameUi) {
       : `${state.strikes} (∞)`;
     modulesEl.textContent = String(state.modules.filter(m => !m.solved).length);
     serialEl.textContent = state.serial;
-    indicatorEl.querySelector('.bd-indicator-dot').classList.toggle(
+    indicatorEl.querySelector('.bd-indicator-dot')?.classList.toggle(
       'bd-indicator-dot--lit', state.indicatorLit
     );
     
@@ -1737,7 +1739,14 @@ export function init(rawUi: GameUi) {
         setTimeout(() => modEl.classList.remove('bd-module--strike', 'bd-module--error'), 500);
       }
       updateHud();
-      setInfo(`¡Strike! Error en módulo ${MODULE_NAMES[state.modules.find(m => !m.solved)?.type] || ''}.`, 'fail');
+      // .find() puede no encontrar módulo sin resolver (caso borde: el
+      // strike que dispara el fin del juego llega justo cuando ya no
+      // queda ninguno) — ?.type entonces es undefined, y MODULE_NAMES
+      // es Record<string,string> (no acepta indexar con undefined).
+      // El '' ya cubría ese caso para el string final; solo se separa
+      // el índice para que el tipo sea correcto sin cambiar el output.
+      const strikeModType = state.modules.find(m => !m.solved)?.type;
+      setInfo(`¡Strike! Error en módulo ${(strikeModType ? MODULE_NAMES[strikeModType] : '') || ''}.`, 'fail');
       if (state.strikes >= state.maxStrikes) endGame(false);
     } else {
       setInfo('Error en módulo — sin límite de strikes activo.', 'fail');
@@ -1852,7 +1861,11 @@ export function init(rawUi: GameUi) {
     const light = document.createElement('div');
     light.className = 'bd-indicator';
     light.innerHTML = '<span class="bd-indicator-dot"></span> Luz estado';
-    const lightDot = light.querySelector('.bd-indicator-dot');
+    // querySelector siempre encuentra el <span> recién creado en la
+    // línea de arriba (mismo elemento, sin async entre medio) — el
+    // '!' es seguro acá, TS solo no puede saberlo porque no hay forma
+    // de expresar "el innerHTML que acabo de asignar" como tipo.
+    const lightDot = light.querySelector('.bd-indicator-dot')!;
     light.setAttribute('role', 'status');
     light.setAttribute('aria-live', 'polite');
     light.setAttribute('aria-label', 'Luz de estado: apagada');
@@ -1889,12 +1902,12 @@ export function init(rawUi: GameUi) {
     function endHold() {
       if (mod.solved || !mod.data.holding) return;
       mod.data.holding = false;
-      clearTimeout(holdTimer);
+      if (holdTimer) clearTimeout(holdTimer);
 
       const sol = mod.getSolution(state);
       const elapsed = Date.now() - holdStart;
       const secs = state.timeLeft % 60;
-      let success = false;
+      let success: boolean;
 
       if (sol.action === 'tap') {
         success = elapsed < 250;
@@ -1914,7 +1927,7 @@ export function init(rawUi: GameUi) {
     btn.addEventListener('mouseleave', () => {
       if (mod.data.holding) {
         mod.data.holding = false;
-        clearTimeout(holdTimer);
+        if (holdTimer) clearTimeout(holdTimer);
       }
     });
 
@@ -2759,7 +2772,12 @@ export function init(rawUi: GameUi) {
       if (mod.solved || mod.data.pressed) return;
       mod.data.pressed = true;
       if (mod.data.lit) {
-        const elapsed = Date.now() - mod.data.litTime;
+        // lit y litTime siempre se asignan juntos (ver el único punto
+        // donde se ponen: mod.data.lit = true seguido de litTime =
+        // Date.now(), más abajo en este mismo archivo) — dentro de
+        // este if, litTime nunca es null en runtime, aunque el tipo
+        // number|null no lo exprese.
+        const elapsed = Date.now() - mod.data.litTime!;
         const sol = mod.getSolution(state).targetMs;
         if (Math.abs(elapsed - sol) <= 200) onModuleSolved(mod, modEl);
         else onModuleStrike(modEl);
@@ -3118,7 +3136,7 @@ export function init(rawUi: GameUi) {
   }
 
   function startGame() {
-    clearInterval(timerInterval);
+    if (timerInterval) clearInterval(timerInterval);
     initAudio();
     const cfg = getConfig();
     state.playing = true;
@@ -3147,7 +3165,7 @@ setInfo('💣 Operador: desactiva módulos. Experto: consulta el manual. Alterna
 
   function endGame(won: boolean) {
     state.playing = false;
-    clearInterval(timerInterval);
+    if (timerInterval) clearInterval(timerInterval);
     timerInterval = null;
 
     const defused = state.modules.filter(m => m.solved).length;
@@ -3173,7 +3191,7 @@ setInfo('💣 Operador: desactiva módulos. Experto: consulta el manual. Alterna
 
   function stopGame() {
     state.playing = false;
-    clearInterval(timerInterval);
+    if (timerInterval) clearInterval(timerInterval);
     timerInterval = null;
     setPhase('setup');
     setInfo('', 'info');

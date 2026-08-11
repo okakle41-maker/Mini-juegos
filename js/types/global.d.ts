@@ -53,6 +53,48 @@ declare global {
 
     // GameHelpers (utilidades compartidas para minijuegos)
     GameHelpers: import('../utils/gameHelpers').GameHelpersClass;
+
+    // Singletons expuestos en window para debugging/consola de devTools
+    // (patrón `(window as any).x = x` al final de cada módulo — antes sin
+    // tipar, ahora reutilizando el tipo real del singleton exportado en
+    // cada archivo en vez de castear a `any` en cada sitio de acceso).
+    accessibilitySystem: typeof import('../accessibilitySystem').default;
+    practiceMode: typeof import('../practiceMode').default;
+    advancedStatsSystem: typeof import('../advancedStats').default;
+    skeletonSystem: typeof import('../skeletonSystem').default;
+    socialSharing: typeof import('../socialSharing').default;
+    badgeSystem: typeof import('../badgesSystem').default;
+    progressionSystem: typeof import('../progressionSystem').default;
+    playerStats: typeof import('../playerStats').default;
+    analytics: typeof import('../analytics').default;
+    themeManager: typeof import('../themeManager').default;
+    i18n: typeof import('../i18n').default;
+    t: (key: string, params?: Record<string, string | number>) => string;
+    productionMonitoring: typeof import('../productionMonitoring').default;
+    customizationSystem: typeof import('../customizationSystem').default;
+    multiplayerSystem: typeof import('../multiplayerSystem').default;
+    gamificationSystem: typeof import('../gamificationSystem').default;
+    transitionSystem: typeof import('../transitionSystem').default;
+    socialSystem: typeof import('../socialSystem').default;
+    notificationSystem: typeof import('../notificationSystem').default;
+    achievementManager: typeof import('../achievements').default;
+    difficultyPresets: typeof import('../difficultyPresets').default;
+    soundSystem: typeof import('../soundSystem').default;
+    tournamentSystem: typeof import('../tournamentSystem').default;
+    devTools: typeof import('../devTools').default;
+    dev: (command: string) => string;
+    performanceMonitor: typeof import('../performanceMonitor').default;
+    getWebVitals: () => ReturnType<
+      typeof import('../performanceMonitor').default['getCoreWebVitals']
+    >;
+    exportPerformanceReport: () => string;
+    pwaSystem: typeof import('../pwaSystem').default;
+    // Evento nativo `beforeinstallprompt`, capturado para disparar el
+    // prompt de instalación más tarde. No tiene tipo DOM estándar porque
+    // aún no está en todos los navegadores; se guarda como Event | null
+    // (el cast a BeforeInstallPromptEvent-like se hace en pwaSystem.ts,
+    // el único lugar que conoce su forma real: .prompt()/.userChoice).
+    deferredPrompt: Event | null;
   }
 
   interface WindowEventMap {

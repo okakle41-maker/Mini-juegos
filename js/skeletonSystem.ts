@@ -24,13 +24,13 @@ class SkeletonSystem {
     let skeletonHTML = '';
 
     for (let i = 0; i < count; i++) {
-      skeletonHTML += this.getSkeletonByType(type, baseClass, i);
+      skeletonHTML += this.getSkeletonByType(type, baseClass);
     }
 
     return skeletonHTML;
   }
 
-  private getSkeletonByType(type: SkeletonType, baseClass: string, index: number): string {
+  private getSkeletonByType(type: SkeletonType, baseClass: string): string {
     switch (type) {
       case 'card':
         return `
@@ -510,7 +510,7 @@ export const skeletonSystem = new SkeletonSystem();
 // Inyectar estilos al iniciar
 if (typeof window !== 'undefined') {
   skeletonSystem.injectStyles();
-  (window as any).skeletonSystem = skeletonSystem;
+  window.skeletonSystem = skeletonSystem;
 }
 
 export default skeletonSystem;

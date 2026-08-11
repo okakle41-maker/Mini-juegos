@@ -3,6 +3,16 @@
  * Sistema de Progressive Web App Features: Push Notifications, Background Sync, Offline Mode, App Shortcuts
  */
 
+import { devLog } from './core/devLog.js';
+
+// El evento `beforeinstallprompt` no es un tipo DOM estándar (no todos
+// los navegadores lo implementan), así que TypeScript no lo trae de
+// fábrica. Se declara acá, en el único módulo que conoce su forma real.
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => void;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 interface PWAConfig {
   pushNotifications: boolean;
   backgroundSync: boolean;
@@ -19,7 +29,12 @@ class PWASystem {
 
   constructor() {
     this.config = this.loadConfig();
-    this.init();
+    // No se puede `await` desde un constructor — es intencional que
+    // init() corra en segundo plano; cualquier error que no atrape
+    // internamente queda logueado en vez de perderse en silencio.
+    void this.init().catch((err: unknown) => {
+      console.error('[PWA] Error durante la inicialización:', err);
+    });
   }
 
   private loadConfig(): PWAConfig {
@@ -46,7 +61,12 @@ class PWASystem {
   private async init(): Promise<void> {
     // Registrar service worker si no está registrado
     if ('serviceWorker' in navigator) {
-      this.registration = await navigator.serviceWorker.getRegistration();
+      // getRegistration() devuelve undefined si no hay registro, pero
+      // this.registration es ServiceWorkerRegistration | null (todo el
+      // resto del código lo chequea con !this.registration, que trata
+      // igual a ambos) — se normaliza acá para no tener que cambiar el
+      // tipo de la propiedad en toda la clase.
+      this.registration = (await navigator.serviceWorker.getRegistration()) ?? null;
       
       if (!this.registration) {
         this.registration = await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { type: 'module' });
@@ -101,7 +121,7 @@ class PWASystem {
       this.config.pushNotifications = true;
       this.saveConfig();
       
-      console.log('[PWA] Push notifications enabled');
+      devLog('[PWA] Push notifications enabled');
       return true;
     } catch (e) {
       console.error('[PWA] Failed to subscribe to push:', e);
@@ -183,17 +203,23 @@ class PWASystem {
   // Offline Mode
   setupConnectionMonitoring(): void {
     window.addEventListener('online', () => {
-      console.log('[PWA] Connection restored');
-      this.syncData();
-      this.sendLocalNotification('Conexión restaurada', {
+      devLog('[PWA] Connection restored');
+      void this.syncData().catch((err: unknown) => {
+        console.error('[PWA] Error al sincronizar tras reconectar:', err);
+      });
+      void this.sendLocalNotification('Conexión restaurada', {
         body: 'Sincronizando datos...'
+      }).catch((err: unknown) => {
+        console.error('[PWA] Error al mostrar notificación:', err);
       });
     });
 
     window.addEventListener('offline', () => {
-      console.log('[PWA] Connection lost');
-      this.sendLocalNotification('Sin conexión', {
+      devLog('[PWA] Connection lost');
+      void this.sendLocalNotification('Sin conexión', {
         body: 'Modo offline activado'
+      }).catch((err: unknown) => {
+        console.error('[PWA] Error al mostrar notificación:', err);
       });
     });
   }
@@ -264,29 +290,31 @@ class PWASystem {
             icons: [{ src: '/assets/icon-96.png', sizes: '96x96' }]
           }
         ]);
+      }).catch((err: unknown) => {
+        console.error('[PWA] Error al registrar shortcuts:', err);
       });
     }
   }
 
   // Install Prompt
   async promptInstall(): Promise<boolean> {
-    const deferredPrompt = (window as any).deferredPrompt;
+    const deferredPrompt = window.deferredPrompt as BeforeInstallPromptEvent | null;
     if (!deferredPrompt) return false;
 
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     
     if (outcome === 'accepted') {
-      console.log('[PWA] App installed');
+      devLog('[PWA] App installed');
       this.registerShortcuts();
     }
 
-    (window as any).deferredPrompt = null;
+    window.deferredPrompt = null;
     return outcome === 'accepted';
   }
 
   canInstall(): boolean {
-    return !!(window as any).deferredPrompt;
+    return !!window.deferredPrompt;
   }
 
   isInstalled(): boolean {
@@ -298,9 +326,13 @@ class PWASystem {
     this.config.pushNotifications = enabled;
     this.saveConfig();
     if (enabled) {
-      this.setupPushNotifications();
+      void this.setupPushNotifications().catch((err: unknown) => {
+        console.error('[PWA] Error al activar notificaciones push:', err);
+      });
     } else {
-      this.disablePushNotifications();
+      void this.disablePushNotifications().catch((err: unknown) => {
+        console.error('[PWA] Error al desactivar notificaciones push:', err);
+      });
     }
   }
 
@@ -363,12 +395,12 @@ export const pwaSystem = new PWASystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).pwaSystem = pwaSystem;
+  window.pwaSystem = pwaSystem;
   
   // Capturar install prompt
   window.addEventListener('beforeinstallprompt', (e: Event) => {
     e.preventDefault();
-    (window as any).deferredPrompt = e;
+    window.deferredPrompt = e;
   });
 }
 

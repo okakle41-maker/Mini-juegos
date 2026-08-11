@@ -97,6 +97,11 @@ export default defineConfig({
           if (id.includes('/js/games/') && !id.endsWith('.logic.ts')) {
             return 'games';
           }
+          // Sin match: undefined explícito = "usa el chunking por
+          // defecto de Rollup" para este módulo, exactamente el mismo
+          // comportamiento que el fallthrough implícito de antes —
+          // noImplicitReturns solo exige que quede explícito.
+          return undefined;
         },
         // El SDK de Supabase (cargado vía import() dinámico en
         // supabaseClient.ts, ver ese archivo para el detalle completo

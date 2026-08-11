@@ -75,7 +75,7 @@ let _audioCtx: AudioContext | null = null;
 function audio(): AudioContext | null {
   if (!_audioCtx) {
     try { _audioCtx = new ((window.AudioContext || window.webkitAudioContext) as typeof AudioContext)(); }
-    catch (e) { _audioCtx = null; }
+    catch { _audioCtx = null; }
   }
   return _audioCtx;
 }

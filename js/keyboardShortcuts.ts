@@ -3,6 +3,8 @@
  * Maneja atajos de teclado globales para acciones comunes
  */
 
+import { devLog } from './core/devLog.js';
+
 interface Shortcut {
   key: string;
   ctrl?: boolean;
@@ -23,7 +25,7 @@ class KeyboardShortcuts {
 
   private init(): void {
     document.addEventListener('keydown', this.handleKeyDown.bind(this));
-    console.log('[KeyboardShortcuts] Inicializado');
+    devLog('[KeyboardShortcuts] Inicializado');
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
@@ -65,7 +67,7 @@ class KeyboardShortcuts {
       this.shortcuts.set(key, []);
     }
     this.shortcuts.get(key)!.push(shortcut);
-    console.log(`[KeyboardShortcuts] Registrado: ${key} - ${shortcut.description}`);
+    devLog(`[KeyboardShortcuts] Registrado: ${key} - ${shortcut.description}`);
   }
 
   unregister(shortcut: Shortcut): void {
@@ -118,7 +120,7 @@ keyboardShortcuts.register({
   key: 'k',
   ctrl: true,
   description: 'Abrir búsqueda',
-  handler: (e) => {
+  handler: (_e) => {
     const searchInput = document.getElementById('lobbySearch') as HTMLInputElement;
     if (searchInput) {
       searchInput.focus();
@@ -130,7 +132,7 @@ keyboardShortcuts.register({
 keyboardShortcuts.register({
   key: 'escape',
   description: 'Cerrar vista actual / volver al lobby',
-  handler: (e) => {
+  handler: (_e) => {
     // `window.viewManager` nunca existió: ViewManagerInstance se
     // expone en window como `window.showView`/`window.backToMenu`
     // (ver el final de core/viewManager.ts), no como una propiedad
@@ -138,7 +140,7 @@ keyboardShortcuts.register({
     // era `undefined` y este atajo no hacía nada — Escape nunca volvía
     // al lobby en ninguna vista, silenciosamente, porque el `if` de
     // abajo jamás llegaba a ser verdadero.
-    const backToMenu = (window as any).backToMenu;
+    const backToMenu = window.backToMenu;
     if (typeof backToMenu === 'function') {
       backToMenu();
     }
@@ -149,9 +151,9 @@ keyboardShortcuts.register({
   key: '/',
   ctrl: true,
   description: 'Mostrar ayuda de atajos',
-  handler: (e) => {
+  handler: (_e) => {
     // Mostrar modal con lista de atajos
-    console.log('Atajos registrados:', keyboardShortcuts.getRegisteredShortcuts());
+    devLog('Atajos registrados:', keyboardShortcuts.getRegisteredShortcuts());
   }
 });
 
@@ -159,7 +161,7 @@ keyboardShortcuts.register({
   key: 'n',
   ctrl: true,
   description: 'Navegar a siguiente sección',
-  handler: (e) => {
+  handler: (_e) => {
     // Implementar navegación entre secciones
   }
 });
@@ -168,7 +170,7 @@ keyboardShortcuts.register({
   key: 'p',
   ctrl: true,
   description: 'Navegar a sección anterior',
-  handler: (e) => {
+  handler: (_e) => {
     // Implementar navegación entre secciones
   }
 });

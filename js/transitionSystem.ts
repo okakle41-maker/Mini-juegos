@@ -229,7 +229,7 @@ export const transitionSystem = new TransitionSystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).transitionSystem = transitionSystem;
+  window.transitionSystem = transitionSystem;
 }
 
 export default transitionSystem;

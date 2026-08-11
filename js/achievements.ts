@@ -454,7 +454,7 @@ class AchievementManager {
       if (achievement.requirement.gameId !== gameId) return;
 
       const req = achievement.requirement;
-      let shouldUnlock = false;
+      let shouldUnlock: boolean;
 
       switch (req.condition) {
         case 'perfect':
@@ -817,7 +817,7 @@ export const achievementManager = new AchievementManager();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).achievementManager = achievementManager;
+  window.achievementManager = achievementManager;
 }
 
 export default achievementManager;

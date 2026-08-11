@@ -14,11 +14,16 @@ function label(code: string): string {
 }
 
 export function init() {
-  const display = document.getElementById('ckDisplay');
+  const displayRef = document.getElementById('ckDisplay');
   const startBtn = document.getElementById('ckStart');
-  const result = document.getElementById('ckResult');
-  const timerFill = document.getElementById('ckTimerFill');
-  if (!display || !startBtn || !result || !timerFill) return;
+  const resultRef = document.getElementById('ckResult');
+  const timerFillRef = document.getElementById('ckTimerFill');
+  if (!displayRef || !startBtn || !resultRef || !timerFillRef) return;
+
+  // Ver mismo motivo en rhythmclick.logic.ts.
+  const display: HTMLElement = displayRef;
+  const result: HTMLElement = resultRef;
+  const timerFill: HTMLElement = timerFillRef;
 
   const scoreEl = document.getElementById('ckScore');
   const comboEl = document.getElementById('ckCombo');
@@ -28,7 +33,7 @@ export function init() {
   let score = 0;
   let combo = 0;
   let chord: string[] = [];
-  let down = new Set<string>();
+  const down = new Set<string>();
   let windowMs = 2200;
   let chordSize = 2;
   let round = 0;

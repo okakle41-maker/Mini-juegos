@@ -24,6 +24,7 @@ import { attachCopyButton } from '../utils/copyRoomCode.js';
 import { withButtonBusy } from '../utils/buttonBusyGuard.js';
 import { runCreateMatchAction } from '../utils/createMatchAction.js';
 import { describeMatchError } from '../utils/describeMatchError.js';
+import { onClickAsync, onClickAsyncVoid } from '../utils/asyncEventHandler.js';
 
 let eventListeners: Array<() => void> = [];
 let cachedElements: Record<string, HTMLElement | null> = {};
@@ -148,7 +149,7 @@ function clearLobbyError(): void {
 
 function setupLobbySection(): void {
   const createBtn = getElement('lobby-create-btn') as HTMLButtonElement | null;
-  createBtn?.addEventListener('click', () => withButtonBusy(createBtn, async () => {
+  createBtn?.addEventListener('click', onClickAsyncVoid(() => withButtonBusy(createBtn, async () => {
     clearLobbyError();
     try {
       await lobbySystem.createLobby();
@@ -162,10 +163,10 @@ function setupLobbySection(): void {
     } catch (e) {
       showLobbyError(describeMatchError(e, 'No se pudo crear el lobby.'));
     }
-  }));
+  })));
 
   const joinBtn = getElement('lobby-join-btn') as HTMLButtonElement | null;
-  joinBtn?.addEventListener('click', () => withButtonBusy(joinBtn, async () => {
+  joinBtn?.addEventListener('click', onClickAsyncVoid(() => withButtonBusy(joinBtn, async () => {
     clearLobbyError();
     const codeInput = getElement('lobby-join-code') as HTMLInputElement | null;
     const code = codeInput?.value.trim();
@@ -177,19 +178,19 @@ function setupLobbySection(): void {
     } catch (e) {
       showLobbyError(describeMatchError(e, 'No se pudo unir al lobby.'));
     }
-  }));
+  })));
 
-  getElement('lobby-leave-btn')?.addEventListener('click', async () => {
+  getElement('lobby-leave-btn')?.addEventListener('click', onClickAsync(async () => {
     await lobbySystem.leaveLobby();
     showLobbyEntry();
-  });
+  }));
 
   getElement('lobby-go-online-btn')?.addEventListener('click', () => {
     window.showView?.('online-lobby');
   });
 
   const createMatchBtn = getElement('lobby-create-match-btn') as HTMLButtonElement | null;
-  createMatchBtn?.addEventListener('click', () => withButtonBusy(createMatchBtn, () => runCreateMatchAction({
+  createMatchBtn?.addEventListener('click', onClickAsyncVoid(() => withButtonBusy(createMatchBtn, () => runCreateMatchAction({
     clearError: clearLobbyError,
     showError: showLobbyError,
     create: () => {
@@ -202,7 +203,7 @@ function setupLobbySection(): void {
       setPending(gameId, 'multiplayer');
       window.showView?.('match-waiting');
     }
-  })));
+  }))));
 }
 
 function renderLobbyPlayers(): void {
@@ -256,7 +257,7 @@ function renderLobbyMatches(): void {
   }).join('');
 
   list.querySelectorAll('button[data-action]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', onClickAsyncVoid(async () => {
       const el = btn as HTMLElement;
       const action = el.dataset.action;
       const gameId = el.dataset.game as LobbyGameId;
@@ -276,7 +277,7 @@ function renderLobbyMatches(): void {
       } catch (e) {
         showLobbyError(describeMatchError(e, 'No se pudo completar la acción.'));
       }
-    });
+    }));
   });
 }
 
@@ -309,7 +310,9 @@ function setupChatSection(): void {
     const input = getElement('chat-input') as HTMLInputElement | null;
     const message = input?.value.trim();
     if (message) {
-      multiplayerSystem.sendMatchMessage(message);
+      void multiplayerSystem.sendMatchMessage(message).catch((err: unknown) => {
+        console.error('[Multiplayer] No se pudo enviar el mensaje de chat:', err);
+      });
       input!.value = '';
     }
   });

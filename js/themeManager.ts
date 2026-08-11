@@ -97,7 +97,7 @@ export const themeManager = new ThemeManager();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).themeManager = themeManager;
+  window.themeManager = themeManager;
 }
 
 export default themeManager;

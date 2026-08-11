@@ -3,7 +3,7 @@
  * Optimizaciones específicas para juegos con animaciones o cálculos pesados
  */
 
-import { rafThrottle, memoize, getAnimationQuality } from './performance.js';
+import { getAnimationQuality } from './performance.js';
 
 function prefersReducedMotion(): boolean {
   // jsdom (entorno de test) no implementa matchMedia por defecto, y
@@ -139,8 +139,12 @@ export class RenderOptimizer {
 
   private flush(): void {
     this.pendingUpdates.forEach(element => {
-      // Trigger reflow/repaint
-      element.offsetHeight;
+      // Leer offsetHeight fuerza un reflow/repaint síncrono del
+      // navegador — necesario para que el layout esté al día antes de
+      // aplicar los cambios en cola. El `void` dice explícito que
+      // ignorar el valor es intencional (no un acceso de propiedad
+      // "suelto" por error).
+      void element.offsetHeight;
     });
 
     this.pendingUpdates.clear();

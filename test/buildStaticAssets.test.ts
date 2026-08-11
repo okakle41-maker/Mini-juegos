@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import { execSync } from 'child_process';
-import { existsSync, readdirSync, rmSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 
 /**
@@ -80,7 +80,7 @@ describe('vite build copia css/ y assets/ a dist/ (regresión: activos estático
     // superior en js/games/ (no los .logic.ts, que no declaran css:).
     for (const file of readdirSync(gamesDir)) {
       if (!file.endsWith('.ts') || file.endsWith('.logic.ts')) continue;
-      const content = require('fs').readFileSync(resolve(gamesDir, file), 'utf-8');
+      const content = readFileSync(resolve(gamesDir, file), 'utf-8');
       const match = content.match(/css:\s*'([^']+)'/);
       if (match) cssDeclarations.push(match[1]);
     }
@@ -99,7 +99,7 @@ describe('vite build copia css/ y assets/ a dist/ (regresión: activos estático
     // nombre responde, pero es HTML" (ver preview() en el README). Este
     // test verifica el contenido, no solo la presencia del archivo.
     const anyCss = readdirSync(resolve(DIST, 'css')).find((f) => f.endsWith('.css'));
-    const content = require('fs').readFileSync(resolve(DIST, 'css', anyCss!), 'utf-8');
+    const content = readFileSync(resolve(DIST, 'css', anyCss!), 'utf-8');
 
     expect(content).not.toMatch(/<!doctype html>/i);
     expect(content).not.toMatch(/<html/i);

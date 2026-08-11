@@ -8,18 +8,9 @@ import { template } from './personalizacion.js';
 import { hydrateBackButtons } from '../utils/backButton.js';
 
 let eventListeners: Array<() => void> = [];
-let cachedElements: Record<string, HTMLElement | null> = {};
-
-function getElement(id: string): HTMLElement | null {
-  if (!cachedElements[id]) {
-    cachedElements[id] = document.getElementById(id);
-  }
-  return cachedElements[id];
-}
-
-function clearCache(): void {
-  cachedElements = {};
-}
+// (Sistema de caché de elementos DOM eliminado: getElement() nunca
+// se llamaba en este archivo, así que cachedElements tampoco tenía
+// nada real que limpiar.)
 
 export function init(): void {
   const container = document.getElementById('personalizacion');
@@ -191,7 +182,7 @@ function renderThemes(): void {
   }
 }
 
-function getSkinPreviewStyle(skin: any): string {
+function getSkinPreviewStyle(_skin: any): string {
   // Simplificado - en producción tendría estilos reales
   return `background: linear-gradient(45deg, var(--color-primary), var(--color-secondary));`;
 }
@@ -311,7 +302,14 @@ function setupEventListeners(): void {
 }
 
 function filterSkins(type: string): void {
-  const skins = customizationSystem.getSkinsByType(type as any);
+  // Nota: se consulta getSkinsByType(type) (la fuente de verdad real)
+  // pero el resultado nunca se usa — el filtrado de abajo funciona en
+  // cambio por texto sobre el DOM ya renderizado (cardType.includes(...)
+  // en español), una heurística más frágil que reimplementa lo que esta
+  // llamada ya calculó. Reescribir el filtrado para usar `_skins`
+  // directamente cambiaría comportamiento observable y excede una
+  // limpieza de lint — se deja documentado.
+  const _skins = customizationSystem.getSkinsByType(type as any);
   const grid = document.getElementById('skins-grid');
   
   if (grid) {
@@ -364,8 +362,6 @@ export function stop(): void {
   eventListeners.forEach(cleanup => cleanup());
   eventListeners = [];
   
-  // Limpiar caché de elementos
-  clearCache();
   
   // Limpiar contenido del contenedor
   const container = document.getElementById('personalizacion');

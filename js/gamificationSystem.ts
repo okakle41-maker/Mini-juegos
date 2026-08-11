@@ -169,8 +169,6 @@ class GamificationSystem {
   }
 
   private checkTemporaryEvents(): void {
-    const now = Date.now();
-    
     // Eventos predefinidos
     const predefinedEvents: TemporaryEvent[] = [
       {
@@ -439,7 +437,7 @@ export const gamificationSystem = new GamificationSystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).gamificationSystem = gamificationSystem;
+  window.gamificationSystem = gamificationSystem;
 }
 
 export default gamificationSystem;

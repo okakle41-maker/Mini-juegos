@@ -82,7 +82,7 @@ describe('MultiplayerSystem Interaction Tests', () => {
         status: 'online' as const
       };
 
-      multiplayerSystem.setPlayerStatus(playerStatus);
+      await multiplayerSystem.setPlayerStatus(playerStatus);
 
       // Initially no match
       expect(multiplayerSystem.getCurrentMatch()).toBeNull();
@@ -107,7 +107,7 @@ describe('MultiplayerSystem Interaction Tests', () => {
         status: 'online' as const
       };
 
-      multiplayerSystem.setPlayerStatus(playerStatus);
+      await multiplayerSystem.setPlayerStatus(playerStatus);
 
       // Disconnect and reconnect should clean up subscriptions
       multiplayerSystem.disconnect();
@@ -133,7 +133,7 @@ describe('MultiplayerSystem Interaction Tests', () => {
       // Try to create a room (will fail without Supabase)
       try {
         await multiplayerSystem.createRoomMatch('letters', 'viewer');
-      } catch (e) {
+      } catch {
         // Expected
       }
 

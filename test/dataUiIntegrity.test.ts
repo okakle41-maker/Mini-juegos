@@ -30,7 +30,11 @@ import { viewTemplates } from '../js/core/viewTemplates';
  */
 
 const GAMES_DIR = join(__dirname, '..', 'js', 'games');
-const VIEWS_DIR = join(__dirname, '..', 'js', 'views');
+// Nota: este test cubre js/games/*.logic.ts únicamente. js/views/*.logic.ts
+// (torneos, logros, personalización, etc.) no está cubierto por esta
+// verificación de integridad — quedaría como ampliación futura, no se
+// agrega acá para no cambiar el alcance del test como efecto colateral
+// de una limpieza de lint.
 
 // Mapeo id de vista -> nombre de archivo .logic.ts, para los pocos casos
 // donde no coinciden 1:1 (el id de GameRegistry difiere del nombre del

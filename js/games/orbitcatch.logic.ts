@@ -8,11 +8,15 @@ import audioManager from '../audioManager.js';
 let cleanup: (() => void) | null = null;
 
 export function init() {
-  const orbit = document.getElementById('ocOrbit');
-  const zone = document.getElementById('ocZone');
+  const orbitRef = document.getElementById('ocOrbit');
+  const zoneRef = document.getElementById('ocZone');
   const startBtn = document.getElementById('ocStart');
   const result = document.getElementById('ocResult');
-  if (!orbit || !zone || !startBtn || !result) return;
+  if (!orbitRef || !zoneRef || !startBtn || !result) return;
+
+  // Ver mismo motivo en rhythmclick.logic.ts.
+  const orbit: HTMLElement = orbitRef;
+  const zone: HTMLElement = zoneRef;
 
   const scoreEl = document.getElementById('ocScore');
   const comboEl = document.getElementById('ocCombo');

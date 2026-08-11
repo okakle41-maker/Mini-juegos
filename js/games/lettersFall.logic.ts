@@ -17,6 +17,7 @@ import { attachCopyButton } from '../utils/copyRoomCode.js';
 import { withButtonBusy } from '../utils/buttonBusyGuard.js';
 import { watchConnection, type ConnectionWatcherHandle } from '../utils/connectionWatcher.js';
 import { describeMatchError } from '../utils/describeMatchError.js';
+import { onClickAsyncVoid } from '../utils/asyncEventHandler.js';
 
 /**
  * Sesión de sala activa para este juego, envuelta sobre
@@ -1243,10 +1244,10 @@ export function init(rawUi: GameUi) {
 
   ui.versusBack.addEventListener('click', () => showStep(ui.lettersModePanel));
 
-  ui.versusCreate.addEventListener('click', () => withButtonBusy(ui.versusCreate as HTMLButtonElement, async () => {
+  ui.versusCreate.addEventListener('click', onClickAsyncVoid(() => withButtonBusy(ui.versusCreate as HTMLButtonElement, async () => {
     showStep(ui.roomStatus);
     await connectAndWait(ui, 'create', 'p1', '');
-  }));
+  })));
 
   ui.versusJoin.addEventListener('click', () => {
     ui.versusJoinCodeRow.classList.remove('hidden');
@@ -1258,11 +1259,11 @@ export function init(rawUi: GameUi) {
     ui.versusJoinConfirm.disabled = ui.versusJoinCodeInput.value.trim().length !== 4;
   });
 
-  ui.versusJoinConfirm.addEventListener('click', () => withButtonBusy(ui.versusJoinConfirm, async () => {
+  ui.versusJoinConfirm.addEventListener('click', onClickAsyncVoid(() => withButtonBusy(ui.versusJoinConfirm, async () => {
     if (ui.versusJoinCodeInput.value.trim().length !== 4) return;
     showStep(ui.roomStatus);
     await connectAndWait(ui, 'join', 'p2', ui.versusJoinCodeInput.value);
-  }));
+  })));
 
   let selectedRole: CoopRole | null = null;
   const selectRole = (role: CoopRole) => {
@@ -1281,11 +1282,11 @@ export function init(rawUi: GameUi) {
     ui.roleConfirm.disabled = !selectedRole || !codeOk;
   });
 
-  ui.roleConfirm.addEventListener('click', () => withButtonBusy(ui.roleConfirm, async () => {
+  ui.roleConfirm.addEventListener('click', onClickAsyncVoid(() => withButtonBusy(ui.roleConfirm, async () => {
     if (!selectedRole) return;
     showStep(ui.roomStatus);
     await connectAndWait(ui, pendingMode, selectedRole, ui.joinCodeInput.value);
-  }));
+  })));
 }
 
 export function stop() {

@@ -52,7 +52,7 @@ export function init(ui: GameUi) {
   const submitBtn = el<HTMLButtonElement>(ui, 'submit');
   const skipBtn = el<HTMLButtonElement>(ui, 'skip');
   const retryBtn = el<HTMLButtonElement>(ui, 'retry');
-  const input = el<HTMLTextAreaElement>(ui, 'input');
+  const inputRef = el<HTMLTextAreaElement>(ui, 'input');
   const snippet = el(ui, 'snippet');
   const prompt = el(ui, 'prompt');
   const message = el(ui, 'message');
@@ -67,7 +67,11 @@ export function init(ui: GameUi) {
   const difficultySelect = el<HTMLSelectElement>(ui, 'difficultySelect');
   const langBadge = el(ui, 'langBadge');
 
-  if (!setup || !play || !result || !startBtn || !input) return;
+  if (!setup || !play || !result || !startBtn || !inputRef) return;
+
+  // Ver mismo motivo en rhythmclick.logic.ts: closures más abajo
+  // necesitan el tipo ya no-nulo.
+  const input: HTMLTextAreaElement = inputRef;
 
   let phase: Phase = 'idle';
   let challenges: SnippetChallenge[] = [];

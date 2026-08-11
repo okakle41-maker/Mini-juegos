@@ -41,6 +41,9 @@ import './registerSystemViews.js';
 // Tipos globales ya están en global.d.ts
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Banner de marca en consola, intencionalmente visible siempre (no solo
+  // en dev) para cualquiera que abra devtools — no es una traza de debug.
+  // eslint-disable-next-line no-console
   console.log('%c🚀 Minijuegos - Entrenador de Bots v3.0.0', 'color:#ff9a3c; font-size:16px; font-weight:bold');
 
   // Registrar Service Worker (PWA / soporte offline).
@@ -66,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Inicializar sistemas adicionales de mejoras
     // Estos sistemas se auto-inicializan en sus constructores
-    console.log('[App] Sistemas de mejoras inicializados:', {
+    devLog('[App] Sistemas de mejoras inicializados:', {
       errorBoundary: '✓',
       security: '✓',
       keyboardShortcuts: '✓',

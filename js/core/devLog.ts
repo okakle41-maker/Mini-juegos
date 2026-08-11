@@ -20,6 +20,7 @@
 
 export function devLog(...args: unknown[]): void {
   if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console -- wrapper autorizado de console.log para trazas de dev, ver comentario del archivo
     console.log(...args);
   }
 }

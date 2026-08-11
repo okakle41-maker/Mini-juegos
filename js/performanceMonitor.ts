@@ -3,6 +3,17 @@
  * Monitorea y reporta métricas de rendimiento críticas
  */
 
+import { devLog } from './core/devLog.js';
+
+// LayoutShift no está en lib.dom.d.ts de TypeScript todavía (API
+// relativamente nueva, parte de Web Vitals); el resto de PerformanceEntry
+// especializados usados acá (LargestContentfulPaint, PerformanceEventTiming,
+// PerformanceNavigationTiming) sí vienen incluidos.
+interface LayoutShift extends PerformanceEntry {
+  readonly value: number;
+  readonly hadRecentInput: boolean;
+}
+
 interface Metric {
   name: string;
   value: number;
@@ -54,19 +65,19 @@ class PerformanceMonitor {
 
     switch (entry.entryType) {
       case 'largest-contentful-paint':
-        metric = this.processLCP(entry as any);
+        metric = this.processLCP(entry as LargestContentfulPaint);
         break;
       case 'first-input-delay':
-        metric = this.processFID(entry as any);
+        metric = this.processFID(entry as PerformanceEventTiming);
         break;
       case 'layout-shift':
-        metric = this.processCLS(entry as any);
+        metric = this.processCLS(entry as LayoutShift);
         break;
       case 'paint':
-        metric = this.processPaint(entry as any);
+        metric = this.processPaint(entry);
         break;
       case 'navigation':
-        metric = this.processNavigation(entry as any);
+        this.processNavigation(entry as PerformanceNavigationTiming);
         break;
     }
 
@@ -76,7 +87,7 @@ class PerformanceMonitor {
     }
   }
 
-  private processLCP(entry: any): Metric {
+  private processLCP(entry: LargestContentfulPaint): Metric {
     const value = entry.renderTime || entry.loadTime;
     const rating = this.getLCPRating(value);
     return {
@@ -87,7 +98,7 @@ class PerformanceMonitor {
     };
   }
 
-  private processFID(entry: any): Metric {
+  private processFID(entry: PerformanceEventTiming): Metric {
     const value = entry.processingStart - entry.startTime;
     const rating = this.getFIDRating(value);
     return {
@@ -98,7 +109,7 @@ class PerformanceMonitor {
     };
   }
 
-  private processCLS(entry: any): Metric {
+  private processCLS(entry: LayoutShift): Metric | null {
     if (!entry.hadRecentInput) {
       const value = entry.value;
       const rating = this.getCLSRating(value);
@@ -109,10 +120,10 @@ class PerformanceMonitor {
         timestamp: Date.now()
       };
     }
-    return null as any;
+    return null;
   }
 
-  private processPaint(entry: any): Metric {
+  private processPaint(entry: PerformanceEntry): Metric {
     const rating = 'good';
     return {
       name: entry.name.toUpperCase(),
@@ -122,7 +133,7 @@ class PerformanceMonitor {
     };
   }
 
-  private processNavigation(entry: any): Metric {
+  private processNavigation(entry: PerformanceNavigationTiming): void {
     const metrics = [
       { name: 'TTFB', value: entry.responseStart - entry.requestStart },
       { name: 'DOM Content Loaded', value: entry.domContentLoadedEventEnd },
@@ -137,8 +148,6 @@ class PerformanceMonitor {
         timestamp: Date.now()
       });
     });
-
-    return null as any;
   }
 
   private getLCPRating(value: number): 'good' | 'needs-improvement' | 'poor' {
@@ -161,7 +170,7 @@ class PerformanceMonitor {
 
   private logMetric(metric: Metric): void {
     const emoji = metric.rating === 'good' ? '✅' : metric.rating === 'needs-improvement' ? '⚠️' : '❌';
-    console.log(`[PerformanceMonitor] ${emoji} ${metric.name}: ${metric.value}ms (${metric.rating})`);
+    devLog(`[PerformanceMonitor] ${emoji} ${metric.name}: ${metric.value}ms (${metric.rating})`);
   }
 
   public getMetrics(): Metric[] {
@@ -207,9 +216,9 @@ export const performanceMonitor = new PerformanceMonitor();
 
 // Exponer en window para debugging en consola
 if (typeof window !== 'undefined') {
-  (window as any).performanceMonitor = performanceMonitor;
-  (window as any).getWebVitals = () => performanceMonitor.getCoreWebVitals();
-  (window as any).exportPerformanceReport = () => performanceMonitor.exportReport();
+  window.performanceMonitor = performanceMonitor;
+  window.getWebVitals = () => performanceMonitor.getCoreWebVitals();
+  window.exportPerformanceReport = () => performanceMonitor.exportReport();
 }
 
 export default performanceMonitor;

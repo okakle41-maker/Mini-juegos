@@ -4,6 +4,7 @@
  */
 
 import { escapeHtml } from './security.js';
+import { devLog } from './core/devLog.js';
 
 class ErrorBoundary {
   private errorContainer: HTMLElement | null = null;
@@ -26,7 +27,7 @@ class ErrorBoundary {
     // Crear contenedor de errores
     this.createErrorContainer();
 
-    console.log('[ErrorBoundary] Inicializado');
+    devLog('[ErrorBoundary] Inicializado');
   }
 
   private createErrorContainer(): void {
@@ -186,8 +187,14 @@ class ErrorBoundary {
   }
 
   // Método para envolver funciones con manejo de errores
-  wrap<T extends (...args: any[]) => any>(fn: T, context?: string): T {
-    return ((...args: any[]) => {
+  //
+  // Nota sobre `any` en el retorno del constraint: acotarlo a `unknown`
+  // rompe la inferencia de `ReturnType<T>` (limitación conocida de
+  // TypeScript con constraints genéricos de funciones, ver performance.ts
+  // para el mismo patrón documentado). Los args sí están en `unknown[]`.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota arriba
+  wrap<T extends (...args: unknown[]) => any>(fn: T, context?: string): T {
+    return ((...args: unknown[]) => {
       try {
         return fn(...args);
       } catch (error) {
@@ -203,8 +210,9 @@ class ErrorBoundary {
   }
 
   // Método para envolver funciones asíncronas con manejo de errores
-  wrapAsync<T extends (...args: any[]) => Promise<any>>(fn: T, context?: string): T {
-    return (async (...args: any[]) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota en wrap()
+  wrapAsync<T extends (...args: unknown[]) => Promise<any>>(fn: T, context?: string): T {
+    return (async (...args: unknown[]) => {
       try {
         return await fn(...args);
       } catch (error) {
@@ -224,14 +232,16 @@ class ErrorBoundary {
 export const errorBoundary = new ErrorBoundary();
 
 // Función helper para usar en componentes
-export function withErrorHandling<T extends (...args: any[]) => any>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota en wrap()
+export function withErrorHandling<T extends (...args: unknown[]) => any>(
   fn: T,
   context?: string
 ): T {
   return errorBoundary.wrap(fn, context);
 }
 
-export function withAsyncErrorHandling<T extends (...args: any[]) => Promise<any>>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota en wrap()
+export function withAsyncErrorHandling<T extends (...args: unknown[]) => Promise<any>>(
   fn: T,
   context?: string
 ): T {

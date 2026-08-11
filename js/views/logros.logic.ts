@@ -5,22 +5,13 @@
 
 import { achievementManager } from '../achievements.js';
 import { template } from './logros.js';
-import type { Achievement, AchievementEventDetail, Reward } from '../types/game';
+import type { AchievementEventDetail, Reward } from '../types/game';
 import { hydrateBackButtons } from '../utils/backButton.js';
 
 let eventListeners: Array<() => void> = [];
-let cachedElements: Record<string, HTMLElement | null> = {};
-
-function getElement(id: string): HTMLElement | null {
-  if (!cachedElements[id]) {
-    cachedElements[id] = document.getElementById(id);
-  }
-  return cachedElements[id];
-}
-
-function clearCache(): void {
-  cachedElements = {};
-}
+// (Sistema de caché de elementos DOM eliminado: getElement() nunca
+// se llamaba en este archivo, así que cachedElements tampoco tenía
+// nada real que limpiar.)
 
 export function init(): void {
   const container = document.getElementById('logros');
@@ -149,8 +140,14 @@ function setupEventListeners(): void {
 }
 
 function setupAchievementListeners(): void {
-  const achievementHandler = (e: any) => {
-    showAchievementNotification(e.detail);
+  // `window.addEventListener` tipa su segundo argumento como
+  // `EventListener` (firma `(ev: Event) => void`), no como
+  // `(e: CustomEvent<T>) => void` — TS no permite pasar el handler más
+  // específico directamente. Se recibe como `Event` y se castea adentro,
+  // que es el patrón estándar para listeners de CustomEvent tipados.
+  const achievementHandler = (e: Event) => {
+    const detail = (e as CustomEvent<AchievementEventDetail>).detail;
+    showAchievementNotification(detail);
     renderAchievements();
     renderRewards();
   };
@@ -214,7 +211,7 @@ function filterByRarity(rarity: string): void {
   });
 }
 
-function showAchievementNotification(achievement: any): void {
+function showAchievementNotification(achievement: AchievementEventDetail): void {
   const notification = document.createElement('div');
   notification.className = 'achievement-notification';
   notification.innerHTML = `
@@ -263,8 +260,6 @@ export function stop(): void {
   eventListeners.forEach(cleanup => cleanup());
   eventListeners = [];
   
-  // Limpiar caché de elementos
-  clearCache();
   
   // Limpiar contenido del contenedor
   const container = document.getElementById('logros');

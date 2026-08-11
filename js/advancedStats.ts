@@ -230,10 +230,10 @@ class AdvancedStatsSystem {
     const analysis = this.gameAnalyses.get(gameId);
     if (!analysis || analysis.totalPlays < 5) return 'stable';
 
-    // Simple trend calculation based on recent vs overall average
-    const recentPlays = Math.min(5, analysis.totalPlays);
-    // This would need historical data for accurate calculation
-    // For now, use improvement rate as proxy
+    // Simple trend calculation based on recent vs overall average.
+    // `analysis.totalPlays` ya filtra el caso < 5 arriba; esto no
+    // calcula tendencia real (necesitaría historial de scores por
+    // partida, que no se guarda hoy) — usa improvementRate como proxy.
     return analysis.improvementRate > 5 ? 'improving' : analysis.improvementRate < -5 ? 'declining' : 'stable';
   }
 
@@ -320,9 +320,9 @@ class AdvancedStatsSystem {
       }
 
       const score = (analysis.averageScore * 0.4) + (analysis.averageAccuracy * 0.3) + (100 - (analysis.averageTime / 1000) * 30);
-      
-      let description = '';
-      let recommendations: string[] = [];
+
+      let description: string;
+      let recommendations: string[];
 
       if (score < 30) {
         description = 'Área de mejora significativa';
@@ -447,7 +447,11 @@ class AdvancedStatsSystem {
   getPredictionData(): PredictionData {
     const metrics = this.getPerformanceMetrics();
     const weakness = this.getWeaknessAnalysis();
-    const strength = this.getStrengthAnalysis();
+    // Nota: getStrengthAnalysis() existe y se calculaba acá, pero
+    // PredictionData no tiene ningún campo para "fortalezas" (solo
+    // focusAreas, que son debilidades) — se quita la variable sin usar
+    // en vez de agregar un campo nuevo al tipo público como efecto
+    // colateral de una limpieza de lint.
 
     // Predict next level based on current performance
     const predictedLevel = Math.floor(metrics.accuracy * 0.3 + metrics.speed * 0.3 + metrics.consistency * 0.2 + metrics.improvement * 0.2) / 10;
@@ -563,7 +567,13 @@ class AdvancedStatsSystem {
       this.saveData();
     } catch (e) {
       console.error('[AdvancedStats] Failed to import stats:', e);
-      throw new Error('Invalid stats data');
+      // `Error(message, { cause })` es ES2022; el `lib` del proyecto es
+      // ES2020, así que se adjunta la causa como propiedad después de
+      // construir el error en vez de cambiar el target del proyecto
+      // solo por esto.
+      const wrapped = new Error('Invalid stats data');
+      (wrapped as Error & { cause?: unknown }).cause = e;
+      throw wrapped;
     }
   }
 
@@ -582,7 +592,7 @@ export const advancedStatsSystem = new AdvancedStatsSystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).advancedStatsSystem = advancedStatsSystem;
+  window.advancedStatsSystem = advancedStatsSystem;
 }
 
 export default advancedStatsSystem;

@@ -158,7 +158,7 @@ describe('Bomb Defusal — un strike en OTRO módulo no debe invalidar la respue
       // determinista.
       const strikesBefore = document.getElementById('strikesEl')!.textContent;
       wires[0].dispatchEvent(new MouseEvent('click'));
-      let strikesAfter = document.getElementById('strikesEl')!.textContent;
+      const strikesAfter = document.getElementById('strikesEl')!.textContent;
       if (strikesAfter === strikesBefore && wires.length > 1) {
         // El primer cable era el correcto (wires ya resuelto); usamos
         // otro módulo wires no es una opción porque solo hay uno, así

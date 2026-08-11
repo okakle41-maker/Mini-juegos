@@ -91,8 +91,10 @@ self.addEventListener('fetch', (event) => {
           return fetch(request).then(response => {
             // Clonar response antes de cachear
             const responseClone = response.clone();
-            caches.open(STATIC_CACHE).then(cache => {
-              cache.put(request, responseClone);
+            void caches.open(STATIC_CACHE).then(cache => {
+              return cache.put(request, responseClone);
+            }).catch((err: unknown) => {
+              console.error('[SW] No se pudo cachear (static):', err);
             });
             return response;
           });
@@ -110,8 +112,10 @@ self.addEventListener('fetch', (event) => {
         .then(response => {
           // Clonar response antes de cachear
           const responseClone = response.clone();
-          caches.open(DYNAMIC_CACHE).then(cache => {
-            cache.put(request, responseClone);
+          void caches.open(DYNAMIC_CACHE).then(cache => {
+            return cache.put(request, responseClone);
+          }).catch((err: unknown) => {
+            console.error('[SW] No se pudo cachear (network-first):', err);
           });
           return response;
         })
@@ -132,8 +136,10 @@ self.addEventListener('fetch', (event) => {
           if (cached) return cached;
           return fetch(request).then(response => {
             const responseClone = response.clone();
-            caches.open(DYNAMIC_CACHE).then(cache => {
-              cache.put(request, responseClone);
+            void caches.open(DYNAMIC_CACHE).then(cache => {
+              return cache.put(request, responseClone);
+            }).catch((err: unknown) => {
+              console.error('[SW] No se pudo cachear (cache-first):', err);
             });
             return response;
           });

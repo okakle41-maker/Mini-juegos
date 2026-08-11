@@ -20,7 +20,9 @@ class AudioManager implements AudioManagerInterface {
   private initialized = false;
 
   constructor() {
-    this.init();
+    void this.init().catch((err: unknown) => {
+      console.error('[AudioManager] Error durante la inicialización:', err);
+    });
   }
 
   private async init(): Promise<void> {
@@ -78,7 +80,7 @@ class AudioManager implements AudioManagerInterface {
           oscillator.stop();
         }, 80);
       }
-    } catch (e) {
+    } catch {
       // Fallback silencioso
     }
   }

@@ -3,6 +3,13 @@
  * Herramientas para debugging y desarrollo
  */
 
+import { devLog } from './core/devLog.js';
+import GameRegistry from './core/gameRegistry.js';
+import Favorites from './favoritesManager.js';
+import Leaderboard from './leaderboardManager.js';
+import uiSoundEffects from './uiSoundEffects.js';
+import { triggerConfetti } from './confettiEffect.js';
+
 interface DevToolCommand {
   name: string;
   description: string;
@@ -36,22 +43,17 @@ class DevTools {
     });
 
     this.registerCommand('clear', 'Clear console', () => {
+      // eslint-disable-next-line no-console -- acción explícita del comando, no una traza
       console.clear();
       return 'Console cleared';
     });
 
     this.registerCommand('games', 'List all registered games', () => {
-      const GameRegistry = (window as any).GameRegistry;
-      if (!GameRegistry) return 'GameRegistry not available';
-      
       const games = GameRegistry.visible();
-      return games.map((g: any) => `${g.id}: ${g.name}`).join('\n');
+      return games.map((g) => `${g.id}: ${g.name}`).join('\n');
     });
 
     this.registerCommand('game', 'Get game details', (id: string) => {
-      const GameRegistry = (window as any).GameRegistry;
-      if (!GameRegistry) return 'GameRegistry not available';
-      
       const game = GameRegistry.get(id);
       if (!game) return `Game '${id}' not found`;
       
@@ -59,40 +61,34 @@ class DevTools {
     });
 
     this.registerCommand('vitals', 'Show Core Web Vitals', () => {
-      const getWebVitals = (window as any).getWebVitals;
-      if (!getWebVitals) return 'Performance monitor not available';
-      
-      const vitals = getWebVitals();
+      const vitals = window.getWebVitals?.();
+      if (!vitals) return 'Performance monitor not available';
       return JSON.stringify(vitals, null, 2);
     });
 
     this.registerCommand('perf', 'Export performance report', () => {
-      const exportPerformanceReport = (window as any).exportPerformanceReport;
-      if (!exportPerformanceReport) return 'Performance monitor not available';
-      
-      return exportPerformanceReport();
+      const report = window.exportPerformanceReport?.();
+      return report ?? 'Performance monitor not available';
     });
 
     this.registerCommand('errors', 'Show error statistics', () => {
-      const getErrorStats = (window as any).getErrorStats;
-      if (!getErrorStats) return 'Error tracker not available';
+      const stats = window.ErrorLogger?.recent();
+      if (!stats) return 'Error tracker not available';
       
-      const stats = getErrorStats();
       return JSON.stringify(stats, null, 2);
     });
 
     this.registerCommand('error-report', 'Export error report', () => {
-      const getErrorReport = (window as any).getErrorReport;
-      if (!getErrorReport) return 'Error tracker not available';
+      const recent = window.ErrorLogger?.recent();
+      if (!recent) return 'Error tracker not available';
       
-      return getErrorReport();
+      return JSON.stringify(recent, null, 2);
     });
 
     this.registerCommand('clear-errors', 'Clear error history', () => {
-      const clearErrors = (window as any).clearErrors;
-      if (!clearErrors) return 'Error tracker not available';
+      if (!window.ErrorLogger) return 'Error tracker not available';
       
-      clearErrors();
+      window.ErrorLogger.clear();
       return 'Error history cleared';
     });
 
@@ -150,7 +146,7 @@ class DevTools {
     });
 
     this.registerCommand('view', 'Navigate to view', (viewId: string) => {
-      const showView = (window as any).showView;
+      const showView = window.showView;
       if (!showView) return 'ViewManager not available';
       
       showView(viewId);
@@ -158,48 +154,34 @@ class DevTools {
     });
 
     this.registerCommand('favorites', 'List favorite games', () => {
-      const favoritesManager = (window as any).favoritesManager;
-      if (!favoritesManager) return 'FavoritesManager not available';
-      
-      const favorites = favoritesManager.getAll();
-      return Array.from(favorites).join('\n');
+      const favorites = Favorites.getAll();
+      return favorites.join('\n');
     });
 
     this.registerCommand('leaderboard', 'Show leaderboard for game', (gameId: string) => {
-      const leaderboardManager = (window as any).leaderboardManager;
-      if (!leaderboardManager) return 'LeaderboardManager not available';
-      
-      const record = leaderboardManager.get(gameId);
-      if (!record) return `No record for '${gameId}'`;
+      const record = Leaderboard.get(gameId);
+      if (!record || record.length === 0) return `No record for '${gameId}'`;
       
       return JSON.stringify(record, null, 2);
     });
 
     this.registerCommand('confetti', 'Trigger confetti effect', () => {
-      const triggerConfetti = (window as any).triggerConfetti;
-      if (!triggerConfetti) return 'Confetti effect not available';
-      
       triggerConfetti();
       return 'Confetti triggered!';
     });
 
     this.registerCommand('sound', 'Play UI sound', (sound: string) => {
-      const uiSoundEffects = (window as any).uiSoundEffects;
-      if (!uiSoundEffects) return 'UI sound effects not available';
-      
-      const validSounds = ['click', 'hover', 'success', 'error', 'notification', 'filter', 'type'];
-      if (!validSounds.includes(sound)) {
+      const validSounds = ['click', 'hover', 'success', 'error', 'notification', 'filter', 'type'] as const;
+      type ValidSound = typeof validSounds[number];
+      if (!validSounds.includes(sound as ValidSound)) {
         return `Invalid sound. Valid: ${validSounds.join(', ')}`;
       }
       
-      uiSoundEffects[sound]();
+      uiSoundEffects[sound as ValidSound]();
       return `Played '${sound}' sound`;
     });
 
     this.registerCommand('volume', 'Set sound volume', (volume: string) => {
-      const uiSoundEffects = (window as any).uiSoundEffects;
-      if (!uiSoundEffects) return 'UI sound effects not available';
-      
       const vol = parseFloat(volume);
       if (isNaN(vol) || vol < 0 || vol > 1) {
         return 'Volume must be between 0 and 1';
@@ -267,10 +249,10 @@ class DevTools {
     
     if (this.enabled) {
       this.createDevToolsUI();
-      console.log('%c[DevTools] Enabled', 'color: #00ff00; font-weight: bold');
+      devLog('%c[DevTools] Enabled', 'color: #00ff00; font-weight: bold');
     } else {
       this.removeDevToolsUI();
-      console.log('%c[DevTools] Disabled', 'color: #ff0000; font-weight: bold');
+      devLog('%c[DevTools] Disabled', 'color: #ff0000; font-weight: bold');
     }
   }
 
@@ -412,8 +394,8 @@ export const devTools = new DevTools();
 
 // Exponer en window
 if (typeof window !== 'undefined') {
-  (window as any).devTools = devTools;
-  (window as any).dev = (command: string) => devTools.executeCommand(command);
+  window.devTools = devTools;
+  window.dev = (command: string) => devTools.executeCommand(command);
 }
 
 export default devTools;

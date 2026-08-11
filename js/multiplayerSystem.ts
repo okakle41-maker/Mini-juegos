@@ -3,6 +3,10 @@
  * Sistema de multiplayer en tiempo real usando Supabase Realtime
  */
 
+import { sanitizeInput } from './security.js';
+import { notificationSystem } from './notificationSystem.js';
+import type { SupabaseClient, RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+
 interface Player {
   id: string;
   name: string;
@@ -43,7 +47,7 @@ interface Match {
    * Forma libre: cada juego define qué claves espera (p.ej. simon:
    * { colorCount, baseLength, speed, rounds }).
    */
-  settings?: Record<string, any>;
+  settings?: Record<string, unknown>;
 }
 
 interface LeaderboardEntry {
@@ -54,17 +58,39 @@ interface LeaderboardEntry {
   timestamp: number;
 }
 
+interface LiveMatchRow {
+  id: string;
+  room_code: string;
+  game_id: string;
+  status: 'waiting' | 'playing' | 'completed' | 'abandoned';
+  players: Array<{ id: string; role: string; joined_at: number }>;
+  scores: string;
+  winner_id: string | null;
+  settings?: Record<string, unknown>;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+interface MatchMessageRow {
+  id: string;
+  match_id: string;
+  player_id: string;
+  message: string;
+  created_at: string;
+}
+
 class MultiplayerSystem {
   private currentMatch: Match | null = null;
   private liveLeaderboards: Map<string, LeaderboardEntry[]> = new Map();
   private playerStatus: Player | null = null;
-  private subscriptions: Map<string, any> = new Map();
+  private subscriptions: Map<string, RealtimeChannel> = new Map();
   private isConnected: boolean = false;
   private isInitialized: boolean = false;
   private initializationPromise: Promise<void>;
   
   private storageKey = 'multiplayer-data';
-  private supabaseClient: any = null;
+  private supabaseClient: SupabaseClient | null = null;
 
   constructor() {
     this.loadLocalData();
@@ -99,7 +125,7 @@ class MultiplayerSystem {
     // Subscribe to live matches
     const matchesSubscription = this.supabaseClient
       .channel('live_matches')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_matches' }, (payload: any) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_matches' }, (payload: RealtimePostgresChangesPayload<LiveMatchRow>) => {
         this.handleMatchUpdate(payload);
       })
       .subscribe();
@@ -120,7 +146,7 @@ class MultiplayerSystem {
     // activo.
     const messagesSubscription = this.supabaseClient
       .channel('match_messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_messages' }, (payload: any) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_messages' }, (payload: RealtimePostgresChangesPayload<MatchMessageRow>) => {
         this.handleMatchMessage(payload);
       })
       .subscribe();
@@ -128,11 +154,22 @@ class MultiplayerSystem {
     this.subscriptions.set('messages', messagesSubscription);
   }
 
-  private handleMatchUpdate(payload: any): void {
-    const { eventType, new: newRecord } = payload;
+  private handleMatchUpdate(payload: RealtimePostgresChangesPayload<LiveMatchRow>): void {
+    const { eventType } = payload;
+    const newRecord = payload.new as Partial<LiveMatchRow>;
 
     if (eventType === 'INSERT' || eventType === 'UPDATE') {
-      if (newRecord.id === this.currentMatch?.id) {
+      if (this.currentMatch && newRecord.id === this.currentMatch.id) {
+        // Igual que en lobbySystem.ts (handleMatchUpdate): this.currentMatch
+        // es una propiedad de instancia, TS no retiene el narrowing hacia
+        // las líneas siguientes — se fija una referencia local no-nula,
+        // ya verificada por el guard explícito de arriba. Ojo: la propia
+        // this.currentMatch se REASIGNA más abajo (a un nuevo objeto, y
+        // luego eventualmente a null) — esa referencia local (`current`)
+        // sigue apuntando al objeto ANTERIOR a esa reasignación, que es
+        // justo lo que se necesita para leer players/scores/startedAt
+        // "de antes" al construir el nuevo estado.
+        const current = this.currentMatch;
         // No spreadear newRecord tal cual: es una fila cruda de Postgres
         // (snake_case: game_id, room_code, players: [{id, role,
         // joined_at}]) y pisaría this.currentMatch.players (Player[]
@@ -141,7 +178,7 @@ class MultiplayerSystem {
         // cambiar server-side (status, players, settings) preservando
         // los Player ya conocidos localmente cuando existen.
         const rawPlayers: Array<{ id: string; role: string; joined_at: number }> = newRecord.players || [];
-        const knownById = new Map(this.currentMatch.players.map((p) => [p.id, p]));
+        const knownById = new Map(current.players.map((p) => [p.id, p]));
         const mergedPlayers: Player[] = rawPlayers.map((p) => {
           const known = knownById.get(p.id);
           return known
@@ -154,7 +191,7 @@ class MultiplayerSystem {
         // el cambio (el rival) nunca se entera del score que el otro
         // lado reportó, y su propio winner/ownScore se calcula más
         // adelante con datos incompletos.
-        let mergedScores = this.currentMatch.scores;
+        let mergedScores = current.scores;
         if (typeof newRecord.scores === 'string') {
           try {
             mergedScores = new Map(JSON.parse(newRecord.scores));
@@ -163,14 +200,14 @@ class MultiplayerSystem {
           }
         }
 
-        const wasStarted = !!this.currentMatch.startedAt;
-        const wasCompleted = this.currentMatch.status === 'completed';
+        const wasStarted = !!current.startedAt;
+        const wasCompleted = current.status === 'completed';
 
         this.currentMatch = {
-          ...this.currentMatch,
-          status: newRecord.status ?? this.currentMatch.status,
+          ...current,
+          status: newRecord.status ?? current.status,
           players: mergedPlayers,
-          settings: newRecord.settings ?? this.currentMatch.settings,
+          settings: newRecord.settings ?? current.settings,
           scores: mergedScores
         };
 
@@ -225,17 +262,17 @@ class MultiplayerSystem {
     }));
   }
 
-  private handleMatchMessage(payload: any): void {
-    const record = payload.new;
-    if (!record || !this.currentMatch || record.match_id !== this.currentMatch.id) return;
+  private handleMatchMessage(payload: RealtimePostgresChangesPayload<MatchMessageRow>): void {
+    const record = payload.new as Partial<MatchMessageRow>;
+    if (!record.match_id || !this.currentMatch || record.match_id !== this.currentMatch.id) return;
     // No reflejar los propios mensajes: quien los envió ya actualizó su
     // UI de forma optimista al hacer sendMatchMessage/sendGameEvent, no
     // hace falta procesarlos de nuevo al volver por Realtime.
     if (record.player_id === this.playerStatus?.id) return;
 
-    let parsed: { type: string; payload: unknown } | null = null;
+    let parsedMessage: { type: string; payload: unknown } | null;
     try {
-      parsed = JSON.parse(record.message);
+      parsedMessage = record.message ? JSON.parse(record.message) : null;
     } catch {
       // Mensaje de chat de texto plano (uso original de
       // sendMatchMessage) — no es un evento de juego estructurado.
@@ -245,6 +282,12 @@ class MultiplayerSystem {
       return;
     }
 
+    // El catch de arriba ya hace return si JSON.parse falla — si se
+    // llegó hasta acá, parsedMessage siempre tiene un valor real (el
+    // try no puede "caer" sin asignar y sin lanzar). TS no puede
+    // seguir esa garantía a través del try/catch, así que se fija una
+    // referencia local no-nula.
+    const parsed = parsedMessage!;
     window.dispatchEvent(new CustomEvent('multiplayer:game_event', {
       detail: { playerId: record.player_id, type: parsed.type, payload: parsed.payload }
     }));
@@ -270,10 +313,6 @@ class MultiplayerSystem {
 
   // Player management
   async setPlayerStatus(player: Player): Promise<void> {
-    // Use security module for sanitization
-    const { escapeHtml, sanitizeInput } = await import('./security.js');
-    const { notificationSystem } = await import('./notificationSystem.js');
-    
     // Validate and sanitize player name to prevent XSS
     const sanitizedName = sanitizeInput(player.name, {
       maxLength: 50,
@@ -376,7 +415,7 @@ class MultiplayerSystem {
    * js/games/simon.logic.ts, arrowGame.logic.ts, termita.logic.ts y el
    * comentario histórico en js/utils/multiplayerSplitView.ts.
    */
-  async createRoomMatch(gameId: string, role: string, settings: Record<string, any> = {}): Promise<Match> {
+  async createRoomMatch(gameId: string, role: string, settings: Record<string, unknown> = {}): Promise<Match> {
     await this.waitForInitialization();
     if (!this.supabaseClient || !this.isConnected) {
       throw new Error('No hay conexión con el servidor. Revisá tu internet e intentá de nuevo.');
@@ -485,7 +524,7 @@ class MultiplayerSystem {
       : [...existingPlayers, { id: playerId, role, joined_at: Date.now() }];
 
     const shouldStartNow = autoStart && existing.status === 'waiting';
-    const updatePayload: Record<string, any> = { players: nextPlayers };
+    const updatePayload: Record<string, unknown> = { players: nextPlayers };
     if (shouldStartNow) {
       updatePayload.status = 'playing';
       updatePayload.started_at = new Date().toISOString();
@@ -553,9 +592,9 @@ class MultiplayerSystem {
     if (!this.supabaseClient) return () => {};
     const channel = this.supabaseClient
       .channel(`live_matches:${matchId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'live_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
-        const record = payload.new;
-        const players: Array<{ id: string; role: string; joined_at: number }> = record.players || [];
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'live_matches', filter: `id=eq.${matchId}` }, (payload: RealtimePostgresChangesPayload<LiveMatchRow>) => {
+        const record = payload.new as LiveMatchRow;
+        const players = record.players || [];
         handler({
           id: record.id,
           gameId: record.game_id,
@@ -570,7 +609,11 @@ class MultiplayerSystem {
       .subscribe();
 
     return () => {
-      this.supabaseClient?.removeChannel(channel);
+      if (this.supabaseClient) {
+        Promise.resolve(this.supabaseClient.removeChannel(channel)).catch((error: unknown) => {
+          window.ErrorLogger?.log('MultiplayerSystem.subscribeToRoomChannel.cleanup', error);
+        });
+      }
     };
   }
 
@@ -841,7 +884,7 @@ class MultiplayerSystem {
         .from('live_matches')
         .select('*')
         .eq('id', matchId)
-        .single();
+        .single<LiveMatchRow>();
 
       if (!data) return null;
 
@@ -849,7 +892,7 @@ class MultiplayerSystem {
         id: data.id,
         gameId: data.game_id,
         roomCode: data.room_code,
-        players: (data.players || []).map((p: any) => ({
+        players: (data.players || []).map((p) => ({
           id: p.id, name: 'Jugador', avatar: '👤', level: 1, status: 'online', role: p.role
         })),
         status: data.status,
@@ -877,7 +920,9 @@ class MultiplayerSystem {
   disconnect(): void {
     this.subscriptions.forEach((subscription) => {
       if (this.supabaseClient) {
-        this.supabaseClient.removeChannel(subscription);
+        Promise.resolve(this.supabaseClient.removeChannel(subscription)).catch((error: unknown) => {
+          window.ErrorLogger?.log('MultiplayerSystem.disconnect', error);
+        });
       }
     });
     this.subscriptions.clear();
@@ -886,7 +931,13 @@ class MultiplayerSystem {
 
   reconnect(): void {
     this.disconnect();
-    this.initializeSupabase();
+    // Actualiza `initializationPromise` (no solo dispara la llamada) —
+    // de lo contrario, cualquier código que haga
+    // `await this.initializationPromise` después de un reconnect()
+    // seguiría esperando la promesa de la inicialización ANTERIOR (ya
+    // resuelta), sin ninguna garantía de que la nueva conexión esté
+    // lista todavía.
+    this.initializationPromise = this.initializeSupabase();
   }
 
   // Reset
@@ -903,7 +954,7 @@ export const multiplayerSystem = new MultiplayerSystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).multiplayerSystem = multiplayerSystem;
+  window.multiplayerSystem = multiplayerSystem;
 }
 
 export default multiplayerSystem;

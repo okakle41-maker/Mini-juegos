@@ -165,7 +165,7 @@ const EVENTS: ReactorEvent[] = [
     desc: 'Refrigeración inoperativa. Activa la secundaria.',
     resolveLabel: 'Activar secundaria',
     icon: '⚙️',
-    effect: s => {},
+    effect: _s => {},
     tick: s => { s.cooling -= 2; s.temp += 1.5; },
     resolveEffect: s => { s.cooling += 15; }
   },
@@ -206,7 +206,7 @@ const EVENTS: ReactorEvent[] = [
     resolveLabel: 'Reparar sensor',
     icon: '🔧',
     effect: s => { s._sensorBroken = true; },
-    tick: s => {},
+    tick: _s => {},
     resolveEffect: s => { s._sensorBroken = false; }
   }
 ];
@@ -627,8 +627,8 @@ function stopGame() {
 function endGame(ui: GameUi, won: boolean, reason: string | null) {
   if (!_gameState) return;
   _gameState.running = false;
-  clearInterval(_mainInterval);
-  clearInterval(_eventCheckInterval);
+  if (_mainInterval) clearInterval(_mainInterval);
+  if (_eventCheckInterval) clearInterval(_eventCheckInterval);
   _mainInterval = null;
   _eventCheckInterval = null;
 
@@ -798,10 +798,11 @@ function renderActions(ui: GameUi, mod: ReactorMod) {
 }
 
 function tickCooldowns(ui: GameUi) {
-  if (!ui.actionsContainer) return;
+  if (!ui.actionsContainer || !_gameState) return;
+  const gameState = _gameState;
   Object.keys(_cooldowns).forEach(id => {
     if (_cooldowns[id] > 0) {
-      _cooldowns[id] -= (1 / _gameState.speed);
+      _cooldowns[id] -= (1 / gameState.speed);
       if (_cooldowns[id] <= 0) {
         _cooldowns[id] = 0;
         const btn = ui.actionsContainer.querySelector<HTMLButtonElement>(`[data-action-id="${id}"]`);
@@ -864,7 +865,9 @@ function logEntry(ui: GameUi, text: string, type?: string) {
   entry.innerHTML = `<span class="rx-log-time">${m}:${String(s).padStart(2,'0')}</span><span>${text}</span>`;
   ui.logEl.insertBefore(entry, ui.logEl.firstChild);
   // Mantener solo 30 entradas
-  while (ui.logEl.children.length > 30) ui.logEl.lastChild.remove();
+  // El while ya garantiza children.length > 30 (o sea, al menos un
+  // hijo) antes de entrar, así que lastChild nunca es null acá.
+  while (ui.logEl.children.length > 30) ui.logEl.lastChild!.remove();
 }
 
 /* ────────────────────────────────────────────

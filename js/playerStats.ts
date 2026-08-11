@@ -113,7 +113,15 @@ class PlayerStats {
     this.saveOverallStats();
   }
 
-  recordGameCompleted(gameId: string, score: number, duration: number): void {
+  // Nota: a diferencia de recordGamePlayed() (arriba), este método NO
+  // actualiza stats.totalTime/bestTime con `duration` — podría ser
+  // intencional (si siempre se llama junto con recordGamePlayed() para
+  // el mismo evento, sumar acá duplicaría el tiempo) o un descuido.
+  // Ninguno de los dos métodos tiene un consumidor real hoy en el
+  // proyecto (no hay ningún call site en js/ ni test/), así que no hay
+  // forma de confirmar cuál era la intención sin adivinar diseño de
+  // producto — se deja documentado en vez de asumir.
+  recordGameCompleted(gameId: string, score: number, _duration: number): void {
     let stats = this.gameStats.get(gameId);
     
     if (!stats) {
@@ -141,7 +149,7 @@ class PlayerStats {
 
     // Update overall stats
     this.overallStats.totalGamesCompleted++;
-    this.updateFavoriteGame(gameId);
+    this.updateFavoriteGame();
 
     this.saveGameStats();
     this.saveOverallStats();
@@ -161,7 +169,11 @@ class PlayerStats {
     this.overallStats.mostPlayedGame = mostPlayed;
   }
 
-  private updateFavoriteGame(gameId: string): void {
+  private updateFavoriteGame(): void {
+    // Nota: recalcula el favorito completo desde gameStats en cada
+    // llamada (misma estrategia que updateMostPlayedGame() arriba) —
+    // el gameId de la partida recién completada no cambia el
+    // resultado, así que no hace falta recibirlo como parámetro.
     // Simple heuristic: favorite game is the one with highest completion rate
     let bestCompletionRate = 0;
     let favorite = '';
@@ -315,7 +327,12 @@ class PlayerStats {
       }
     } catch (e) {
       console.error('[PlayerStats] Failed to import stats:', e);
-      throw new Error('Invalid stats data');
+      // Ver el comentario equivalente en advancedStats.ts: se adjunta
+      // la causa como propiedad en vez de usar `Error(msg, { cause })`
+      // (ES2022) porque el `lib`/target del proyecto es ES2020.
+      const wrapped = new Error('Invalid stats data');
+      (wrapped as Error & { cause?: unknown }).cause = e;
+      throw wrapped;
     }
   }
 }
@@ -325,7 +342,7 @@ export const playerStats = new PlayerStats();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).playerStats = playerStats;
+  window.playerStats = playerStats;
 }
 
 export default playerStats;

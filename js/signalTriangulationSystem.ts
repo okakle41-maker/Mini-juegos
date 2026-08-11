@@ -32,6 +32,7 @@
 import { lobbySystem } from './lobbySystem.js';
 import ErrorLogger from './core/errorLogger.js';
 import { RoleMatchSystemBase, type RoleMatchSystemConfig } from './utils/roleMatchSystemBase.js';
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export type STMatchStatus = 'waiting' | 'playing' | 'completed' | 'abandoned';
 export type STRoundStatus = 'active' | 'solved' | 'failed';
@@ -82,6 +83,59 @@ export interface STTeamLockStatus {
   hasLocked: boolean;
 }
 
+/**
+ * Filas crudas de Supabase (snake_case), ver
+ * supabase/migration_016_signal_triangulation.sql.
+ */
+interface STMatchRow {
+  id: string;
+  lobby_id: string;
+  status: STMatchStatus;
+  player1_id: string | null;
+  player2_id: string | null;
+  player3_id: string | null;
+  player4_id: string | null;
+  current_round: 1 | 2;
+  rounds_won: number;
+  max_attempts_per_round: number;
+  settings: Record<string, unknown>;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+interface STRoundRow {
+  id: string;
+  match_id: string;
+  round_number: 1 | 2;
+  attempt_number: number;
+  status: STRoundStatus;
+  created_at: string;
+  resolved_at: string | null;
+  // source_x/source_y NO se exponen acá a propósito: la fuente oculta
+  // solo vive en signal_triangulation_rounds (tabla base), nunca en la
+  // vista pública que este módulo consulta desde el cliente — ver
+  // comentario del RPC generate_signal_triangulation_round.
+}
+
+/** Fila de la vista pública `signal_triangulation_locks_public` (solo has_locked derivado, nunca guess_x/guess_y de otros). */
+interface STLockPublicRow {
+  round_id: string;
+  player_id: string;
+  has_locked: boolean;
+}
+
+/** Fila completa de signal_triangulation_locks — solo se lee la propia (ver RLS), nunca la de otro jugador. */
+interface STLockRow {
+  round_id: string;
+  player_id: string;
+  distance: number;
+  guess_x: number | null;
+  guess_y: number | null;
+  locked_at: string | null;
+  updated_at: string;
+}
+
 class SignalTriangulationSystem extends RoleMatchSystemBase<STMatch> {
   private currentRound: STRoundPublic | null = null;
 
@@ -95,7 +149,7 @@ class SignalTriangulationSystem extends RoleMatchSystemBase<STMatch> {
       // 'completed'/'abandoned' — mismo criterio que leaveCurrentMatch()
       // más abajo, que también trata esos dos como estado final.
       terminalStatuses: ['abandoned', 'completed'],
-      rowToMatch: (row: any) => this.rowToMatch(row),
+      rowToMatch: (row: unknown) => this.rowToMatch(row as STMatchRow),
       getMatchId: (match: STMatch) => match.id
     };
     super(config);
@@ -106,7 +160,7 @@ class SignalTriangulationSystem extends RoleMatchSystemBase<STMatch> {
    * ocupa el slot 1 (antena (0,0)). Los otros 3 jugadores se unen con
    * joinMatch() a los slots 2/3/4 restantes.
    */
-  async createMatch(settings: Record<string, any> = {}): Promise<STMatch> {
+  async createMatch(settings: Record<string, unknown> = {}): Promise<STMatch> {
     await this.waitForInitialization();
     const lobby = lobbySystem.getCurrentLobby();
     if (!lobby) throw new Error('No estás en ningún lobby.');
@@ -321,7 +375,7 @@ class SignalTriangulationSystem extends RoleMatchSystemBase<STMatch> {
       ErrorLogger?.log('signalTriangulationSystem.getTeamLockStatus', error, {});
       return [];
     }
-    return (data ?? []).map((row: any) => ({
+    return (data ?? []).map((row: STLockPublicRow) => ({
       roundId: row.round_id,
       playerId: row.player_id,
       hasLocked: row.has_locked
@@ -420,7 +474,7 @@ class SignalTriangulationSystem extends RoleMatchSystemBase<STMatch> {
     window.dispatchEvent(new CustomEvent('st:matches_changed', { detail: { matches: this.getMatches() } }));
   }
 
-  private rowToMatch(row: any): STMatch {
+  private rowToMatch(row: STMatchRow): STMatch {
     return {
       id: row.id,
       lobbyId: row.lobby_id,
@@ -437,7 +491,7 @@ class SignalTriangulationSystem extends RoleMatchSystemBase<STMatch> {
     };
   }
 
-  private rowToRoundPublic(row: any): STRoundPublic {
+  private rowToRoundPublic(row: STRoundRow): STRoundPublic {
     return {
       id: row.id,
       matchId: row.match_id,
@@ -447,7 +501,7 @@ class SignalTriangulationSystem extends RoleMatchSystemBase<STMatch> {
     };
   }
 
-  private rowToOwnLock(row: any): STOwnLock {
+  private rowToOwnLock(row: STLockRow): STOwnLock {
     return {
       roundId: row.round_id,
       playerId: row.player_id,
@@ -478,17 +532,17 @@ class SignalTriangulationSystem extends RoleMatchSystemBase<STMatch> {
 
     const matchChannel = this.supabaseClient
       .channel(`st_match_${matchId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'signal_triangulation_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'signal_triangulation_matches', filter: `id=eq.${matchId}` }, (payload: RealtimePostgresChangesPayload<STMatchRow>) => {
         this.handleMatchUpdate(payload);
       })
       .subscribe();
 
-    let ownLockChannel: any = null;
+    let ownLockChannel: RealtimeChannel | null = null;
     try {
       const playerId = this.requireAuthenticatedPlayerId();
       ownLockChannel = this.supabaseClient
         .channel(`st_own_lock_${matchId}_${playerId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'signal_triangulation_locks', filter: `player_id=eq.${playerId}` }, (payload: any) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'signal_triangulation_locks', filter: `player_id=eq.${playerId}` }, (payload: RealtimePostgresChangesPayload<STLockRow>) => {
           window.dispatchEvent(new CustomEvent('st:my_lock_changed', { detail: { row: payload.new ?? payload.old } }));
         })
         .subscribe();
@@ -501,10 +555,10 @@ class SignalTriangulationSystem extends RoleMatchSystemBase<STMatch> {
     this.channels = ownLockChannel ? [matchChannel, ownLockChannel] : [matchChannel];
   }
 
-  private handleMatchUpdate(payload: any): void {
-    const newRow = payload.new;
-    if (!newRow || !this.currentMatch || newRow.id !== this.currentMatch.id) return;
-    this.currentMatch = this.rowToMatch(newRow);
+  private handleMatchUpdate(payload: RealtimePostgresChangesPayload<STMatchRow>): void {
+    const newRow = payload.new as Partial<STMatchRow>;
+    if (!newRow.id || !this.currentMatch || newRow.id !== this.currentMatch.id) return;
+    this.currentMatch = this.rowToMatch(newRow as STMatchRow);
     this.lobbyMatches.set(this.currentMatch.id, this.currentMatch);
     window.dispatchEvent(new CustomEvent('st:match_changed', { detail: { match: this.currentMatch } }));
   }

@@ -39,6 +39,7 @@ import Auth from '../authManager.js';
 import { lobbySystem } from '../lobbySystem.js';
 import { getSupabaseClient } from '../core/supabaseClient.js';
 import ErrorLogger from '../core/errorLogger.js';
+import type { SupabaseClient, RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export interface RoleMatchSystemConfig<TMatch> {
   /** Nombre de la tabla de partidas (sin "public."), p.ej. 'ship_control_matches'. */
@@ -53,26 +54,34 @@ export interface RoleMatchSystemConfig<TMatch> {
   eventPrefix: string;
   /** Status de `status` que cuentan como partida terminada — esas filas se BORRAN de lobbyMatches en vez de actualizarse. */
   terminalStatuses: string[];
-  /** Mapea una fila cruda de Supabase al tipo de partida específico del juego. */
-  rowToMatch: (row: any) => TMatch;
+  /**
+   * Mapea una fila cruda de Supabase al tipo de partida específico del
+   * juego. `row` se tipa `unknown` (no `any`) a propósito: cada juego
+   * que extiende esta base tiene su propia tabla/esquema (Signal
+   * Triangulation, Ship Control, Fragmented Labyrinth), así que esta
+   * clase base no puede — ni debe — conocer su forma. Cada
+   * implementación de rowToMatch hace el cast/validación puntual a su
+   * propio tipo de fila.
+   */
+  rowToMatch: (row: unknown) => TMatch;
   /** Extrae el `id` de una TMatch ya mapeada (evita asumir que siempre se llama `.id`). */
   getMatchId: (match: TMatch) => string;
 }
 
 export abstract class RoleMatchSystemBase<TMatch> {
-  protected supabaseClient: any = null;
+  protected supabaseClient: SupabaseClient | null = null;
   protected isConnected = false;
   protected initPromise: Promise<void>;
 
   protected currentMatch: TMatch | null = null;
-  protected channels: any[] = [];
+  protected channels: RealtimeChannel[] = [];
 
   /**
    * Partidas 'waiting'/'playing' que este cliente conoce del lobby
    * actual — igual rol que lobbySystem.matches para lobby_matches.
    */
   protected lobbyMatches: Map<string, TMatch> = new Map();
-  protected lobbyChannel: any = null;
+  protected lobbyChannel: RealtimeChannel | null = null;
 
   protected readonly config: RoleMatchSystemConfig<TMatch>;
 
@@ -95,7 +104,7 @@ export abstract class RoleMatchSystemBase<TMatch> {
     await this.initPromise;
   }
 
-  protected requireClient(): any {
+  protected requireClient(): SupabaseClient {
     if (!this.supabaseClient || !this.isConnected) {
       throw new Error('No hay conexión con el servidor. Revisá tu internet e intentá de nuevo.');
     }
@@ -163,7 +172,7 @@ export abstract class RoleMatchSystemBase<TMatch> {
     }
 
     this.lobbyMatches.clear();
-    (data ?? []).forEach((row: any) => {
+    (data ?? []).forEach((row: unknown) => {
       const match = this.config.rowToMatch(row);
       this.lobbyMatches.set(this.config.getMatchId(match), match);
     });
@@ -196,7 +205,7 @@ export abstract class RoleMatchSystemBase<TMatch> {
 
     this.lobbyChannel = this.supabaseClient
       .channel(`${this.config.lobbyChannelPrefix}_${lobbyId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: this.config.table, filter: `lobby_id=eq.${lobbyId}` }, (payload: any) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: this.config.table, filter: `lobby_id=eq.${lobbyId}` }, (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
         this.handleLobbyMatchesUpdate(payload);
       })
       .subscribe();
@@ -204,21 +213,30 @@ export abstract class RoleMatchSystemBase<TMatch> {
 
   protected teardownLobbyRealtimeSubscriptions(): void {
     if (!this.supabaseClient || !this.lobbyChannel) return;
-    this.supabaseClient.removeChannel(this.lobbyChannel);
+    this.supabaseClient.removeChannel(this.lobbyChannel).catch((error: unknown) => {
+      ErrorLogger?.log(`${this.config.moduleName}.teardownLobbyRealtimeSubscriptions`, error, {});
+    });
     this.lobbyChannel = null;
   }
 
   protected teardownMatchRealtimeSubscriptions(): void {
     if (!this.supabaseClient) return;
-    this.channels.forEach((ch) => this.supabaseClient.removeChannel(ch));
+    const client = this.supabaseClient;
+    this.channels.forEach((ch) => {
+      client.removeChannel(ch).catch((error: unknown) => {
+        ErrorLogger?.log(`${this.config.moduleName}.teardownMatchRealtimeSubscriptions`, error, {});
+      });
+    });
     this.channels = [];
   }
 
-  private handleLobbyMatchesUpdate(payload: any): void {
-    const { eventType, new: newRow, old: oldRow } = payload;
+  private handleLobbyMatchesUpdate(payload: RealtimePostgresChangesPayload<Record<string, unknown>>): void {
+    const { eventType } = payload;
+    const newRow = payload.new as Record<string, unknown> | undefined;
+    const oldRow = payload.old as Record<string, unknown> | undefined;
 
-    if (eventType === 'DELETE' || this.config.terminalStatuses.includes(newRow?.status)) {
-      const id = newRow?.id ?? oldRow?.id;
+    if (eventType === 'DELETE' || this.config.terminalStatuses.includes(newRow?.status as string)) {
+      const id = (newRow?.id ?? oldRow?.id) as string | undefined;
       if (id) this.lobbyMatches.delete(id);
     } else if (newRow) {
       const match = this.config.rowToMatch(newRow);

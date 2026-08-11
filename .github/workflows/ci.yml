@@ -126,6 +126,25 @@ jobs:
         if: always()
         run: kill $(cat server.pid) 2>/dev/null || true
 
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
   type-check:
     name: Type Check
     runs-on: ubuntu-latest
@@ -142,10 +161,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # No existe "npm run lint" en package.json (no hay ESLint
-      # configurado en el repo) — el chequeo estático real de este
-      # proyecto es TypeScript en modo estricto. "type-check" corre
-      # tsc --noEmit dos veces (app + service worker, ver
-      # tsconfig.sw.json) tal como está definido en package.json.
+      # El chequeo estático de tipos: TypeScript en modo estricto,
+      # separado del linting de estilo/patrones que corre el job
+      # "lint" (ESLint) de arriba. "type-check" corre tsc --noEmit dos
+      # veces (app + service worker, ver tsconfig.sw.json) tal como
+      # está definido en package.json.
       - name: Run type check
         run: npm run type-check

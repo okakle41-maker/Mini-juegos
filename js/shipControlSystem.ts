@@ -37,6 +37,7 @@
 import { lobbySystem } from './lobbySystem.js';
 import ErrorLogger from './core/errorLogger.js';
 import { RoleMatchSystemBase, type RoleMatchSystemConfig } from './utils/roleMatchSystemBase.js';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export type SCMatchStatus = 'waiting' | 'playing' | 'completed' | 'abandoned' | 'failed';
 export type SCDifficulty = 'normal' | 'dificil';
@@ -107,6 +108,43 @@ export interface SCEvent {
   morsePattern: string | null;
 }
 
+/**
+ * Fila cruda de Supabase (snake_case), ver
+ * supabase/migration_017_ship_control.sql. Solo se listan las columnas
+ * que rowToMatch() realmente lee (no todo el esquema — event_probability_*,
+ * started_at, etc. son estado interno del servidor que este cliente
+ * nunca necesita).
+ */
+interface SCMatchRow {
+  id: string;
+  lobby_id: string;
+  status: SCMatchStatus;
+  difficulty: SCDifficulty;
+  navigation_player_id: string | null;
+  sensors_player_id: string | null;
+  energy_player_id: string | null;
+  comms_player_id: string | null;
+  lives: number;
+  max_lives: number;
+  destination_x: number | null;
+  destination_y: number | null;
+  events_survived: number;
+  events_failed: number;
+}
+
+/** Fila devuelta por el RPC get_my_ship_events (ya filtrada por rol server-side). */
+interface SCEventRpcRow {
+  id: string;
+  event_code: string;
+  status: 'active' | 'resolved' | 'failed';
+  message: string | null;
+  deadline_at: string;
+  triggered_at: string;
+  sensor_reading: { bearing: number; distance: number } | null;
+  trajectory_unlocked: boolean | null;
+  morse_pattern: string | null;
+}
+
 class ShipControlSystem extends RoleMatchSystemBase<SCMatch> {
   private tickTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -120,7 +158,7 @@ class ShipControlSystem extends RoleMatchSystemBase<SCMatch> {
       // 'completed'/'abandoned'/'failed' — mismo set que
       // handleLobbyMatchesUpdate usaba antes de esta migración.
       terminalStatuses: ['abandoned', 'completed', 'failed'],
-      rowToMatch: (row: any) => this.rowToMatch(row),
+      rowToMatch: (row: unknown) => this.rowToMatch(row as SCMatchRow),
       getMatchId: (match: SCMatch) => match.id
     };
     super(config);
@@ -325,7 +363,7 @@ class ShipControlSystem extends RoleMatchSystemBase<SCMatch> {
       ErrorLogger?.log('shipControlSystem.getMyEvents', error, {});
       return [];
     }
-    return ((data ?? []) as any[]).map((e) => ({
+    return ((data ?? []) as SCEventRpcRow[]).map((e) => ({
       id: e.id,
       eventCode: e.event_code,
       status: e.status,
@@ -432,7 +470,7 @@ class ShipControlSystem extends RoleMatchSystemBase<SCMatch> {
     window.dispatchEvent(new CustomEvent('sc:matches_changed', { detail: { matches: this.getMatches() } }));
   }
 
-  private rowToMatch(row: any): SCMatch {
+  private rowToMatch(row: SCMatchRow): SCMatch {
     return {
       id: row.id,
       lobbyId: row.lobby_id,
@@ -471,7 +509,7 @@ class ShipControlSystem extends RoleMatchSystemBase<SCMatch> {
 
     const matchChannel = this.supabaseClient
       .channel(`sc_match_${matchId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ship_control_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ship_control_matches', filter: `id=eq.${matchId}` }, (payload: RealtimePostgresChangesPayload<SCMatchRow>) => {
         this.handleMatchUpdate(payload);
       })
       .subscribe();
@@ -479,10 +517,10 @@ class ShipControlSystem extends RoleMatchSystemBase<SCMatch> {
     this.channels = [matchChannel];
   }
 
-  private handleMatchUpdate(payload: any): void {
-    const newRow = payload.new;
-    if (!newRow || !this.currentMatch || newRow.id !== this.currentMatch.id) return;
-    this.currentMatch = this.rowToMatch(newRow);
+  private handleMatchUpdate(payload: RealtimePostgresChangesPayload<SCMatchRow>): void {
+    const newRow = payload.new as Partial<SCMatchRow>;
+    if (!newRow.id || !this.currentMatch || newRow.id !== this.currentMatch.id) return;
+    this.currentMatch = this.rowToMatch(newRow as SCMatchRow);
     this.lobbyMatches.set(this.currentMatch.id, this.currentMatch);
     window.dispatchEvent(new CustomEvent('sc:match_changed', { detail: { match: this.currentMatch } }));
   }

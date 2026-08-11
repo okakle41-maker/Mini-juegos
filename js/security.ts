@@ -28,7 +28,12 @@ export function sanitizeInput(input: string, options?: {
   // Truncar si excede maxLength
   let sanitized = input.length > maxLength ? input.slice(0, maxLength) : input;
   
-  // Remover caracteres de control peligrosos
+  // Remover caracteres de control peligrosos. Intencional: esta es
+  // precisamente la sanitización que remueve caracteres de control
+  // (incluye \x7F/DEL, fuera del rango que cubre no-control-regex por
+  // defecto). No es un regex con un caracter de control colado por
+  // error; es el propósito de esta línea.
+  // eslint-disable-next-line no-control-regex
   sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
   
   // Si no se permite HTML, escapar

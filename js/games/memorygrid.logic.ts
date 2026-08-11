@@ -295,9 +295,22 @@ export function init(ui: GameUi) {
     function clearAllTimers() {
       timers.forEach(clearTimeout);
       timers.clear();
-      if (activeGame._playInterval) {
-        clearInterval(activeGame._playInterval);
-        activeGame._playInterval = null;
+      // Antes decía `activeGame._playInterval` (la variable de módulo
+      // que apunta a la partida activa) en vez de `game._playInterval`
+      // (la instancia que se está construyendo en este mismo
+      // createGame()). En el flujo normal ambas terminan siendo la
+      // misma referencia (activeGame se asigna a este game apenas
+      // createGame() retorna, antes de que el usuario pueda
+      // interactuar), así que no se veía como bug en la práctica —
+      // pero es la instancia equivocada por diseño: si createGame()
+      // llegara a invocarse sin que activeGame se reasigne de
+      // inmediato (activeGame sigue apuntando a null o a una partida
+      // previa), esto limpiaría el interval de otra instancia o de
+      // ninguna, dejando el de esta corriendo. `game` ya está en el
+      // mismo closure, es la referencia correcta.
+      if (game._playInterval) {
+        clearInterval(game._playInterval);
+        game._playInterval = null;
       }
     }
 
@@ -656,7 +669,10 @@ export function init(ui: GameUi) {
 
       undoMove() {
         if (!this.cfg.allowUndo || this.path.length <= 1) return;
-        const removed = this.path.pop();
+        // El guard de arriba garantiza path.length >= 2 en este punto,
+        // así que pop() siempre devuelve un elemento real — TS no
+        // puede correlacionar length con el resultado de pop().
+        const removed = this.path.pop()!;
         if (!this.cfg.allowRepeat) this.visited.delete(key(removed.x, removed.y));
         this.pos = { ...this.path[this.path.length - 1] };
         this.moves = Math.max(0, this.moves - 1);

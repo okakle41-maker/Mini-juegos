@@ -8,10 +8,14 @@ import audioManager from '../audioManager.js';
 let cleanup: (() => void) | null = null;
 
 export function init() {
-  const arena = document.getElementById('tpArena');
+  const arenaRef = document.getElementById('tpArena');
   const startBtn = document.getElementById('tpStart');
-  const result = document.getElementById('tpResult');
-  if (!arena || !startBtn || !result) return;
+  const resultRef = document.getElementById('tpResult');
+  if (!arenaRef || !startBtn || !resultRef) return;
+
+  // Ver mismo motivo en rhythmclick.logic.ts.
+  const arena: HTMLElement = arenaRef;
+  const result: HTMLElement = resultRef;
 
   const scoreEl = document.getElementById('tpScore');
   const comboEl = document.getElementById('tpCombo');

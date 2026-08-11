@@ -106,7 +106,9 @@ class ViewManager implements ViewManagerInterface {
 
     const initGame = () => {
       // Trigger para lazy initialization de juegos
-      GameRegistry.ensureInit(id);
+      void GameRegistry.ensureInit(id).catch((err: unknown) => {
+        console.error('[ViewManager] Error al inicializar el juego:', err);
+      });
       document.dispatchEvent(new CustomEvent('view-shown', { detail: { id } }));
     };
 
@@ -127,8 +129,10 @@ class ViewManager implements ViewManagerInterface {
       // pendiente). El guard de abajo descarta esa inicialización
       // fantasma si, para cuando la carga termina, esta vista ya dejó
       // de ser la actual.
-      this.loadLazyView(targetView).then(() => {
+      void this.loadLazyView(targetView).then(() => {
         if (this.currentViewId === id) initGame();
+      }).catch((err: unknown) => {
+        console.error('[ViewManager] Error al cargar vista lazy:', err);
       });
     } else {
       initGame();

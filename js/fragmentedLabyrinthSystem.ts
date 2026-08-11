@@ -27,6 +27,7 @@
 import { lobbySystem } from './lobbySystem.js';
 import ErrorLogger from './core/errorLogger.js';
 import { RoleMatchSystemBase, type RoleMatchSystemConfig } from './utils/roleMatchSystemBase.js';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 export type FLMatchStatus = 'waiting' | 'playing' | 'won' | 'over';
 export type FLRole = 'A' | 'B' | 'C' | 'D';
@@ -78,6 +79,24 @@ const ROLE_COLUMNS: Record<FLRole, 'role_a_id' | 'role_b_id' | 'role_c_id' | 'ro
   D: 'role_d_id'
 };
 
+/**
+ * Fila cruda de Supabase (snake_case), ver
+ * supabase/migration_018_fragmented_labyrinth.sql. Solo las columnas
+ * que rowToMatch() lee (deadline_at/started_at son estado interno del
+ * temporizador server-side, no expuestos en FLMatch).
+ */
+interface FLMatchRow {
+  id: string;
+  lobby_id: string;
+  status: FLMatchStatus;
+  role_a_id: string | null;
+  role_b_id: string | null;
+  role_c_id: string | null;
+  role_d_id: string | null;
+  duration_seconds: number;
+  moves: number;
+}
+
 class FragmentedLabyrinthSystem extends RoleMatchSystemBase<FLMatch> {
   private lastView: FLView | null = null;
 
@@ -92,13 +111,13 @@ class FragmentedLabyrinthSystem extends RoleMatchSystemBase<FLMatch> {
       // antes de esta migración (distinto de ST/SC: FL no usa
       // 'completed'/'abandoned' como nombres de estado terminal).
       terminalStatuses: ['over', 'won'],
-      rowToMatch: (row: any) => this.rowToMatch(row),
+      rowToMatch: (row: unknown) => this.rowToMatch(row as FLMatchRow),
       getMatchId: (match: FLMatch) => match.id
     };
     super(config);
   }
 
-  private rowToMatch(row: any): FLMatch {
+  private rowToMatch(row: FLMatchRow): FLMatch {
     return {
       id: row.id,
       lobbyId: row.lobby_id,
@@ -333,7 +352,7 @@ class FragmentedLabyrinthSystem extends RoleMatchSystemBase<FLMatch> {
 
     const matchChannel = this.supabaseClient
       .channel(`fl_match_${matchId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'fragmented_labyrinth_matches', filter: `id=eq.${matchId}` }, (payload: any) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'fragmented_labyrinth_matches', filter: `id=eq.${matchId}` }, (payload: RealtimePostgresChangesPayload<FLMatchRow>) => {
         this.handleMatchUpdate(payload);
       })
       .subscribe();
@@ -350,10 +369,10 @@ class FragmentedLabyrinthSystem extends RoleMatchSystemBase<FLMatch> {
    * es lo que le permite a B/C/D ver moverse al personaje en su propio
    * cuadrante sin que ninguno de los 4 pueda leer el laberinto completo.
    */
-  private handleMatchUpdate(payload: any): void {
-    const newRow = payload.new;
-    if (!newRow || !this.currentMatch || newRow.id !== this.currentMatch.id) return;
-    this.currentMatch = this.rowToMatch(newRow);
+  private handleMatchUpdate(payload: RealtimePostgresChangesPayload<FLMatchRow>): void {
+    const newRow = payload.new as Partial<FLMatchRow>;
+    if (!newRow.id || !this.currentMatch || newRow.id !== this.currentMatch.id) return;
+    this.currentMatch = this.rowToMatch(newRow as FLMatchRow);
     this.lobbyMatches.set(this.currentMatch.id, this.currentMatch);
     window.dispatchEvent(new CustomEvent('fl:match_changed', { detail: { match: this.currentMatch } }));
     void this.refreshMyView();

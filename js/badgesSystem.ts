@@ -378,7 +378,7 @@ export const badgeSystem = new BadgeSystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).badgeSystem = badgeSystem;
+  window.badgeSystem = badgeSystem;
 }
 
 export default badgeSystem;

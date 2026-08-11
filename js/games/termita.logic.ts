@@ -23,6 +23,9 @@ export function init(ui: GameUi) {
     const backToLobbyBtn = ui.backToLobby as HTMLButtonElement | undefined;
 
     if (!startTermita) return;
+    // Ver mismo motivo en rhythmclick.logic.ts: closures más abajo
+    // necesitan el tipo ya no-nulo.
+    const startTermitaBtn: HTMLButtonElement = startTermita;
 
     // Si init() se llama de nuevo sin que stop() haya corrido antes
     // (doble init por routing, por ejemplo), la instancia anterior
@@ -49,7 +52,7 @@ export function init(ui: GameUi) {
       (roundsEl as HTMLInputElement).value = String(s.rounds ?? 5);
     };
 
-    let state = {
+    const state = {
       size: 5,
       targets: 4,
       showTime: 800,
@@ -112,7 +115,7 @@ export function init(ui: GameUi) {
         el?.classList.add('selected');
       });
 
-      split.onRivalEvent('termita:result', ({ score, rounds }: { score: number; rounds: number }) => {
+      split.onRivalEvent('termita:result', ({ score }: { score: number; rounds: number }) => {
         const label = ui.termitaRivalLabel as HTMLElement | undefined;
         if (label) label.textContent = `Rival — ${score} pts`;
         // Limpia selecciones del round anterior en el tablero rival,
@@ -279,9 +282,9 @@ export function init(ui: GameUi) {
       // reactivado — este bloque solo aplica a modo solo-jugador o al
       // host en multiplayer.
       if (!split.isMultiplayer || split.isHost) {
-        startTermita.disabled = true;
+        startTermitaBtn.disabled = true;
         const totalDuration = (state.showTime + 2000) * state.rounds;
-        setTimeout(() => { startTermita.disabled = false; }, totalDuration);
+        setTimeout(() => { startTermitaBtn.disabled = false; }, totalDuration);
       }
     }
 

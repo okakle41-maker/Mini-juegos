@@ -97,28 +97,32 @@ body::after {
 /* ----------------------------------------------------------------------
    Esquinas: radio pequeño y limpio (así es la referencia — nada de
    chaflanes, el lenguaje HUD lo dan los brackets de esquina, no el borde).
-   ---------------------------------------------------------------------- */
-.game-card,
-.stat-card,
-.lobby-search,
-.header-logo,
-.card-favorite-btn {
-  border-radius: 3px !important;
+   Este archivo se carga siempre, después de styles.css, con la intención
+   de reemplazar permanentemente su border-radius por defecto (no es un
+   tema opcional tipo neon/ocean). Antes esto se lograba con `!important`
+   en cada regla — funcionaba, pero es una red de seguridad contra un
+   problema que en realidad no existe: ninguna regla de `.border-radius`
+   en styles.css usa `!important`, así que ganar por especificidad real
+   (prefijo `body`) alcanza y deja la cascada legible — un `!important`
+   nuevo en styles.css en el futuro no quedaría "atrapado" sin poder
+   ganarle a este archivo sin, a su vez, necesitar `!important` él mismo. */
+body .game-card,
+body .stat-card,
+body .lobby-search,
+body .header-logo,
+body .card-favorite-btn {
+  border-radius: 3px;
 }
 
-.card-tag,
-.card-record-badge,
-.status-badge,
-.theme-select {
-  border-radius: 3px !important;
+body .card-tag,
+body .card-record-badge,
+body .status-badge,
+body .theme-select {
+  border-radius: 3px;
 }
 
-.lobby-pill {
-  border-radius: 3px !important;
-}
-
-.card-favorite-btn {
-  border-radius: 3px !important;
+body .lobby-pill {
+  border-radius: 3px;
 }
 
 /* ----------------------------------------------------------------------
@@ -185,9 +189,7 @@ body::after {
 /* ----------------------------------------------------------------------
    Detalles menores: brand/header más tácticos
    ---------------------------------------------------------------------- */
-.header-logo {
-  border-radius: 3px !important;
-}
+/* .header-logo border-radius ya cubierto arriba (body .header-logo) */
 
 .filter-btn {
   letter-spacing: 0.18em;
@@ -219,19 +221,24 @@ body::after {
   letter-spacing: 0.10em;
   text-shadow: 0 0 12px rgba(249,115,22,0.5);
 }
+/* `border-radius` sin !important a propósito: lobby-header-redesign.css
+   (pase de diseño más reciente, se carga después con la intención
+   explícita de ganar por orden de cascada) vuelve a definir estos dos
+   selectores en 7px/10px — con el !important de acá esa intención no
+   podía cumplirse nunca (2px ganaba siempre pese a ser el diseño más
+   viejo). Sacándolo, gana el valor correcto según el orden real de
+   carga, sin necesitar tocar lobby-header-redesign.css. */
 .side-nav-link {
   font-family: var(--font-tactical);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  border-radius: 2px !important;
 }
 .side-nav-link--active {
   box-shadow: inset 0 0 16px rgba(249,115,22,0.10), 0 0 12px rgba(249,115,22,0.18);
   text-shadow: 0 0 10px rgba(249,115,22,0.65);
 }
 .side-nav-session {
-  border-radius: 2px !important;
   box-shadow: 0 0 16px rgba(249,115,22,0.06), inset 0 0 16px rgba(249,115,22,0.03);
 }
 
@@ -341,6 +348,13 @@ body::after {
    Icono en caja HUD (en vez del emoji "flotando" sobre el hero) — cada
    card tiene su propia caja con borde/fondo/glow en el color --accent.
    ---------------------------------------------------------------------- */
+/* `!important` en font-size ya no hace falta: gana por especificidad
+   real (`body .card-icon-lg`) contra el 40px de styles.css, sin
+   necesidad de la red de seguridad — nada carga después de este
+   archivo que vuelva a tocar font-size acá. */
+body .card-icon-lg {
+  font-size: 30px;
+}
 .card-icon-lg {
   width: 56px;
   height: 56px;
@@ -350,7 +364,6 @@ body::after {
   box-shadow:
     0 0 16px color-mix(in srgb, var(--accent, #ff8c3c) 30%, transparent),
     inset 0 0 10px color-mix(in srgb, var(--accent, #ff8c3c) 12%, transparent);
-  font-size: 30px !important;
 }
 .card-icon-lg svg { width: 30px; height: 30px; }
 /* IMPORTANTE (trace de Performance, Aug 2026): background/border-color/
@@ -394,26 +407,37 @@ body::after {
 /* ----------------------------------------------------------------------
    Filtros: de tabs subrayados a chips con fondo/borde/glow (como los
    FILTERS del dashboard de referencia)
+   Ningún archivo carga después de este y vuelve a tocar estos
+   selectores (verificado: solo styles.css los define, sin !important
+   ahí tampoco) — ganar con `body` alcanza, no hace falta !important.
    ---------------------------------------------------------------------- */
+body .lobby-filter-bar {
+  border-bottom: none;
+}
 .lobby-filter-bar {
-  border-bottom: none !important;
   gap: 6px;
   flex-wrap: wrap;
 }
+body .filter-btn {
+  border: 1px solid rgba(255,255,255,0.07);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-radius: 3px;
+  margin-bottom: 0;
+}
 .filter-btn {
-  border: 1px solid rgba(255,255,255,0.07) !important;
-  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
-  border-radius: 3px !important;
   background: rgba(9,13,24,0.8);
-  margin-bottom: 0 !important;
   padding: 8px 13px;
 }
+body .filter-btn:hover {
+  border-color: color-mix(in srgb, var(--accent-orange) 35%, transparent);
+}
 .filter-btn:hover {
-  border-color: color-mix(in srgb, var(--accent-orange) 35%, transparent) !important;
   background: rgba(255,140,60,0.06);
 }
+body .filter-btn--active {
+  border-color: color-mix(in srgb, var(--accent-orange) 55%, transparent);
+}
 .filter-btn--active {
-  border-color: color-mix(in srgb, var(--accent-orange) 55%, transparent) !important;
   background: rgba(255,140,60,0.14);
   box-shadow: 0 0 12px rgba(255,140,60,0.25), 0 0 24px rgba(255,140,60,0.10);
 }

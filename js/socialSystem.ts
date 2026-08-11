@@ -4,6 +4,7 @@
  */
 
 import Auth from './authManager.js';
+import type { SupabaseClient, RealtimePostgresChangesPayload, RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 
 interface Friend {
   id: string;
@@ -81,6 +82,66 @@ interface SocialStats {
   likesReceived: number;
 }
 
+/**
+ * Filas crudas de Supabase (snake_case), ver
+ * supabase/migration_006_social_tournaments.sql.
+ */
+interface FriendRequestRow {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: string;
+  updated_at: string;
+}
+
+interface FriendRow {
+  id: string;
+  player1_id: string;
+  player2_id: string;
+  friend_name: string;
+  friend_avatar: string | null;
+  friend_level: number | null;
+  status: 'online' | 'playing' | 'away' | 'offline';
+  current_game: string | null;
+  last_seen: string;
+  is_favorite: boolean | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ClanRow {
+  id: string;
+  name: string;
+  tag: string;
+  description: string | null;
+  leader_id: string;
+  member_count: number;
+  level: number;
+  xp: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ClanMemberRow {
+  id: string;
+  clan_id: string;
+  player_id: string;
+  role: 'leader' | 'officer' | 'member';
+  joined_at: string;
+}
+
+interface ChatMessageRow {
+  id: string;
+  chat_id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_avatar: string | null;
+  content: string;
+  type: 'text' | 'system' | 'achievement' | 'challenge';
+  created_at: string;
+}
+
 class SocialSystem {
   private friends: Map<string, Friend> = new Map();
   private friendRequests: Map<string, Friend> = new Map();
@@ -104,8 +165,15 @@ class SocialSystem {
     stats: 'social-stats'
   };
 
-  private supabaseClient: any = null;
+  private supabaseClient: SupabaseClient | null = null;
   private isConnected: boolean = false;
+  // Guardadas para poder limpiarlas si en el futuro se agrega un
+  // disconnect() (ver el mismo patrón ya resuelto en
+  // multiplayerSystem.ts). Hoy no hay ningún disconnect() en este
+  // sistema, así que estos canales quedan abiertos durante toda la
+  // sesión de la app — eso no cambia con este fix, solo deja de
+  // descartarse la referencia a las suscripciones sin necesidad.
+  private realtimeSubscriptions: Map<string, unknown> = new Map();
 
   constructor() {
     this.socialStats = {
@@ -118,7 +186,9 @@ class SocialSystem {
     };
     
     this.loadLocalData();
-    this.initializeSupabase();
+    void this.initializeSupabase().catch((err: unknown) => {
+      console.error('[SocialSystem] Error durante la inicialización:', err);
+    });
   }
 
   /**
@@ -209,12 +279,12 @@ class SocialSystem {
         // crudo como si fuera un nombre — y, más importante, en vez de
         // que ese mismo uuid termine persistido como `friend_name` al
         // aceptar la solicitud (ver acceptFriendRequest más abajo).
-        const senderIds = requestsRes.data.map((row: any) => row.sender_id);
+        const senderIds = requestsRes.data.map((row: FriendRequestRow) => row.sender_id);
         const { data: profilesData } = await this.supabaseClient
           .from('profiles')
           .select('id, username')
           .in('id', senderIds);
-        const usernameById = new Map<string, string>((profilesData ?? []).map((p: any) => [p.id, p.username]));
+        const usernameById = new Map<string, string>((profilesData ?? []).map((p: { id: string; username: string }) => [p.id, p.username]));
 
         for (const row of requestsRes.data) {
           this.friendRequests.set(row.sender_id, {
@@ -230,13 +300,16 @@ class SocialSystem {
       }
 
       if (clansRes.data) {
-        for (const row of clansRes.data) {
+        type ClanWithMembership = ClanRow & {
+          clan_members: Pick<ClanMemberRow, 'player_id' | 'role'> | Pick<ClanMemberRow, 'player_id' | 'role'>[];
+        };
+        for (const row of clansRes.data as ClanWithMembership[]) {
           const membership = Array.isArray(row.clan_members) ? row.clan_members[0] : row.clan_members;
           const clan: Clan = {
             id: row.id,
             name: row.name,
             tag: row.tag,
-            description: row.description,
+            description: row.description ?? '',
             leaderId: row.leader_id,
             memberCount: row.member_count,
             level: row.level || 1,
@@ -254,7 +327,7 @@ class SocialSystem {
       }
 
       if (chatRes.data) {
-        const messages: ChatMessage[] = chatRes.data.map((row: any) => ({
+        const messages: ChatMessage[] = chatRes.data.map((row: ChatMessageRow) => ({
           id: row.id,
           senderId: row.sender_id,
           senderName: row.sender_name,
@@ -279,26 +352,29 @@ class SocialSystem {
     // Subscribe to friend status updates
     const friendsSubscription = this.supabaseClient
       .channel('friends')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'friends' }, (payload: any) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friends' }, (payload: RealtimePostgresChangesPayload<FriendRow>) => {
         this.handleFriendUpdate(payload);
       })
       .subscribe();
+    this.realtimeSubscriptions.set('friends', friendsSubscription);
 
     // Subscribe to clan updates
     const clanSubscription = this.supabaseClient
       .channel('clans')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'clans' }, (payload: any) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clans' }, (payload: RealtimePostgresChangesPayload<ClanRow>) => {
         this.handleClanUpdate(payload);
       })
       .subscribe();
+    this.realtimeSubscriptions.set('clans', clanSubscription);
 
     // Subscribe to chat messages
     const chatSubscription = this.supabaseClient
       .channel('chat')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload: any) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload: RealtimePostgresInsertPayload<ChatMessageRow>) => {
         this.handleChatMessage(payload);
       })
       .subscribe();
+    this.realtimeSubscriptions.set('chat', chatSubscription);
   }
 
   /**
@@ -320,10 +396,11 @@ class SocialSystem {
     return null; // fila de otro par de jugadores, no debería llegar acá (RLS)
   }
 
-  private handleFriendUpdate(payload: any): void {
-    const { eventType, new: newRecord, old: oldRecord } = payload;
+  private handleFriendUpdate(payload: RealtimePostgresChangesPayload<FriendRow>): void {
+    const { eventType } = payload;
 
     if (eventType === 'INSERT' || eventType === 'UPDATE') {
+      const newRecord = payload.new;
       const friendId = this.friendIdFromRow(newRecord);
       if (!friendId) return;
 
@@ -333,7 +410,7 @@ class SocialSystem {
         avatar: newRecord.friend_avatar || '👤',
         level: newRecord.friend_level || 1,
         status: newRecord.status || 'offline',
-        currentGame: newRecord.current_game,
+        currentGame: newRecord.current_game ?? undefined,
         lastSeen: new Date(newRecord.last_seen).getTime(),
         isFavorite: newRecord.is_favorite || false
       };
@@ -345,7 +422,10 @@ class SocialSystem {
         detail: { friend }
       }));
     } else if (eventType === 'DELETE') {
-      const friendId = this.friendIdFromRow(oldRecord);
+      const oldRecord = payload.old as Partial<FriendRow>;
+      const friendId = oldRecord.player1_id && oldRecord.player2_id
+        ? this.friendIdFromRow(oldRecord as FriendRow)
+        : null;
       if (!friendId) return;
       this.friends.delete(friendId);
       this.saveLocalData();
@@ -356,10 +436,11 @@ class SocialSystem {
     }
   }
 
-  private handleClanUpdate(payload: any): void {
-    const { eventType, new: newRecord } = payload;
+  private handleClanUpdate(payload: RealtimePostgresChangesPayload<ClanRow>): void {
+    const { eventType } = payload;
 
     if (eventType === 'INSERT' || eventType === 'UPDATE') {
+      const newRecord = payload.new;
       // is_member/role no son columnas de clans (esa tabla no sabe
       // nada de "quién pregunta") — son estado derivado de si el
       // jugador actual tiene o no una fila en clan_members para este
@@ -373,7 +454,7 @@ class SocialSystem {
         id: newRecord.id,
         name: newRecord.name,
         tag: newRecord.tag,
-        description: newRecord.description,
+        description: newRecord.description ?? '',
         leaderId: newRecord.leader_id,
         memberCount: newRecord.member_count,
         level: newRecord.level || 1,
@@ -395,18 +476,19 @@ class SocialSystem {
     }
   }
 
-  private handleChatMessage(payload: any): void {
+  private handleChatMessage(payload: RealtimePostgresInsertPayload<ChatMessageRow>): void {
+    const newRecord = payload.new;
     const message: ChatMessage = {
-      id: payload.new.id,
-      senderId: payload.new.sender_id,
-      senderName: payload.new.sender_name,
-      senderAvatar: payload.new.sender_avatar || '👤',
-      content: payload.new.content,
-      timestamp: new Date(payload.new.created_at).getTime(),
-      type: payload.new.type || 'text'
+      id: newRecord.id,
+      senderId: newRecord.sender_id,
+      senderName: newRecord.sender_name,
+      senderAvatar: newRecord.sender_avatar || '👤',
+      content: newRecord.content,
+      timestamp: new Date(newRecord.created_at).getTime(),
+      type: newRecord.type || 'text'
     };
 
-    const chatId = payload.new.chat_id || 'global';
+    const chatId = newRecord.chat_id || 'global';
     const messages = this.chatMessages.get(chatId) || [];
     messages.push(message);
     this.chatMessages.set(chatId, messages);
@@ -986,7 +1068,7 @@ export const socialSystem = new SocialSystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).socialSystem = socialSystem;
+  window.socialSystem = socialSystem;
 }
 
 export default socialSystem;

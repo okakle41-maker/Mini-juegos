@@ -912,7 +912,7 @@ export const customizationSystem = new CustomizationSystem();
 
 // Exponer en window para debugging
 if (typeof window !== 'undefined') {
-  (window as any).customizationSystem = customizationSystem;
+  window.customizationSystem = customizationSystem;
 }
 
 export default customizationSystem;

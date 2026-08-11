@@ -56,7 +56,7 @@ export class GameBootstrap {
     GameRegistry.allStopFns().forEach(({ stop }) => {
       try {
         stop();
-      } catch (e) {
+      } catch {
         // Ignorar errores en stop
       }
     });

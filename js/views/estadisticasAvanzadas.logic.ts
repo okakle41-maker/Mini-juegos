@@ -7,18 +7,9 @@ import { advancedStatsSystem } from '../advancedStats.js';
 import { template } from './estadisticasAvanzadas.js';
 import { hydrateBackButtons } from '../utils/backButton.js';
 
-let cachedElements: Record<string, HTMLElement | null> = {};
-
-function getElement(id: string): HTMLElement | null {
-  if (!cachedElements[id]) {
-    cachedElements[id] = document.getElementById(id);
-  }
-  return cachedElements[id];
-}
-
-function clearCache(): void {
-  cachedElements = {};
-}
+// (Sistema de caché de elementos DOM eliminado: getElement() nunca
+// se llamaba en este archivo, así que cachedElements tampoco tenía
+// nada real que limpiar.)
 
 export function init(): void {
   const container = document.getElementById('estadisticas-avanzadas');
@@ -283,7 +274,7 @@ function setupEventListeners(): void {
             alert('Estadísticas importadas exitosamente');
             renderMetrics();
             renderCognitiveProfile();
-          } catch (err) {
+          } catch {
             alert('Error al importar estadísticas');
           }
         };
@@ -308,9 +299,6 @@ function setupEventListeners(): void {
 }
 
 export function stop(): void {
-  // Limpiar caché de elementos
-  clearCache();
-  
   // Limpiar contenido del contenedor
   const container = document.getElementById('estadisticas-avanzadas');
   if (container) {

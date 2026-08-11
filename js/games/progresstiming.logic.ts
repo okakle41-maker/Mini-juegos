@@ -69,7 +69,7 @@ export function init() {
     let previewPos = 0, previewDir = 1, previewZone = 35, previewZoneDir = 1, previewRaf: number | null = null;
     let running = false;
     let pos = 0, dir = 1, zonePos = 35, zoneDir = 1;
-    let round = 1, score = 0;
+    let round = 1;
     const maxRounds = 5;
     let lastFrame = 0, raf: number | null = null, iv: ReturnType<typeof setInterval> | null = null;
     let canClick = false, roundStarting = false;
@@ -160,7 +160,7 @@ export function init() {
     function startGame() {
       if (running) return;
       running = true;
-      score = 0; round = 1; pos = 0; dir = 1; zoneDir = 1; startDir = 1;
+      round = 1; pos = 0; dir = 1; zoneDir = 1; startDir = 1;
       g.result.textContent = ''; g.state.textContent = '-'; g.round.textContent = '1';
       config.classList.add('fadeOut');
       startFadeTimeout = setTimeout(() => {
@@ -283,7 +283,7 @@ export function init() {
     }
 
     function perfectRound() {
-      score += 2; flashResult('PERFECT', 'success');
+      flashResult('PERFECT', 'success');
       audioManager?.play('perfect');
       g.marker.classList.add('perfect'); g.target.classList.add('pulse'); game.classList.add('success');
       createParticles(16);
@@ -294,7 +294,7 @@ export function init() {
     }
 
     function goodRound() {
-      score++; flashResult('GOOD', 'normal'); game.classList.add('success'); createParticles(8);
+      flashResult('GOOD', 'normal'); game.classList.add('success'); createParticles(8);
       audioManager?.play('good');
       setTimeout(() => { game.classList.remove('success'); nextRound(); }, 450);
     }
@@ -377,7 +377,7 @@ export function init() {
       config.style.display = '';
       config.classList.remove('fadeOut');
       g.result.textContent = ''; g.result.className = 'pt-result';
-      round = 1; score = 0; pos = 0; dir = 1;
+      round = 1; pos = 0; dir = 1;
       startPreview();
       if (ptKeyDownHandler) {
         document.removeEventListener('keydown', ptKeyDownHandler);
