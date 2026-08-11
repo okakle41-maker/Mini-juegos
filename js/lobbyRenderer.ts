@@ -233,6 +233,7 @@ class LobbyRenderer {
       const gameId = card.dataset.gameId;
       if (!gameId) return;
 
+      const openBtn = card.querySelector<HTMLButtonElement>('.card-open-btn');
       const gameConfig = GameRegistry.get(gameId);
       const openCard = () => {
         if (this.onCardClick && gameConfig) {
@@ -241,28 +242,12 @@ class LobbyRenderer {
           ViewManager.showView(gameId);
         }
       };
-      card.addEventListener('click', openCard);
-      card.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-
-        // Si el foco está en el botón de favoritos (un <button> real,
-        // anidado dentro de la card y focuseable de forma independiente
-        // por teclado), Enter/Espacio ahí lo activa de forma nativa: el
-        // navegador dispara su propio evento 'click' sobre el botón, que
-        // sí hace stopPropagation() (ver el listener de favBtn más
-        // abajo). Pero el propio 'keydown' burbujea hasta la card ANTES
-        // de que el navegador sintetice ese click, y sin este chequeo el
-        // handler de la card lo interpretaba igual como "activar la
-        // card completa" — abriendo el juego (openCard()) además de
-        // marcar/desmarcar el favorito, cuando el usuario solo quería
-        // lo segundo. e.target es el elemento real donde ocurrió la
-        // tecla (no se ve afectado por bubbling), así que basta con
-        // excluir el botón de favoritos del comportamiento de la card.
-        if (e.target instanceof HTMLElement && e.target.closest('.card-favorite-btn')) return;
-
-        e.preventDefault();
-        openCard();
-      });
+      // card-open-btn ahora es un <button> real: el navegador ya
+      // dispara 'click' de forma nativa tanto con mouse como con
+      // Enter/Espacio por teclado, así que no hace falta el manejo
+      // manual de keydown que existía cuando la card completa
+      // simulaba ser un botón vía role="button".
+      openBtn?.addEventListener('click', openCard);
 
       // Precarga el chunk de la lógica pesada del juego (si es lazy) en
       // cuanto el usuario muestra intención de abrirlo — hover con mouse
@@ -270,7 +255,7 @@ class LobbyRenderer {
       // descarga de red. Ver GameRegistry.prefetch: no-op silencioso
       // para juegos sin `logic` o ya inicializados/precargados.
       card.addEventListener('mouseenter', () => GameRegistry.prefetch(gameId));
-      card.addEventListener('focus', () => GameRegistry.prefetch(gameId));
+      openBtn?.addEventListener('focus', () => GameRegistry.prefetch(gameId));
 
       // Hover instantáneo vs. animado: throttle por tiempo, no por
       // contador. En vez de llevar la cuenta de "cuántas cards están
@@ -303,8 +288,8 @@ class LobbyRenderer {
 
       card.addEventListener('mouseenter', addHoverClass);
       card.addEventListener('mouseleave', removeHoverClass);
-      card.addEventListener('focus', addHoverClass);
-      card.addEventListener('blur', removeHoverClass);
+      openBtn?.addEventListener('focus', addHoverClass);
+      openBtn?.addEventListener('blur', removeHoverClass);
 
       const favBtn = card.querySelector<HTMLButtonElement>('.card-favorite-btn');
       favBtn?.addEventListener('click', (e: MouseEvent) => {
@@ -337,9 +322,7 @@ class LobbyRenderer {
         data-tag="${display.tag}"
         data-category="${categorySlug(display.tag)}"
         style="--accent:${game.accent}"
-        tabindex="0"
-        role="button"
-        aria-label="Abrir módulo ${display.name}"
+        role="listitem"
       >
         <span class="card-accent-strip"></span>
         <button
@@ -348,38 +331,44 @@ class LobbyRenderer {
           aria-pressed="${isFavorite}"
           aria-label="${isFavorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}"
         >${isFavorite ? '★' : '☆'}</button>
-        <div class="card-hero">
-          <div class="card-hero-bg"></div>
-          <span class="card-num">${game.num}</span>
-          <div class="card-top-row">
-            <span class="card-icon-lg">${iconName}</span>
-            <div class="card-top-right">
-              ${plays > 0 ? `
-                <span class="card-streak" title="${plays} partida${plays === 1 ? '' : 's'} jugada${plays === 1 ? '' : 's'}">
-                  ${UiIcons.flame}${plays}
-                </span>
-              ` : ''}
-              ${this.buildRingHTML(ringPct)}
+        <button
+          class="card-open-btn"
+          type="button"
+          aria-label="Abrir módulo ${display.name}"
+        >
+          <div class="card-hero">
+            <div class="card-hero-bg"></div>
+            <span class="card-num">${game.num}</span>
+            <div class="card-top-row">
+              <span class="card-icon-lg">${iconName}</span>
+              <div class="card-top-right">
+                ${plays > 0 ? `
+                  <span class="card-streak" title="${plays} partida${plays === 1 ? '' : 's'} jugada${plays === 1 ? '' : 's'}">
+                    ${UiIcons.flame}${plays}
+                  </span>
+                ` : ''}
+                ${this.buildRingHTML(ringPct)}
+              </div>
             </div>
           </div>
-        </div>
-        <div class="card-body">
-          <div class="card-meta">
-            <span class="card-tag">${display.tag}</span>
-            <span class="card-recent-badge">RECIENTE</span>
+          <div class="card-body">
+            <div class="card-meta">
+              <span class="card-tag">${display.tag}</span>
+              <span class="card-recent-badge">RECIENTE</span>
+            </div>
+            <h3 class="card-name">${display.name}</h3>
+            <p class="card-desc">${display.description}</p>
+            <span class="card-record-badge" hidden></span>
+            <div class="card-bottom">
+              <div class="diff-dots">${dots}</div>
+              <span class="card-cta">JUGAR →</span>
+            </div>
+            <div class="card-footer-row">
+              <span class="card-footer-time">${UiIcons.clock}${lastPlayed}</span>
+              <span class="card-footer-score">—</span>
+            </div>
           </div>
-          <h3 class="card-name">${display.name}</h3>
-          <p class="card-desc">${display.description}</p>
-          <span class="card-record-badge" hidden></span>
-          <div class="card-bottom">
-            <div class="diff-dots">${dots}</div>
-            <span class="card-cta">JUGAR →</span>
-          </div>
-          <div class="card-footer-row">
-            <span class="card-footer-time">${UiIcons.clock}${lastPlayed}</span>
-            <span class="card-footer-score">—</span>
-          </div>
-        </div>
+        </button>
         <span class="card-bottom-glow"></span>
       </article>
     `;

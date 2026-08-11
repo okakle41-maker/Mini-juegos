@@ -61,7 +61,7 @@ const template = (): string => {
           </div>
         </div>
 
-        <div class="game-grid" id="onlineGameList" role="grid" aria-label="Cuadrícula de minijuegos online disponibles">
+        <div class="game-grid" id="onlineGameList" role="list" aria-label="Cuadrícula de minijuegos online disponibles">
           <!-- Las cartas se generan dinámicamente vía LobbyRenderer.render(),
                filtradas a GameRegistry.visibleOnline() -->
         </div>

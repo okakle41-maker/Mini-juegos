@@ -78,7 +78,7 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 select:focus-visible,
-.game-card:focus-visible,
+.game-card:focus-visible, .game-card:has(.card-open-btn:focus-visible),
 .side-nav-link:focus-visible {
   outline: 2px solid var(--accent-orange);
   outline-offset: 3px;
@@ -2142,7 +2142,7 @@ button {
   transition: opacity 0.28s ease;
 }
 .game-card:hover,
-.game-card:focus-visible {
+.game-card:focus-visible , .game-card:has(.card-open-btn:focus-visible) {
   /* Solo transform. Nada de background/box-shadow/border-color acá
      — el efecto de "elevación con glow" ahora lo da `::after`
      (arriba) apareciendo por opacity; `will-change: transform` ya
@@ -2150,7 +2150,7 @@ button {
   transform: translate3d(0, -6px, 0) scale3d(1.012, 1.012, 1);
 }
 .game-card:hover::after,
-.game-card:focus-visible::after,
+.game-card:focus-visible::after, .game-card:has(.card-open-btn:focus-visible)::after,
 .game-card--active::after {
   opacity: 1;
 }
@@ -2167,33 +2167,33 @@ button {
 }
 
 .game-card:hover::before,
-.game-card:focus-visible::before {
+.game-card:focus-visible::before , .game-card:has(.card-open-btn:focus-visible)::before {
     left:170%;
 }
 .game-card:hover .card-accent-strip,
-.game-card:focus-visible .card-accent-strip { opacity: 1; }
+.game-card:focus-visible .card-accent-strip , .game-card:has(.card-open-btn:focus-visible) .card-accent-strip { opacity: 1; }
 .game-card:hover .card-bottom-glow,
-.game-card:focus-visible .card-bottom-glow { opacity: 1; }
+.game-card:focus-visible .card-bottom-glow , .game-card:has(.card-open-btn:focus-visible) .card-bottom-glow { opacity: 1; }
 .game-card:hover .card-desc,
 .game-card:hover .card-bottom,
 .game-card:hover .diff-dots,
 .game-card:hover .card-cta,
 .game-card:hover .card-footer-row,
-.game-card:focus-visible .card-desc,
-.game-card:focus-visible .card-bottom,
-.game-card:focus-visible .diff-dots,
-.game-card:focus-visible .card-cta,
-.game-card:focus-visible .card-footer-row {
+.game-card:focus-visible .card-desc, .game-card:has(.card-open-btn:focus-visible) .card-desc,
+.game-card:focus-visible .card-bottom, .game-card:has(.card-open-btn:focus-visible) .card-bottom,
+.game-card:focus-visible .diff-dots, .game-card:has(.card-open-btn:focus-visible) .diff-dots,
+.game-card:focus-visible .card-cta, .game-card:has(.card-open-btn:focus-visible) .card-cta,
+.game-card:focus-visible .card-footer-row , .game-card:has(.card-open-btn:focus-visible) .card-footer-row {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
 }
 .game-card:hover .card-cta,
-.game-card:focus-visible .card-cta {
+.game-card:focus-visible .card-cta , .game-card:has(.card-open-btn:focus-visible) .card-cta {
   opacity: 1;
 }
 .game-card:hover .diff-dots,
-.game-card:focus-visible .diff-dots {
+.game-card:focus-visible .diff-dots , .game-card:has(.card-open-btn:focus-visible) .diff-dots {
   opacity: 1;
 }
 /* `.card-icon-lg`: antes animaba `filter: drop-shadow(...)` en hover
@@ -2203,7 +2203,7 @@ button {
    pintado una sola vez y revelado por opacity — el ícono en sí solo
    transforma. */
 .game-card:hover .card-icon-lg,
-.game-card:focus-visible .card-icon-lg {
+.game-card:focus-visible .card-icon-lg , .game-card:has(.card-open-btn:focus-visible) .card-icon-lg {
   transform: scale(1.06) translateY(-2px);
 }
 .card-icon-lg {
@@ -2220,7 +2220,7 @@ button {
   transition: opacity 0.28s ease;
 }
 .game-card:hover .card-icon-lg::after,
-.game-card:focus-visible .card-icon-lg::after {
+.game-card:focus-visible .card-icon-lg::after , .game-card:has(.card-open-btn:focus-visible) .card-icon-lg::after {
   opacity: 1;
 }
 /* `.diff-dot--filled`: antes ganaba `box-shadow: 0 0 8px var(--accent)`
@@ -2233,18 +2233,18 @@ button {
   position: relative;
 }
 .game-card:hover .card-hero-bg,
-.game-card:focus-visible .card-hero-bg {
+.game-card:focus-visible .card-hero-bg , .game-card:has(.card-open-btn:focus-visible) .card-hero-bg {
   opacity: 1;
 }
 .game-card:hover .card-name,
-.game-card:focus-visible .card-name {
+.game-card:focus-visible .card-name , .game-card:has(.card-open-btn:focus-visible) .card-name {
   color: #f8fafc;
   transform: translateY(-1px);
 }
 .game-card--active {
   transform: translateY(-5px) scale(1.01);
 }
-.game-card:focus-visible {
+.game-card:focus-visible , .game-card:has(.card-open-btn:focus-visible) {
   outline: 2px solid color-mix(in srgb, var(--accent) 60%, rgba(255,255,255,0.7));
   outline-offset: 2px;
 }
@@ -2312,6 +2312,27 @@ button {
   transition: opacity 0.3s;
 }
 
+/* Botón interno que envuelve el contenido "abrible" de la card
+   (todo excepto el botón de favoritos). Se agregó para resolver la
+   violación de accesibilidad `nested-interactive` (un <article
+   role="button"> no puede contener un <button> real) sin tocar el
+   layout/CSS ya afinado de `.game-card`: en vez de mover las
+   propiedades de layout de `.game-card` a este botón, simplemente lo
+   reseteamos con `all: unset` y le damos el mismo comportamiento de
+   flex-column que el contenido tenía implícitamente como hijo directo
+   del article, para que ocupe todo el espacio disponible dentro de la
+   card y se vea exactamente igual que antes. */
+.card-open-btn {
+  all: unset;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
 /* Card hero zone */
 .card-hero {
   position: relative;
@@ -2359,7 +2380,7 @@ button {
   justify-content: center;
 }
 .game-card:hover .card-icon-lg,
-.game-card:focus-visible .card-icon-lg,
+.game-card:focus-visible .card-icon-lg, .game-card:has(.card-open-btn:focus-visible) .card-icon-lg,
 .game-card--active .card-icon-lg {
   opacity: 1;
 }
@@ -2501,7 +2522,7 @@ button {
   z-index: 10;
 }
 .game-card:hover .card-favorite-btn,
-.game-card:focus-visible .card-favorite-btn,
+.game-card:focus-visible .card-favorite-btn, .game-card:has(.card-open-btn:focus-visible) .card-favorite-btn,
 .game-card--active .card-favorite-btn {
   opacity: 1;
   transform: scale(1);
@@ -2554,7 +2575,7 @@ button {
 .diff-dot--filled { background: var(--accent); }
 .diff-dot--empty  { background: rgba(255,255,255,0.08); }
 .game-card:hover .diff-dot--empty,
-.game-card:focus-visible .diff-dot--empty {
+.game-card:focus-visible .diff-dot--empty , .game-card:has(.card-open-btn:focus-visible) .diff-dot--empty {
   background: rgba(255,255,255,0.12);
 }
 
@@ -2585,7 +2606,7 @@ button {
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .game-card:hover .card-cta,
-.game-card:focus-visible .card-cta {
+.game-card:focus-visible .card-cta , .game-card:has(.card-open-btn:focus-visible) .card-cta {
   background: color-mix(in srgb, var(--accent) 82%, #fff 10%);
   border-color: color-mix(in srgb, var(--accent) 90%, transparent);
   color: #0b1220;
@@ -5641,7 +5662,7 @@ body.cursor-disabled * {
 
 @media (hover: none) {
   .game-card:hover,
-  .game-card:focus-visible,
+  .game-card:focus-visible, .game-card:has(.card-open-btn:focus-visible),
   .game-card--active {
     transform: none;
     box-shadow: 0 0 0 1px rgba(94, 242, 255, 0.02), 0 10px 18px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255,255,255,0.02);
@@ -5666,7 +5687,7 @@ body.cursor-disabled * {
   }
 
   .game-card:hover,
-  .game-card:focus-visible {
+  .game-card:focus-visible , .game-card:has(.card-open-btn:focus-visible) {
     transform: none;
   }
 }
