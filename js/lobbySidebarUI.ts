@@ -8,6 +8,7 @@
  */
 
 import Favorites from './favoritesManager.js';
+import { escapeHtml } from './security.js';
 
 const COLLAPSE_STORAGE_KEY = 'minijuegos_sidenav_collapsed';
 
@@ -139,7 +140,7 @@ function updateNoResultsMessage(grid: HTMLElement, query: string, visibleCount: 
       noResultsMsg.className = 'no-results-message';
       noResultsMsg.innerHTML = `
         <div class="no-results-icon">🔍</div>
-        <div class="no-results-text">No se encontraron resultados para "${query}"</div>
+        <div class="no-results-text">No se encontraron resultados para "${escapeHtml(query)}"</div>
         <div class="no-results-hint">Intenta con otro término de búsqueda</div>
       `;
       grid.appendChild(noResultsMsg);

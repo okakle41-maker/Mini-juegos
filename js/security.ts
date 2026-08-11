@@ -16,6 +16,28 @@ export function escapeHtml(unsafe: string): string {
 }
 
 /**
+ * Entero aleatorio en [0, max) usando crypto.getRandomValues en vez de
+ * Math.random(). No hay implicaciones de seguridad reales en los
+ * lugares donde se usa hoy (generación de contenido de minijuegos, no
+ * tokens/secretos), pero se prefiere sobre Math.random() para no
+ * depender de un PRNG no-criptográfico y evitar la alerta de "insecure
+ * randomness" de CodeQL. Usa rechazo de muestreo para no introducir
+ * sesgo modular cuando `max` no divide exactamente el rango de
+ * Uint32.
+ */
+export function randomInt(max: number): number {
+  if (max <= 0) return 0;
+  const range = Math.floor(0x100000000 / max) * max;
+  const buf = new Uint32Array(1);
+  let value: number;
+  do {
+    crypto.getRandomValues(buf);
+    value = buf[0];
+  } while (value >= range);
+  return value % max;
+}
+
+/**
  * Sanitiza input de usuario para prevenir inyección de código
  */
 export function sanitizeInput(input: string, options?: {

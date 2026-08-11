@@ -1,4 +1,5 @@
 import audioManager from '../audioManager.js';
+import { randomInt } from '../security.js';
 /**
  * js/games/typix.logic.ts
  *
@@ -36,7 +37,7 @@ export function init() {
 
   function generateRepeated(): string {
     let r = '';
-    for (let i = 0; i < 5; i++) r += Math.floor(Math.random() * 10);
+    for (let i = 0; i < 5; i++) r += randomInt(10);
     return r;
   }
 
@@ -44,7 +45,7 @@ export function init() {
     const digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
     let r = '';
     while (r.length < 5) {
-      const idx = Math.floor(Math.random() * digits.length);
+      const idx = randomInt(digits.length);
       r += digits[idx];
       digits.splice(idx, 1);
     }

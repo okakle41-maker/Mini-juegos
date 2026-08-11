@@ -8,6 +8,7 @@
 
 import type { GameUi } from '../types/game.js';
 import GameHelpers from '../utils/gameHelpers.js';
+import { escapeHtml } from '../security.js';
 import ViewManager from '../core/viewManager.js';
 import { devLog } from '../core/devLog.js';
 
@@ -835,15 +836,17 @@ function updateVirusVisual(virus: Virus): void {
   if (virus.minigame === 'type') {
     const typed = virus.data.input;
     const remaining = virus.data.code.slice(typed.length);
-    label.innerHTML = `<span style="color:#22c55e">${typed}</span>${remaining}`;
+    label.innerHTML = `<span style="color:#22c55e">${escapeHtml(typed)}</span>${escapeHtml(remaining)}`;
   } else if (['target', 'spam', 'node'].includes(virus.minigame)) {
     const hits = virus.data.hits || 0;
     const required = virus.data.required;
-    label.innerHTML = `${(label.textContent || '').split(' ')[0]} ${hits}/${required}`;
+    const prefix = (label.textContent || '').split(' ')[0];
+    label.innerHTML = `${escapeHtml(prefix)} ${hits}/${required}`;
   } else if (virus.minigame === 'scan') {
     const hits = virus.data.hits || 0;
     const required = virus.data.required;
-    label.innerHTML = `${(label.textContent || '').split(' ')[0]} ${hits}/${required}`;
+    const prefix = (label.textContent || '').split(' ')[0];
+    label.innerHTML = `${escapeHtml(prefix)} ${hits}/${required}`;
   } else if (virus.minigame === 'hold') {
     const elapsed = virus.data.held || 0;
     const required = virus.data.required;
@@ -860,7 +863,7 @@ function updateVirusVisual(virus: Virus): void {
     label.innerHTML = `🔢 ${display}`;
   } else if (virus.minigame === 'math') {
     const input = virus.data.input || '';
-    label.innerHTML = `🔢 ${virus.data.question}=<span style="color:#22c55e">${input}</span>`;
+    label.innerHTML = `🔢 ${escapeHtml(String(virus.data.question))}=<span style="color:#22c55e">${escapeHtml(input)}</span>`;
   } else if (virus.minigame === 'balance') {
     const pos = virus.data.position;
     const time = virus.data.balanceTime || 0;
