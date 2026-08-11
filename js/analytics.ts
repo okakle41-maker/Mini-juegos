@@ -217,7 +217,7 @@ class AnalyticsManager {
     });
   }
 
-  trackError(error: Error, context?: Record<string, any>): void {
+  trackError(error: Error, context?: Record<string, unknown>): void {
     if (!this.consent.errors) return;
 
     this.trackEvent({

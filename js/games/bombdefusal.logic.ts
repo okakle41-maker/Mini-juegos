@@ -2466,7 +2466,8 @@ export function init(rawUi: GameUi) {
       if (mod.solved) return;
       const sol = mod.getSolution(state).positions;
       const current = mod.data.positions;
-      const match = sol.every((pos, i) => (KNOB_POSITIONS as any)[pos] === (KNOB_POSITIONS as any)[current[i]]);
+      const knobPositionsByKey = KNOB_POSITIONS as unknown as Record<string, string>;
+      const match = sol.every((pos, i) => knobPositionsByKey[pos] === knobPositionsByKey[current[i]]);
       if (match) onModuleSolved(mod, modEl);
       else onModuleStrike(modEl);
       renderModules();

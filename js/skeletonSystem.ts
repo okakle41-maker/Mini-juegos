@@ -13,6 +13,10 @@ interface SkeletonConfig {
   dark?: boolean;
 }
 
+interface HTMLElementWithOriginalContent extends HTMLElement {
+  _originalContent?: string;
+}
+
 class SkeletonSystem {
   private activeSkeletons: Map<string, HTMLElement> = new Map();
 
@@ -117,7 +121,7 @@ class SkeletonSystem {
     skeletonWrapper.innerHTML = skeletonHTML;
 
     // Guardar contenido original
-    (skeletonWrapper as any)._originalContent = container.innerHTML;
+    (skeletonWrapper as HTMLElementWithOriginalContent)._originalContent = container.innerHTML;
 
     container.innerHTML = '';
     container.appendChild(skeletonWrapper);
@@ -142,7 +146,7 @@ class SkeletonSystem {
         container.innerHTML = content;
       } else {
         // Restaurar contenido original si no se proporciona nuevo contenido
-        container.innerHTML = (skeletonWrapper as any)._originalContent || '';
+        container.innerHTML = (skeletonWrapper as HTMLElementWithOriginalContent)._originalContent || '';
       }
 
       this.activeSkeletons.delete(containerId);

@@ -4,6 +4,10 @@
  * screen readers, alto contraste, ajuste de texto y daltonismo
  */
 
+interface HTMLElementWithFocusTrap extends HTMLElement {
+  _trapHandler?: (e: KeyboardEvent) => void;
+}
+
 type ContrastMode = 'normal' | 'high' | 'increased';
 type TextSize = 'small' | 'normal' | 'large' | 'extra-large';
 type ColorBlindnessMode = 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia' | 'achromatopsia';
@@ -252,14 +256,14 @@ class AccessibilitySystem {
     };
 
     element.addEventListener('keydown', trapHandler);
-    (element as any)._trapHandler = trapHandler;
+    (element as HTMLElementWithFocusTrap)._trapHandler = trapHandler;
   }
 
   releaseFocus(element: HTMLElement): void {
-    const trapHandler = (element as any)._trapHandler;
+    const trapHandler = (element as HTMLElementWithFocusTrap)._trapHandler;
     if (trapHandler) {
       element.removeEventListener('keydown', trapHandler);
-      delete (element as any)._trapHandler;
+      delete (element as HTMLElementWithFocusTrap)._trapHandler;
     }
     this.focusTrapElements = [];
   }

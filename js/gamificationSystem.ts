@@ -236,21 +236,22 @@ class GamificationSystem {
       this.updateMissionProgress('games', 1);
     });
 
-    window.addEventListener('score:updated', (e: any) => {
-      this.addGlobalPoints(Math.floor(e.detail / 100));
-      this.updateMissionProgress('score', e.detail);
+    window.addEventListener('score:updated', (e: Event) => {
+      const detail = (e as CustomEvent<number>).detail;
+      this.addGlobalPoints(Math.floor(detail / 100));
+      this.updateMissionProgress('score', detail);
     });
 
-    window.addEventListener('streak:updated', (e: any) => {
-      this.updateMissionProgress('streak', e.detail);
+    window.addEventListener('streak:updated', (e: Event) => {
+      this.updateMissionProgress('streak', (e as CustomEvent<number>).detail);
     });
 
     window.addEventListener('social:interaction', () => {
       this.updateMissionProgress('social', 1);
     });
 
-    window.addEventListener('xp:gained', (e: any) => {
-      this.addXP(e.detail);
+    window.addEventListener('xp:gained', (e: Event) => {
+      this.addXP((e as CustomEvent<number>).detail);
     });
   }
 

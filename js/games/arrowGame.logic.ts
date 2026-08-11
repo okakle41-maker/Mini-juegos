@@ -82,7 +82,7 @@ export function init(ui: GameUi) {
   const activeMatch = lobbySystem.getCurrentMatch();
   const isMultiplayer = activeMatch?.gameId === 'arrow';
 
-  const applyArrowSettings = (s: Record<string, any>) => {
+  const applyArrowSettings = (s: Record<string, unknown>) => {
     if (!arrowLengthEl || !arrowTimeInput) return;
     arrowLengthEl.value = String(s.steps ?? 20);
     arrowTimeInput.value = String(s.time ?? 15);

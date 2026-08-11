@@ -84,7 +84,7 @@ export interface SplitViewHandle {
    * Registra un handler para un tipo de evento recibido del rival.
    * Varios handlers para el mismo `type` se acumulan (todos se llaman).
    */
-  onRivalEvent: (type: string, handler: (payload: any) => void) => void;
+  onRivalEvent: <T = unknown>(type: string, handler: (payload: T) => void) => void;
   /**
    * Solo debe llamarlo el anfitrión (isHost === true), justo antes/al
    * arrancar su propia partida local. Avisa al rival, vía el mismo
@@ -244,7 +244,7 @@ export function setupSplitView(
     // cada vez que lo reconstruye.
   }
 
-  const handlers = new Map<string, Array<(payload: any) => void>>();
+  const handlers = new Map<string, Array<(payload: unknown) => void>>();
 
   const START_EVENT_TYPE = '__match_start__';
   const startHandlers: Array<() => void> = [];
@@ -311,7 +311,11 @@ export function setupSplitView(
     },
     onRivalEvent: (type, handler) => {
       if (!handlers.has(type)) handlers.set(type, []);
-      handlers.get(type)!.push(handler);
+      // El Map interno es intencionalmente `unknown` porque agrupa
+      // handlers de distinta forma bajo la misma clave `type` — cada
+      // call site de onRivalEvent<T> conoce su propio T real; el cast
+      // acá es el único punto donde se erosiona ese tipo, a propósito.
+      handlers.get(type)!.push(handler as (payload: unknown) => void);
     },
     broadcastStart: () => {
       if (!isMultiplayer || !isHost) return;

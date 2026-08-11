@@ -191,7 +191,7 @@ class PracticeModeManager {
   }
 
   // Check if hints should be shown for a game
-  shouldShowHint(_gameId: string, _context: any): boolean {
+  shouldShowHint(_gameId: string, _context: unknown): boolean {
     if (!this.settings.showHints) return false;
     if (this.currentMode === 'normal') return false;
     
@@ -201,8 +201,8 @@ class PracticeModeManager {
   }
 
   // Get hint text for a game and context
-  getHint(gameId: string, _context: any): string {
-    const hints: Record<string, any> = {
+  getHint(gameId: string, _context: unknown): string {
+    const hints: Record<string, string> = {
       simon: 'Observa el patrón de colores y repítelo en el mismo orden',
       termita: 'Encuentra los pares de cartas. Recuerda dónde están las que ya viste',
       typix: 'El código tiene 5 dígitos. Los símbolos indican: ! = correcto, * = presente en otra posición',

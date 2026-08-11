@@ -23,14 +23,14 @@ class UISoundEffects {
     // Inicializar AudioContext en primera interacción del usuario
     document.addEventListener('click', () => {
       if (!this.audioContext) {
-        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
       }
     }, { once: true });
   }
 
   private ensureAudioContext(): void {
     if (!this.audioContext) {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
   }
 

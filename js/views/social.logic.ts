@@ -10,6 +10,14 @@ import { hydrateBackButtons } from '../utils/backButton.js';
 import { onClickAsync } from '../utils/asyncEventHandler.js';
 import { describeMatchError } from '../utils/describeMatchError.js';
 
+// Forma mínima del mensaje de chat recibido en el evento
+// 'social:chat_message' (ver socialSystem.ts, ChatMessage no está
+// exportado) — solo los campos que este módulo efectivamente usa.
+interface ChatMessageMinimal {
+  senderName: string;
+  content: string;
+}
+
 let eventListeners: Array<() => void> = [];
 // (Sistema de caché de elementos DOM eliminado: getElement() nunca
 // se llamaba en este archivo, así que cachedElements tampoco tenía
@@ -90,7 +98,7 @@ function setupEventListeners(): void {
     const content = (document.getElementById('post-input') as HTMLTextAreaElement).value;
     const type = (document.getElementById('post-type') as HTMLSelectElement).value;
     if (content.trim()) {
-      socialSystem.createProfilePost(content, type as any);
+      socialSystem.createProfilePost(content, type as 'achievement' | 'score' | 'status' | 'challenge');
       (document.getElementById('post-input') as HTMLTextAreaElement).value = '';
       renderPosts();
     }
@@ -219,10 +227,10 @@ function setupSocialListeners(): void {
     renderFriends();
     renderSocialStats();
   };
-  const chatMessageHandler = (e: any) => {
+  const chatMessageHandler = (e: Event) => {
     const chatMessages = document.getElementById('social-chat-messages');
     if (chatMessages) {
-      const msg = e.detail.message;
+      const msg = (e as CustomEvent<{ message: ChatMessageMinimal }>).detail.message;
       chatMessages.innerHTML += `
         <div class="chat-message">
           <span class="chat-sender">${escapeHtml(msg.senderName)}:</span>

@@ -86,7 +86,7 @@ class ProductionMonitoring {
     this.customSink = this.config?.beforeSend;
   }
 
-  captureException(error: Error, context?: Record<string, any>): void {
+  captureException(error: Error, context?: Record<string, unknown>): void {
     if (!this.initialized) {
       console.error('[ProductionMonitoring] Not initialized, error:', error);
       return;
@@ -111,7 +111,7 @@ class ProductionMonitoring {
     }
   }
 
-  captureMessage(message: string, level: 'info' | 'warning' | 'error' = 'info', context?: Record<string, any>): void {
+  captureMessage(message: string, level: 'info' | 'warning' | 'error' = 'info', context?: Record<string, unknown>): void {
     if (!this.initialized) {
       devLog(`[ProductionMonitoring] [${level}] ${message}`, context);
       return;
@@ -190,7 +190,7 @@ class ProductionMonitoring {
     }
   }
 
-  addBreadcrumb(category: string, message: string, data?: Record<string, any>): void {
+  addBreadcrumb(category: string, message: string, data?: Record<string, unknown>): void {
     if (!this.initialized) return;
 
     const breadcrumb = {

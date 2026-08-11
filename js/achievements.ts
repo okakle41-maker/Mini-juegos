@@ -441,7 +441,7 @@ class AchievementManager {
     }
   }
 
-  private trackGameSpecificProgress(gameId: string, action: string, data?: any): void {
+  private trackGameSpecificProgress(gameId: string, action: string, data?: Record<string, unknown>): void {
     const progressKey = `game_progress_${gameId}`;
     const currentProgress = this.userProgress.get(progressKey) || 0;
     const newProgress = currentProgress + 1;
@@ -464,7 +464,7 @@ class AchievementManager {
           shouldUnlock = newProgress >= req.value;
           break;
         case 'avg_reaction':
-          shouldUnlock = data?.avgReaction && data.avgReaction < req.value;
+          shouldUnlock = typeof data?.avgReaction === 'number' && data.avgReaction < req.value;
           break;
         default:
           shouldUnlock = newProgress >= req.value;

@@ -182,7 +182,7 @@ function renderThemes(): void {
   }
 }
 
-function getSkinPreviewStyle(_skin: any): string {
+function getSkinPreviewStyle(_skin: unknown): string {
   // Simplificado - en producción tendría estilos reales
   return `background: linear-gradient(45deg, var(--color-primary), var(--color-secondary));`;
 }
@@ -309,7 +309,7 @@ function filterSkins(type: string): void {
   // llamada ya calculó. Reescribir el filtrado para usar `_skins`
   // directamente cambiaría comportamiento observable y excede una
   // limpieza de lint — se deja documentado.
-  const _skins = customizationSystem.getSkinsByType(type as any);
+  const _skins = customizationSystem.getSkinsByType(type as 'game' | 'interface' | 'cursor');
   const grid = document.getElementById('skins-grid');
   
   if (grid) {

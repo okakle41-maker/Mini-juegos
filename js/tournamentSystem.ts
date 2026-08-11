@@ -4,7 +4,43 @@
  */
 
 import Auth from './authManager.js';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+
+// Fila cruda tal como llega de Supabase Realtime (snake_case), ver
+// supabase/migration_006_social_tournaments.sql tabla `tournaments`.
+// `is_registered` no es una columna real de esa tabla — se preserva acá
+// como opcional porque handleTournamentUpdate la lee igual (ver nota
+// abajo), sin que eso implique que el server la vaya a enviar hoy.
+interface TournamentRow {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  game_id: string;
+  max_participants: number;
+  current_participants: number;
+  status: string;
+  start_time: string;
+  end_time: string;
+  registration_deadline: string;
+  bracket: TournamentBracket;
+  rules: TournamentRules;
+  rewards: TournamentRewards;
+  is_registered?: boolean;
+}
+
+interface EventRow {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+  challenges: EventChallenge[];
+  rewards: EventRewards;
+  theme: EventTheme;
+}
 
 interface Tournament {
   id: string;
@@ -170,7 +206,7 @@ class TournamentSystem {
     // Subscribe to tournament updates
     const tournamentSubscription = this.supabaseClient
       .channel('tournaments')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, (payload: any) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, (payload: RealtimePostgresChangesPayload<TournamentRow>) => {
         this.handleTournamentUpdate(payload);
       })
       .subscribe();
@@ -189,19 +225,19 @@ class TournamentSystem {
     // presente para ese caso) son el punto de partida correcto.
   }
 
-  private handleTournamentUpdate(payload: any): void {
+  private handleTournamentUpdate(payload: RealtimePostgresChangesPayload<TournamentRow>): void {
     const { eventType, new: newRecord } = payload;
 
-    if (eventType === 'INSERT' || eventType === 'UPDATE') {
+    if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRecord && 'id' in newRecord) {
       const tournament: Tournament = {
         id: newRecord.id,
         name: newRecord.name,
         description: newRecord.description,
-        type: newRecord.type,
+        type: newRecord.type as Tournament['type'],
         gameId: newRecord.game_id,
         maxParticipants: newRecord.max_participants,
         currentParticipants: newRecord.current_participants,
-        status: newRecord.status,
+        status: newRecord.status as Tournament['status'],
         startTime: new Date(newRecord.start_time).getTime(),
         endTime: new Date(newRecord.end_time).getTime(),
         registrationDeadline: new Date(newRecord.registration_deadline).getTime(),
@@ -234,15 +270,15 @@ class TournamentSystem {
    * `rewards`/`theme` asumidos como columnas `jsonb` (mismo criterio que
    * handleTournamentUpdate), no como texto a parsear.
    */
-  private handleEventUpdate(payload: any): void {
+  private handleEventUpdate(payload: RealtimePostgresChangesPayload<EventRow>): void {
     const { eventType, new: newRecord } = payload;
 
-    if (eventType === 'INSERT' || eventType === 'UPDATE') {
+    if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRecord && 'id' in newRecord) {
       const event: Event = {
         id: newRecord.id,
         name: newRecord.name,
         description: newRecord.description,
-       type: newRecord.type,
+       type: newRecord.type as Event['type'],
         startDate: new Date(newRecord.start_date).getTime(),
         endDate: new Date(newRecord.end_date).getTime(),
         isActive: newRecord.is_active,
@@ -669,8 +705,8 @@ class TournamentSystem {
     if (!reward) return false;
 
     // Grant reward
-    if (typeof window !== 'undefined' && (window as any).progressionSystem) {
-      (window as any).progressionSystem.addXP(reward.xp, '');
+    if (typeof window !== 'undefined' && window.progressionSystem) {
+      window.progressionSystem.addXP(reward.xp, '');
     }
 
     window.dispatchEvent(new CustomEvent('event:reward_claimed', {

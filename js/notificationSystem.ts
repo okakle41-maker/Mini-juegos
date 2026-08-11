@@ -23,6 +23,12 @@ interface NotificationAction {
   primary?: boolean;
 }
 
+interface AchievementNotificationData {
+  name: string;
+  description: string;
+  icon: string;
+}
+
 class NotificationSystem {
   private notifications: Notification[] = [];
   private container: HTMLElement | null = null;
@@ -49,18 +55,18 @@ class NotificationSystem {
     document.body.appendChild(this.container);
 
     // Listen for achievement unlocks
-    window.addEventListener('achievement:unlocked', (e: any) => {
-      this.showAchievement(e.detail);
+    window.addEventListener('achievement:unlocked', (e: Event) => {
+      this.showAchievement((e as CustomEvent<AchievementNotificationData>).detail);
     });
 
     // Listen for theme changes
-    window.addEventListener('theme:changed', (e: any) => {
-      this.info('Tema cambiado', `Modo ${e.detail} activado`, 2000);
+    window.addEventListener('theme:changed', (e: Event) => {
+      this.info('Tema cambiado', `Modo ${(e as CustomEvent<string>).detail} activado`, 2000);
     });
 
     // Listen for locale changes
-    window.addEventListener('locale:changed', (e: any) => {
-      this.info('Idioma cambiado', `Idioma: ${e.detail}`, 2000);
+    window.addEventListener('locale:changed', (e: Event) => {
+      this.info('Idioma cambiado', `Idioma: ${(e as CustomEvent<string>).detail}`, 2000);
     });
   }
 
@@ -285,7 +291,7 @@ class NotificationSystem {
     });
   }
 
-  showAchievement(achievement: any): void {
+  showAchievement(achievement: AchievementNotificationData): void {
     this.show({
       id: this.generateId(),
       type: 'achievement',

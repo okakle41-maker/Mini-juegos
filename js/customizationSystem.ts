@@ -565,8 +565,9 @@ class CustomizationSystem {
 
   private syncWithAchievements(): void {
     // Sync with achievement system if available
-    if (typeof window !== 'undefined' && (window as any).achievementManager) {
-      const achievementManager = (window as any).achievementManager;
+    const win = window;
+    if (typeof window !== 'undefined' && win.achievementManager) {
+      const achievementManager = win.achievementManager;
       const cosmetics = achievementManager.getUnlockedCosmetics();
       
       cosmetics.forEach((cosmeticId: string) => {
@@ -574,8 +575,9 @@ class CustomizationSystem {
       });
 
       // Listen for new cosmetic unlocks
-      window.addEventListener('cosmetic:unlocked', (e: any) => {
-        this.unlockItem(e.detail.cosmetic);
+      window.addEventListener('cosmetic:unlocked', (e: Event) => {
+        const detail = (e as CustomEvent<{ cosmetic: string }>).detail;
+        this.unlockItem(detail.cosmetic);
       });
     }
   }
@@ -706,10 +708,18 @@ class CustomizationSystem {
     const soundPack = this.soundPacks.get(soundPackId);
     if (!soundPack) return;
 
-    // This would integrate with the audio manager
-    if (typeof window !== 'undefined' && (window as any).audioManager) {
-      const audioManager = (window as any).audioManager;
-      audioManager.setSoundPack(soundPack.sounds);
+    // This would integrate with the audio manager. audioManager ya no
+    // vive en `window` (ver nota en js/types/global.d.ts) y todavía no
+    // expone un método setSoundPack — placeholder para una integración
+    // futura, comprobado en runtime en vez de tipado como `any`.
+    const maybeAudioManager: unknown = (window as unknown as { audioManager?: unknown }).audioManager;
+    if (
+      maybeAudioManager &&
+      typeof maybeAudioManager === 'object' &&
+      'setSoundPack' in maybeAudioManager &&
+      typeof (maybeAudioManager as { setSoundPack: unknown }).setSoundPack === 'function'
+    ) {
+      (maybeAudioManager as { setSoundPack: (sounds: unknown) => void }).setSoundPack(soundPack.sounds);
     }
   }
 

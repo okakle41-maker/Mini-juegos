@@ -8,7 +8,7 @@
  * Debounce - Ejecuta la función solo después de que pase el tiempo especificado
  * desde la última llamada
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -30,7 +30,7 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Throttle - Ejecuta la función como máximo una vez cada tiempo especificado
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
@@ -48,7 +48,7 @@ export function throttle<T extends (...args: any[]) => any>(
 /**
  * RequestAnimationFrame Throttle - Usa rAF para optimizar animaciones
  */
-export function rafThrottle<T extends (...args: any[]) => any>(
+export function rafThrottle<T extends (...args: unknown[]) => unknown>(
   func: T
 ): (...args: Parameters<T>) => void {
   let rafId: number | null = null;

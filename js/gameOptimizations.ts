@@ -75,12 +75,12 @@ export class AnimationOptimizer {
  * Optimizador de cálculos para juegos de lógica
  */
 export class CalculationOptimizer {
-  private cache: Map<string, any> = new Map();
+  private cache: Map<string, unknown> = new Map();
   private maxCacheSize: number = 100;
 
   memoize<T>(key: string, calculation: () => T): T {
     if (this.cache.has(key)) {
-      return this.cache.get(key);
+      return this.cache.get(key) as T;
     }
 
     if (this.cache.size >= this.maxCacheSize) {
@@ -220,7 +220,7 @@ export class EventOptimizer {
  * Optimizador de memoria para juegos con muchos objetos
  */
 export class MemoryOptimizer {
-  private objectPool: Map<string, any[]> = new Map();
+  private objectPool: Map<string, unknown[]> = new Map();
   private maxPoolSize: number = 50;
 
   /**
@@ -234,7 +234,7 @@ export class MemoryOptimizer {
     const pool = this.objectPool.get(type)!;
 
     if (pool.length > 0) {
-      return pool.pop()!;
+      return pool.pop() as T;
     }
 
     return factory();
@@ -265,14 +265,14 @@ export class MemoryOptimizer {
  * Optimizador de secuencias para juegos de ritmo
  */
 export class SequenceOptimizer {
-  private sequenceCache: Map<string, any[]> = new Map();
+  private sequenceCache: Map<string, unknown[]> = new Map();
 
   /**
    * Cachea secuencias generadas para evitar recálculo
    */
-  getCachedSequence(key: string, generator: () => any[]): any[] {
+  getCachedSequence<T = unknown>(key: string, generator: () => T[]): T[] {
     if (this.sequenceCache.has(key)) {
-      return this.sequenceCache.get(key)!;
+      return this.sequenceCache.get(key) as T[];
     }
 
     const sequence = generator();

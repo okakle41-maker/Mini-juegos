@@ -556,7 +556,7 @@ class I18nManager {
     if (!obj) return undefined;
     
     const keys = key.split('.');
-    let value: any = obj;
+    let value: Translation | string = obj;
     
     for (const k of keys) {
       if (value && typeof value === 'object' && k in value) {

@@ -81,10 +81,18 @@ class PreferencesManager {
       }
     }
 
-    // Aplicar volumen de música
-    const musicPlayer = (window as any).musicPlayer;
-    if (musicPlayer && musicPlayer.setVolume) {
-      musicPlayer.setVolume(this.preferences.musicVolume);
+    // Aplicar volumen de música. `window.musicPlayer` no está declarado
+    // en el tipo global (ver js/types/global.d.ts) porque ningún módulo
+    // lo asigna actualmente — se comprueba su forma en runtime en vez
+    // de tipar con `any`.
+    const musicPlayer = (window as unknown as { musicPlayer?: unknown }).musicPlayer;
+    if (
+      musicPlayer &&
+      typeof musicPlayer === 'object' &&
+      'setVolume' in musicPlayer &&
+      typeof (musicPlayer as { setVolume: unknown }).setVolume === 'function'
+    ) {
+      (musicPlayer as { setVolume: (volume: number) => void }).setVolume(this.preferences.musicVolume);
     }
   }
 

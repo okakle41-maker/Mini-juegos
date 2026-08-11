@@ -13,6 +13,28 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+// SyncManager/'sync' en ServiceWorkerRegistration y SyncEvent tampoco son
+// tipos DOM estándar en todos los entornos (Background Sync API) —
+// se declaran acá, en el único módulo que los usa.
+interface SyncManager {
+  register: (tag: string) => Promise<void>;
+}
+
+interface ServiceWorkerRegistrationWithSync extends ServiceWorkerRegistration {
+  sync: SyncManager;
+}
+
+interface ServiceWorkerRegistrationWithShortcuts extends ServiceWorkerRegistration {
+  shortcuts?: {
+    add: (shortcuts: unknown[]) => Promise<void>;
+  };
+}
+
+interface SyncEvent extends Event {
+  tag: string;
+  waitUntil: (promise: Promise<unknown>) => void;
+}
+
 interface PWAConfig {
   pushNotifications: boolean;
   backgroundSync: boolean;
@@ -25,7 +47,7 @@ class PWASystem {
   private storageKey = 'pwa_config';
   private registration: ServiceWorkerRegistration | null = null;
   private pushSubscription: PushSubscription | null = null;
-  private syncQueue: Array<{ url: string; data: any }> = [];
+  private syncQueue: Array<{ url: string; data: unknown }> = [];
 
   constructor() {
     this.config = this.loadConfig();
@@ -114,7 +136,7 @@ class PWASystem {
         userVisibleOnly: true,
         applicationServerKey: this.urlBase64ToUint8Array(
           'YOUR_VAPID_PUBLIC_KEY_HERE' // Reemplazar con tu VAPID key
-        ) as any
+        ) as BufferSource
       });
 
       this.pushSubscription = subscription;
@@ -159,14 +181,14 @@ class PWASystem {
     if (!('serviceWorker' in navigator) || !this.registration) return;
 
     // Escuchar eventos de sincronización
-    navigator.serviceWorker.addEventListener('sync', (event: any) => {
+    navigator.serviceWorker.addEventListener('sync', ((event: SyncEvent) => {
       if (event.tag === 'sync-data') {
         event.waitUntil(this.syncData());
       }
-    });
+    }) as EventListener);
   }
 
-  async queueSync(url: string, data: any): Promise<void> {
+  async queueSync(url: string, data: unknown): Promise<void> {
     this.syncQueue.push({ url, data });
     
     // Intentar sincronizar inmediatamente si hay conexión
@@ -175,7 +197,7 @@ class PWASystem {
     } else {
       // Registrar background sync para cuando vuelva la conexión
       if (this.registration && 'sync' in this.registration) {
-        await (this.registration as any).sync.register('sync-data');
+        await (this.registration as ServiceWorkerRegistrationWithSync).sync.register('sync-data');
       }
     }
   }
@@ -274,7 +296,7 @@ class PWASystem {
     // Registrar shortcuts (Chrome/Edge)
     if (navigator.serviceWorker) {
       navigator.serviceWorker.ready.then((registration) => {
-        (registration as any).shortcuts?.add([
+        return (registration as ServiceWorkerRegistrationWithShortcuts).shortcuts?.add([
           {
             name: 'Jugar Simon',
             short_name: 'Simon',

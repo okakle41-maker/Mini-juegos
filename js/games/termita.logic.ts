@@ -45,7 +45,7 @@ export function init(ui: GameUi) {
     const activeMatch = lobbySystem.getCurrentMatch();
     const isMultiplayer = activeMatch?.gameId === 'termita';
 
-    const applySettingsToInputs = (s: Record<string, any>) => {
+    const applySettingsToInputs = (s: Record<string, unknown>) => {
       (gridSizeEl as HTMLSelectElement).value = String(s.size ?? 5);
       (targetsEl as HTMLInputElement).value = String(s.targets ?? 4);
       (showTimeEl as HTMLInputElement).value = String(s.showTime ?? 800);

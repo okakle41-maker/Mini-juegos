@@ -35,7 +35,7 @@ let audioContext: AudioContext | null = null;
 function getContext(): AudioContext | null {
   if (audioContext) return audioContext;
   try {
-    const Ctor = window.AudioContext || (window as any).webkitAudioContext;
+    const Ctor = window.AudioContext || window.webkitAudioContext;
     if (!Ctor) return null;
     audioContext = new Ctor();
     return audioContext;

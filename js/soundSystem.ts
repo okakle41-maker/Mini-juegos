@@ -61,7 +61,7 @@ class SoundSystem {
     if (this.initialized) return;
     
     try {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
       this.initialized = true;
     } catch (e) {
       console.error('[Sound] Failed to initialize AudioContext:', e);
