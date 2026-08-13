@@ -42,7 +42,7 @@ interface EventRow {
   theme: EventTheme;
 }
 
-interface Tournament {
+export interface Tournament {
   id: string;
   name: string;
   description: string;
@@ -100,7 +100,7 @@ interface TournamentRewards {
   participation: { xp: number };
 }
 
-interface Event {
+export interface Event {
   id: string;
   name: string;
   description: string;
@@ -113,7 +113,7 @@ interface Event {
   theme: EventTheme;
 }
 
-interface EventChallenge {
+export interface EventChallenge {
   id: string;
   name: string;
   description: string;

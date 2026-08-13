@@ -3,7 +3,7 @@
  * Sistema de progresión con niveles, XP, habilidades y daily quests
  */
 
-interface PlayerLevel {
+export interface PlayerLevel {
   level: number;
   xpRequired: number;
   title: string;
@@ -13,7 +13,7 @@ interface PlayerLevel {
   };
 }
 
-interface SkillNode {
+export interface SkillNode {
   id: string;
   name: string;
   description: string;
@@ -28,7 +28,7 @@ interface SkillNode {
   prerequisiteId?: string;
 }
 
-interface DailyQuest {
+export interface DailyQuest {
   id: string;
   name: string;
   description: string;
@@ -44,7 +44,7 @@ interface DailyQuest {
   expiresAt: number;
 }
 
-interface SeasonPass {
+export interface SeasonPass {
   id: string;
   name: string;
   startDate: number;
@@ -52,7 +52,7 @@ interface SeasonPass {
   levels: SeasonPassLevel[];
 }
 
-interface SeasonPassLevel {
+export interface SeasonPassLevel {
   level: number;
   freeReward: {
     type: 'xp' | 'cosmetic' | 'title';

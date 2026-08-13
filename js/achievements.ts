@@ -3,7 +3,7 @@
  * Sistema de logros y recompensas para los usuarios
  */
 
-interface Achievement {
+export interface Achievement {
   id: string;
   name: string;
   description: string;

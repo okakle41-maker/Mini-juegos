@@ -79,3 +79,28 @@ afterEach(async () => {
     // Si el módulo no llegó a cargarse en este test, no hay nada que resetear.
   }
 });
+
+// Resetear el singleton LobbyRenderer después de cada test.
+//
+// Mismo motivo que el reset de GameRegistry de arriba, pero para un bug
+// distinto: LobbyRenderer.bindThemeChangeOnce() registra un listener de
+// 'theme-changed' directo sobre `document`, una sola vez por instancia.
+// Como LobbyRenderer es un singleton de módulo, ese listener sobrevive a
+// vi.resetModules() entre tests — un test que llama LobbyRenderer.render()
+// deja el listener vivo; si un test posterior en el mismo archivo dispara
+// 'theme-changed' por cualquier vía (incluso indirecta, como importar un
+// módulo que llama BackgroundManager.setTheme()), esa instancia vieja
+// repinta sobre el DOM del test nuevo usando su this.lastOptions ya
+// obsoleto, vaciando en silencio cualquier #gameList armado a mano por el
+// test que está corriendo. Bug real encontrado en
+// test/lobbySidebarUI.test.ts: el segundo `it` fallaba con
+// "Cannot read properties of null" porque su propio markup de
+// .card-favorite-btn desaparecía antes de la aserción.
+afterEach(async () => {
+  try {
+    const { default: LobbyRenderer } = await import('../js/lobbyRenderer');
+    LobbyRenderer.reset();
+  } catch {
+    // Si el módulo no llegó a cargarse en este test, no hay nada que resetear.
+  }
+});

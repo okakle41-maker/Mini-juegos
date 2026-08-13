@@ -323,7 +323,7 @@ project/
 ├── test/                          # Suite de Vitest (ver sección Testing)
 ├── assets/icons/                  # Íconos de la PWA en todos los tamaños requeridos
 ├── audio/                         # Efectos de sonido y música de fondo
-└── components/ui/                  # Componentes de UI reutilizables sueltos
+└── js/components/                  # Componentes Preact (migración incremental, ver ARCHITECTURE.md)
 ```
 
 ---

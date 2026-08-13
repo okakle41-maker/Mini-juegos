@@ -3,7 +3,7 @@
  * Sistema de personalización con avatares, skins, efectos de sonido y temas
  */
 
-interface Avatar {
+export interface Avatar {
   id: string;
   name: string;
   icon: string;
@@ -12,7 +12,7 @@ interface Avatar {
   unlocked: boolean;
 }
 
-interface Skin {
+export interface Skin {
   id: string;
   name: string;
   description: string;
@@ -24,7 +24,7 @@ interface Skin {
   unlocked: boolean;
 }
 
-interface SoundPack {
+export interface SoundPack {
   id: string;
   name: string;
   description: string;
@@ -40,7 +40,7 @@ interface SoundPack {
   unlocked: boolean;
 }
 
-interface ProfileFrame {
+export interface ProfileFrame {
   id: string;
   name: string;
   cssClass: string;
@@ -49,7 +49,7 @@ interface ProfileFrame {
   unlocked: boolean;
 }
 
-interface VictoryAnimation {
+export interface VictoryAnimation {
   id: string;
   name: string;
   description: string;
@@ -60,7 +60,7 @@ interface VictoryAnimation {
   unlocked: boolean;
 }
 
-interface CustomTheme {
+export interface CustomTheme {
   id: string;
   name: string;
   colors: {
@@ -613,6 +613,20 @@ class CustomizationSystem {
     return [...this.avatars.values()].filter(a => a.unlocked);
   }
 
+  /**
+   * Ícono del avatar activo (ver defineAvatars para el set completo:
+   * emojis usados como ícono de perfil). Usado por HeaderUserBadge.tsx
+   * (Fase 5 de la migración a Preact, ver docs/ARCHITECTURE.md) para
+   * leer el avatar como prop en vez de que este módulo siga escribiendo
+   * `.header-user-avatar` directo vía querySelectorAll — dos sistemas
+   * (este y accountView.ts/Auth) escribiendo el mismo nodo del DOM sin
+   * coordinarse era una fuente real de carrera: cualquiera que corriera
+   * último pisaba al otro.
+   */
+  getActiveAvatarIcon(): string {
+    return this.avatars.get(this.playerCustomization.activeAvatar)?.icon ?? '?';
+  }
+
   setActiveAvatar(avatarId: string): boolean {
     const avatar = this.avatars.get(avatarId);
     if (!avatar || !avatar.unlocked) return false;
@@ -625,16 +639,19 @@ class CustomizationSystem {
     return true;
   }
 
-  private applyAvatar(avatarId: string): void {
-    const avatar = this.avatars.get(avatarId);
-    if (!avatar) return;
-
-    // Update UI elements
-    const avatarElements = document.querySelectorAll('.header-user-avatar');
-    avatarElements.forEach(el => {
-      el.textContent = avatar.icon;
-    });
-  }
+  /**
+   * Antes escribía `.header-user-avatar` directo vía querySelectorAll
+   * — ver el comentario de getActiveAvatarIcon() sobre por qué eso ya
+   * no corre acá: HeaderUserBadge.tsx (componente Preact) es ahora el
+   * único que escribe ese nodo, leyendo getActiveAvatarIcon() como
+   * prop y re-renderizando al escuchar 'customization:avatar_changed'
+   * (que setActiveAvatar() sigue emitiendo normalmente, más abajo). Se
+   * mantiene este método (ya no hace nada) en vez de borrarlo para no
+   * tener que tocar sus dos call-sites — queda documentado por si en
+   * el futuro hace falta aplicar el avatar a algún otro elemento del
+   * DOM por fuera de Preact.
+   */
+  private applyAvatar(_avatarId: string): void {}
 
   // Skin methods
   getSkins(): Skin[] {

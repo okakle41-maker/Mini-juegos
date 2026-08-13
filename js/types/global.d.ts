@@ -61,7 +61,6 @@ declare global {
     accessibilitySystem: typeof import('../accessibilitySystem').default;
     practiceMode: typeof import('../practiceMode').default;
     advancedStatsSystem: typeof import('../advancedStats').default;
-    skeletonSystem: typeof import('../skeletonSystem').default;
     socialSharing: typeof import('../socialSharing').default;
     badgeSystem: typeof import('../badgesSystem').default;
     progressionSystem: typeof import('../progressionSystem').default;
@@ -74,7 +73,6 @@ declare global {
     customizationSystem: typeof import('../customizationSystem').default;
     multiplayerSystem: typeof import('../multiplayerSystem').default;
     gamificationSystem: typeof import('../gamificationSystem').default;
-    transitionSystem: typeof import('../transitionSystem').default;
     socialSystem: typeof import('../socialSystem').default;
     notificationSystem: typeof import('../notificationSystem').default;
     achievementManager: typeof import('../achievements').default;

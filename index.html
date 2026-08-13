@@ -236,14 +236,10 @@
           <span class="header-icon-dot"></span>
         </button>
 
-        <div class="header-user" id="headerUserBadge" title="Ir a Cuenta" role="button" tabindex="0" aria-label="Ir a Cuenta">
-          <span class="header-user-avatar">??</span>
-          <span class="header-user-info">
-            <span class="header-user-name">DESCONOCIDO</span>
-            <span class="header-user-level" id="headerUserLevel">RECLUTA</span>
-          </span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="header-user-caret"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
+        <!-- Montado por Preact vía HeaderUserBadge.tsx (Fase 5, ver
+             docs/ARCHITECTURE.md) — antes era HTML estático que
+             accountView.ts actualizaba a mano. -->
+        <div id="headerUserBadgeHost"></div>
         <span id="modsCountHeader" hidden>10</span>
 
         <div class="theme-wrapper theme-wrapper--compact">

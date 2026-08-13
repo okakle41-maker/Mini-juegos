@@ -26,14 +26,17 @@
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "allowSyntheticDefaultImports": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
     "types": ["vitest/globals", "vite/client"]
   },
   "include": [
     "js/**/*",
     "js/**/*.ts",
+    "js/**/*.tsx",
     "js/**/*.js",
     "test/**/*.ts",
+    "test/**/*.tsx",
     "*.ts"
   ],
   "exclude": [

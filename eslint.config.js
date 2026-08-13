@@ -3,6 +3,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import globals from 'globals';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 export default tseslint.config(
   {
@@ -18,12 +19,6 @@ export default tseslint.config(
       // Script k6 (JS plano, ejecutado por el runtime de k6 en CI, no
       // por tsc/vite) — no forma parte de ningún tsconfig del repo.
       'load-test/**',
-      // Vestigio de un scaffold shadcn/ui: no está en ningún tsconfig,
-      // no lo importa nada del proyecto (verificado con grep) y ni
-      // siquiera compilaría — depende de '@base-ui/react/button', que
-      // no está en package.json. Se excluye en vez de forzarlo a un
-      // tsconfig al que no pertenece.
-      'components/**',
     ],
   },
 
@@ -79,6 +74,38 @@ export default tseslint.config(
       'no-debugger': 'error',
       'no-var': 'error',
       'prefer-const': 'warn',
+    },
+  },
+
+  // Componentes Preact (migración incremental, ver docs/ARCHITECTURE.md
+  // y los comentarios de "Fase N de la migración a Preact" en
+  // js/components/*.tsx y js/lobbyRenderer.tsx / js/accountView.tsx).
+  //
+  // Solo las dos reglas clásicas y estables del plugin, NO el config
+  // 'recommended-latest' completo: esa variante (desde la v7 del
+  // plugin) trae además un conjunto de reglas pensadas para el React
+  // Compiler (react-hooks/purity, immutability, set-state-in-render,
+  // static-components, etc.) que asumen que el código va a pasar por
+  // ese compilador — este proyecto usa Preact sin ningún compilador de
+  // memoización automática, así que esas reglas dispararían falsos
+  // positivos contra patrones perfectamente válidos en Preact plano.
+  //
+  // - rules-of-hooks: valida que los hooks (useState/useEffect, ver
+  //   HeaderUserBadge.tsx) se llamen solo en el nivel superior de un
+  //   componente/hook, nunca dentro de condicionales, loops o funciones
+  //   anidadas. Preact reexporta la misma implementación de hooks que
+  //   React internamente, así que la regla aplica sin cambios.
+  // - exhaustive-deps: valida el array de dependencias de useEffect —
+  //   el tipo de bug que es fácil de introducir a mano y que rompe la
+  //   sincronización con eventos externos (ver el listener doble de
+  //   'auth:changed'/'customization:avatar_changed' en
+  //   HeaderUserBadge.tsx, exactamente el patrón que esta regla vigila).
+  {
+    files: ['js/**/*.tsx'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
 

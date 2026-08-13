@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { existsSync, mkdirSync, cpSync } from 'fs';
+import preact from '@preact/preset-vite';
 
 /**
  * `css/`, `assets/` y `audio/` se referencian desde JS como rutas string
@@ -60,7 +61,7 @@ const base = process.env.VITE_BASE || '/Mini-juegos/';
 export default defineConfig({
   root: '.',
   base,
-  plugins: [copyStaticAssets()],
+  plugins: [copyStaticAssets(), preact()],
   build: {
     outDir: 'dist',
     emptyOutDir: true,

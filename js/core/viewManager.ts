@@ -23,6 +23,44 @@ import { devLog } from './devLog.js';
 import BackgroundManager from '../backgroundManager.js';
 import GameRegistry from './gameRegistry.js';
 
+/**
+ * Nota de arquitectura (Fase 4 de la migración a Preact — ver
+ * docs/ARCHITECTURE.md y el historial de esta conversación):
+ *
+ * ViewManager fue evaluado como candidato a reescritura declarativa
+ * (Preact) porque en algún momento tuvo una condición de carrera real
+ * de navegación: mostrar la vista A, y antes de que su import()
+ * dinámico terminara de resolver, navegar a B, resultaba en que
+ * initGame() para A igual se ejecutaba al terminar de cargar —
+ * inicializando un juego que el usuario ya no estaba viendo. Ese es
+ * exactamente el tipo de bug que la reconciliación de estado de un
+ * framework declarativo evita estructuralmente en vez de por
+ * disciplina manual.
+ *
+ * Al auditar el código para esta fase, se confirmó que ESE BUG YA
+ * ESTÁ RESUELTO: ver el guard `if (this.currentViewId === id)
+ * initGame()` en showView() más abajo, y la cobertura de regresión en
+ * test/viewManagerRaceCondition.test.ts (dos casos: A→B rápido, y
+ * A→B→A rápido). La solución manual — comparar currentViewId contra
+ * el id capturado en el closure de la promesa al momento en que esta
+ * resuelve — es correcta y ya está en producción.
+ *
+ * Decisión: NO se reescribe ViewManager a Preact en esta fase. El
+ * costo (reescribir la navegación central de 35+ vistas, cada una con
+ * su propio ciclo de carga lazy/hidratación/init de juego/limpieza vía
+ * GameRegistry.stopGame, más la integración con BackgroundManager y
+ * los back buttons) es alto, y el beneficio concreto que motivaba la
+ * migración —eliminar esa carrera— ya no existe: el bug fue arreglado
+ * por otra vía y tiene tests de regresión sólidos. Migrar código que
+ * ya funciona bien solo para "usar el framework" no es el criterio de
+ * esta migración incremental (ver la Fase 1 del plan: no todo
+ * necesita Preact, solo donde hay estado compartido complejo que hoy
+ * se sincroniza a mano con bugs reales de por medio). El shell del
+ * lobby (Fases 2-3: GameCard, filtro+búsqueda combinados) sí calificó
+ * porque ahí SÍ había un bug real y activo (búsqueda pisando el
+ * filtro) resuelto por la migración misma, no solo un cambio de
+ * tecnología por sí solo.
+ */
 export interface ViewManagerInterface {
   showView: (id: string) => void;
   backToMenu: (fallbackId?: string) => void;
