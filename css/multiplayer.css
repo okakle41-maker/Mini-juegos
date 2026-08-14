@@ -436,17 +436,8 @@
 }
 
 
-.section-decorative {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin: 15px 0;
-  opacity: 0.5;
-}
-
-.section-decorative span {
-  font-size: 20px;
-}
+/* .section-decorative / .section-decorative span: consolidado en
+   css/base/_pages-stats-config.css (regla compartida entre páginas). */
 
 /* ── Lobby grupal (hasta 8 jugadores, sub-partidas 1v1) ──
  * Ver js/lobbySystem.ts y js/views/multiplayer.logic.ts. Reutiliza

@@ -418,11 +418,12 @@
   margin-bottom: 15px;
 }
 
+/* Override puntual sobre la base compartida en
+   css/base/_pages-stats-config.css: esta página usa opacity/font-size
+   ligeramente mayores que el resto (0.6/24px vs 0.5/20px). El resto de
+   propiedades (display, justify-content, gap, margin) se heredan de
+   la base — styles.css siempre se carga antes que este archivo. */
 .section-decorative {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin: 15px 0;
   opacity: 0.6;
 }
 

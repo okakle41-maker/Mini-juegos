@@ -307,14 +307,5 @@
   transform: scale(1.05);
 }
 
-.section-decorative {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin: 15px 0;
-  opacity: 0.5;
-}
-
-.section-decorative span {
-  font-size: 20px;
-}
+/* .section-decorative / .section-decorative span: consolidado en
+   css/base/_pages-stats-config.css (regla compartida entre páginas). */
