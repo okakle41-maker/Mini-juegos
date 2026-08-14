@@ -192,7 +192,10 @@
   border-radius: 16px;
   padding: 30px;
   z-index: 1000;
-  min-width: 400px;
+  /* min-width sin límite superior desbordaba en pantallas angostas
+     (ej. 375px de iPhone SE, menor que los 400px del min-width) —
+     width: min() lo acota al ancho disponible menos margen lateral. */
+  width: min(400px, calc(100vw - 40px));
 }
 
 .modal-title {
