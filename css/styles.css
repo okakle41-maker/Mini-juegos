@@ -2689,6 +2689,11 @@ button {
 }
 .lobby-footer-stats { display: flex; align-items: center; gap: 20px; }
 .footer-nominal { display: flex; align-items: center; gap: 6px; }
+.lobby-footer-credit {
+  font-size: 8px;
+  opacity: 0.65;
+  letter-spacing: 0.08em;
+}
 
 /* ── Stat cards (reemplaza el antiguo system-panel) ── */
 .stat-card-row {
@@ -4130,6 +4135,7 @@ body.custom-cursor-active *{
   top: 0;
   height: calc(100vh - 28px);
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   background: linear-gradient(180deg, rgba(10, 15, 28, 0.95) 0%, rgba(14, 10, 22, 0.96) 100%);
@@ -4139,8 +4145,9 @@ body.custom-cursor-active *{
   backdrop-filter: blur(12px);
   z-index: 25;
   scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
-.side-nav::-webkit-scrollbar { width: 6px; }
+.side-nav::-webkit-scrollbar { width: 6px; height: 0; }
 .side-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 .side-nav-brand {
