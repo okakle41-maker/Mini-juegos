@@ -2149,6 +2149,49 @@ button {
      está declarado de forma estática en `.game-card` (más abajo). */
   transform: translate3d(0, -6px, 0) scale3d(1.012, 1.012, 1);
 }
+/* ── Expansión de card en hover para ver la descripción completa ──
+   `.card-desc` está recortada a 3 líneas (`line-clamp: 3`) en reposo
+   para que todas las cards midan lo mismo en el grid. En hover
+   queremos que se pueda leer el texto completo sin que la card
+   "empuje" a sus vecinas ni dispare un recálculo de layout del grid
+   (eso es justo lo que el `contain: layout paint size` de más arriba
+   existe para evitar — ver esa nota).
+   La solución es escalar la card ENTERA con `transform: scale()`
+   (compositable, no layout) y subir su `z-index` para que "flote"
+   por encima de las cards vecinas mientras dura el hover, en vez de
+   cambiar su `width`/`height` reales. El resto de las cards del grid
+   no se entera de este cambio: siguen ocupando su celda de siempre. */
+.game-card:hover,
+.game-card:focus-visible,
+.game-card:has(.card-open-btn:focus-visible) {
+  z-index: 5;
+}
+@media (hover: hover) and (pointer: fine) {
+  .game-card:hover,
+  .game-card:focus-visible,
+  .game-card:has(.card-open-btn:focus-visible) {
+    /* Escala mayor que el "lift" sutil de antes: ahora el objetivo es
+       revelar contenido, no solo dar feedback visual. El origen
+       "top center" evita que la card crezca hacia arriba tapando la
+       fila de encima; crece hacia abajo y a los lados. */
+    transform: translate3d(0, -6px, 0) scale3d(1.16, 1.16, 1);
+    transform-origin: top center;
+  }
+  .game-card:hover .card-desc,
+  .game-card:focus-visible .card-desc,
+  .game-card:has(.card-open-btn:focus-visible) .card-desc {
+    /* Quitamos el recorte de 3 líneas solo en hover: como la card ya
+       está escalada y flotando por encima con z-index, dejar que
+       `.card-desc` crezca a su alto real no empuja nada del grid. */
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    overflow: visible;
+  }
+}
+/* En touch (sin hover real) no escalamos: no hay forma de "salir" del
+   hover más que tocar otra cosa, y una card agrandada tapando a sus
+   vecinas en mobile estorba más de lo que ayuda. Las pantallas
+   táctiles ya pueden abrir el juego directamente para ver el detalle. */
 .game-card:hover::after,
 .game-card:focus-visible::after, .game-card:has(.card-open-btn:focus-visible)::after,
 .game-card--active::after {

@@ -173,13 +173,24 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Hover en elementos interactivos
+  // Usamos mouseover (con chequeo de relatedTarget) en vez de mouseenter porque
+  // mouseenter no hace bubble y no podríamos delegarlo desde document.
+  // El chequeo de relatedTarget evita que el sonido se repita al mover el mouse
+  // entre elementos hijos dentro del mismo elemento "hover-able" (card, botón, etc.)
   document.addEventListener('mouseover', (e) => {
     const target = e.target as HTMLElement;
-    if (target.tagName === 'BUTTON' || target.closest('button') || 
-        target.classList.contains('game-card') || 
-        target.classList.contains('filter-btn')) {
-      uiSoundEffects.hover();
-    }
+    const hoverable = target.closest('button, .game-card, .filter-btn') as HTMLElement | null;
+    if (!hoverable) return;
+
+    const related = e.relatedTarget as HTMLElement | null;
+    // El "hoverable" del que venimos: si el mouse solo se movió entre hijos
+    // internos de un mismo elemento hover-able (p.ej. de la imagen al título
+    // dentro de la misma card), el hoverable de origen es el mismo que el
+    // actual y no se debe volver a reproducir el sonido.
+    const relatedHoverable = related?.closest('button, .game-card, .filter-btn') ?? null;
+    if (relatedHoverable === hoverable) return;
+
+    uiSoundEffects.hover();
   });
 
   // Input typing
