@@ -1,0 +1,459 @@
+/* ============================================================
+   MÓDULO: paletas de color por tema (orange/neon/ocean) vía
+   body[data-theme]. Los temas visuales COMPLETOS (tactical,
+   new, etc.) viven en sus propios archivos css/lobby-*.css,
+   cargados después de este en index.html.
+   Parte 5/9 de css/styles.css.
+   ============================================================ */
+
+/* ── Theme: Orange ── */
+body[data-theme='orange'] {
+  --bg: #050200;
+  --surface: rgba(255, 140, 0, 0.15);
+  --border: rgba(255, 140, 0, 0.5);
+  --text: #fff0d0;
+  --text-muted: rgba(255, 230, 180, 0.85);
+  --text-dim: rgba(255, 200, 150, 0.65);
+  --accent-cyan: #ffaa44;
+  --accent-orange: #ff7700;
+  
+  --bg-1: #050200;
+  --bg-2: #1a0800;
+  --card: rgba(25, 10, 0, 0.98);
+  --card-hover: linear-gradient(155deg, rgba(40,15,0,1) 0%, rgba(60,25,0,1) 100%);
+  --panel-gradient: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+  
+  --glow-orange: rgba(255, 140, 0, 0.85);
+  --glow-orange-strong: rgba(255, 140, 0, 1);
+  --glow-orange-soft: rgba(255, 140, 0, 0.3);
+}
+body[data-theme='orange'] { background: linear-gradient(180deg,#050200,#2a0a00 50%,#4a1500); }
+body[data-theme='orange'] .card { background: rgba(20,8,0,0.92); border-color: rgba(249,115,22,0.18); }
+body[data-theme='orange'] .glitch-text::before { color: var(--accent-orange); }
+body[data-theme='orange'] button { background: linear-gradient(135deg,#c2410c,#f97316); }
+
+/* ── Theme: Neon ──
+   'neon' aparecía en el selector de temas (#themeSelect /
+   #configThemeSelect, ver configPanel.ts) sin ninguna regla CSS
+   correspondiente: elegirlo cambiaba `data-theme` en el DOM pero el
+   sitio se quedaba con la paleta default de :root sin ningún cambio
+   visible. Esta paleta lleva el cian/magenta del default a full
+   saturación — un "neón" más intenso, no solo el default disfrazado. */
+body[data-theme='neon'] {
+  --bg: #04010a;
+  --surface: rgba(0, 255, 255, 0.14);
+  --surface-strong: rgba(255, 0, 229, 0.18);
+  --border: rgba(0, 255, 255, 0.55);
+  --border-hover: rgba(0, 255, 255, 0.9);
+  --text: #f0fffe;
+  --text-muted: rgba(210, 255, 250, 0.92);
+  --text-dim: rgba(170, 255, 245, 0.7);
+  --accent-cyan: #00fff2;
+  --accent-orange: #ff00e5;
+
+  --accent-orange-2: #b026ff;
+  --bg-1: #04010a;
+  --bg-2: #0c0320;
+  --card: rgba(6, 2, 20, 0.9);
+  --card-hover: linear-gradient(155deg, rgba(10, 0, 40, 0.98) 0%, rgba(40, 0, 60, 0.98) 100%);
+  --panel-gradient: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+
+  --glow-orange: rgba(0, 255, 242, 1);
+  --glow-orange-strong: rgba(255, 0, 229, 1);
+  --glow-orange-soft: rgba(0, 255, 242, 0.3);
+  --neon-cyan: #00fff2;
+  --neon-pink: #ff00e5;
+  --neon-violet: #b026ff;
+}
+body[data-theme='neon'] { background: linear-gradient(180deg,#04010a,#0c0320 50%,#1a0033); }
+body[data-theme='neon'] .card { background: rgba(6,2,20,0.92); border-color: rgba(0,255,242,0.28); }
+body[data-theme='neon'] .glitch-text::before { color: var(--accent-orange); }
+body[data-theme='neon'] button { background: linear-gradient(135deg,#b026ff,#ff00e5); }
+
+/* ── Theme: Ocean ──
+   Mismo problema que 'neon': faltaba por completo. Paleta alineada
+   con theme_ocean ("Océano Profundo") en customizationSystem.ts
+   (#0ea5e9 / #0284c7 / #0369a1) para que ambos sistemas de tema no
+   diverjan visualmente si en algún momento se unifican. */
+body[data-theme='ocean'] {
+  --bg: #020a12;
+  --surface: rgba(14, 165, 233, 0.13);
+  --surface-strong: rgba(3, 105, 161, 0.18);
+  --border: rgba(14, 165, 233, 0.45);
+  --border-hover: rgba(56, 189, 248, 0.85);
+  --text: #eef9ff;
+  --text-muted: rgba(214, 241, 255, 0.9);
+  --text-dim: rgba(170, 220, 245, 0.68);
+  --accent-cyan: #38bdf8;
+  --accent-orange: #0ea5e9;
+
+  --accent-orange-2: #0369a1;
+  --bg-1: #020a12;
+  --bg-2: #0c1929;
+  --card: rgba(6, 20, 32, 0.92);
+  --card-hover: linear-gradient(155deg, rgba(8, 30, 48, 0.98) 0%, rgba(3, 40, 60, 0.98) 100%);
+  --panel-gradient: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+
+  --glow-orange: rgba(56, 189, 248, 0.9);
+  --glow-orange-strong: rgba(14, 165, 233, 1);
+  --glow-orange-soft: rgba(56, 189, 248, 0.25);
+}
+body[data-theme='ocean'] { background: linear-gradient(180deg,#020a12,#0c1929 50%,#0c2a42); }
+body[data-theme='ocean'] .card { background: rgba(6,20,32,0.92); border-color: rgba(14,165,233,0.22); }
+body[data-theme='ocean'] .glitch-text::before { color: var(--accent-orange); }
+body[data-theme='ocean'] button { background: linear-gradient(135deg,#0369a1,#0ea5e9); }
+
+
+/* V4 UI */
+:root{--radius:12px}
+button,.game-card,.card{border-radius:var(--radius)}
+/* transition:all removed — too broad, caused jank */
+button{min-height:44px}
+
+/*==============================
+CURSOR — reescrito de cero (Aug 2026)
+
+Antes eran dos elementos (#cursorGlow + #cursorRing) con reglas
+paralelas para cada uno. Ahora es UN solo elemento: menos nodos que
+mover/componer por frame, menos superficie para que un fix quede
+aplicado a uno y no al otro (como pasó más de una vez).
+
+Regla de diseño: lo único que se actualiza en cada frame de mousemove
+(vía JS, ver customCursor.ts) es `transform: translate3d(...)` en el
+contenedor — compositor-only, no toca Layout ni Paint. El halo/glow
+vive en un `::before` con `filter: blur()` FIJO (mismo valor siempre,
+compuesto una sola vez en su propia capa) cuya intensidad se controla
+con `opacity`, también compositor-only. Nada de esto cambia de VALOR
+en hover — solo `opacity`/`transform`, igual que el hover de las
+cards. El "encanto" no viene de un glow más grande o más blureado en
+hover: viene de que JS interpola la posición con un pequeño lag/spring
+en vez de seguir el mouse en línea recta (ver customCursor.ts) — eso
+es gratis en términos de Rendering, es solo aritmética en cada frame.
+==============================*/
+
+#cursorDot {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-orange);
+    pointer-events: none;
+    z-index: 99999;
+    will-change: transform;
+    /* Sin transition en `transform`: la posición la escribe
+       customCursor.ts ya interpolada en tiempo real (ver el lag/spring
+       mencionado arriba) — una transition de CSS encima metería un
+       segundo suavizado sobre algo que ya está suavizado, sintiéndose
+       "atrasado". El único valor que sí transiciona es `background`,
+       para el cambio de color al entrar en hover. */
+    transition: background 0.18s;
+}
+
+#cursorDot::before {
+    content: '';
+    position: absolute;
+    inset: -12px;
+    border-radius: 50%;
+    background: var(--accent-orange);
+    filter: blur(10px);
+    opacity: 0.5;
+    will-change: opacity;
+    transition: opacity 0.18s;
+}
+
+#cursorDot.cursor-hover {
+    /* El scale real (agrandar el punto en hover) lo aplica JS como
+       parte del mismo `transform` inline que ya escribe cada frame
+       (ver nota de especificidad más abajo) — acá solo se resuelve el
+       color, que JS no toca. */
+    background: var(--accent-orange);
+}
+
+#cursorDot.cursor-hover::before {
+    opacity: 0.8;
+}
+
+body.custom-cursor-active *{
+    cursor:none !important;
+}
+/* AMBIENT PARTICLES: bloque #particles/.particle/particleFloat eliminado
+   (2026-08) — CSS muerto: #particles es un <div> vacío en index.html sin
+   JS que le inyecte hijos .particle, a diferencia de .floating-particles
+   (que sí tiene 7 <div class="particle"> hardcodeados y su propia regla
+   .particle en la sección de arriba). Confirmado sin poblador en ningún
+   .ts/.js del proyecto antes de borrar. */
+/*======================================
+    AMBIENT FOG V2
+======================================*/
+
+#ambientFog{
+
+    position:fixed;
+
+    inset:0;
+
+    overflow:hidden;
+
+    pointer-events:none;
+
+    z-index:0;
+
+}
+
+/*------------------------------------*/
+
+.fog{
+
+    position:absolute;
+
+    width:900px;
+
+    height:900px;
+
+    border-radius:50%;
+
+    filter:blur(70px);
+
+    opacity:.08;
+
+    mix-blend-mode:screen;
+
+}
+
+/*------------------------------------*/
+
+.fog1{
+
+    background:
+        radial-gradient(circle,
+            rgba(249,115,22,.9) 0%,
+            rgba(249,115,22,.25) 45%,
+            transparent 75%);
+
+    animation:
+
+        fogMove1 38s ease-in-out infinite alternate;
+
+}
+
+/*------------------------------------*/
+
+.fog2{
+
+    background:
+        radial-gradient(circle,
+            var(--border) 0%,
+            var(--surface) 45%,
+            transparent 72%);
+
+    animation:
+
+        fogMove2 55s ease-in-out infinite alternate;
+
+}
+
+/*------------------------------------*/
+
+.fog3{
+
+    background:
+        radial-gradient(circle,
+            rgba(194,65,12,.75) 0%,
+            rgba(194,65,12,.18) 42%,
+            transparent 72%);
+
+    animation:
+
+        fogMove3 48s ease-in-out infinite alternate;
+
+}
+
+/*======================================*/
+
+@keyframes fogMove1{
+
+    0%{
+
+        transform:
+            translate(-300px,-180px)
+            scale(1);
+
+    }
+
+    100%{
+
+        transform:
+            translate(700px,420px)
+            scale(1.35);
+
+    }
+
+}
+
+/*======================================*/
+
+@keyframes fogMove2{
+
+    0%{
+
+        transform:
+            translate(900px,650px)
+            scale(.9);
+
+    }
+
+    100%{
+
+        transform:
+            translate(-220px,-180px)
+            scale(1.25);
+
+    }
+
+}
+
+/*======================================*/
+
+@keyframes fogMove3{
+
+    0%{
+
+        transform:
+            translate(300px,850px)
+            scale(1.1);
+
+    }
+
+    100%{
+
+        transform:
+            translate(1200px,-250px)
+            scale(.8);
+
+    }
+
+}
+.lobby-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 2;
+}
+.filter-btn {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: rgba(220,165,100,0.55);
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s;
+  white-space: nowrap;
+}
+.filter-btn:hover {
+  background: var(--surface);
+  border-color: var(--border-hover);
+  color: var(--accent-orange);
+}
+/* Botón de filtro "activo" — antes animaba `box-shadow` en 4 capas
+ * (blur hasta 52px, más un `inset`) en loop infinito de 2.2s, y
+ * corría desde el primer momento en que se entra a Logros/Lobby
+ * Online (el botón "Todos" viene --active por defecto, no requiere
+ * hover) — consumo de fondo constante mientras el usuario navega esas
+ * pantallas. Mismo fix que el cursor y el reproductor de música:
+ * `filter: drop-shadow(...)` es compositable por GPU a diferencia de
+ * `box-shadow`, así que animamos su intensidad vía `opacity` en un
+ * wrapper... salvo que acá NO hay pseudo-elemento libre: `::before`
+ * ya lo usa el fondo en hover y `::after` ya lo usa el indicador de
+ * "activo" (la barrita bajo el texto, ver arriba). Por eso el
+ * `drop-shadow` se aplica directo sobre el botón — afecta también al
+ * texto/ícono, pero con un radio chico (16px) el efecto es
+ * indistinguible del glow de borde original y no rompe el layout.
+ * El `inset` se deja estático en su valor medio (8px, barato).
+ */
+/* Glow estático (ya no se anima `filter`, que fuerza Paint en cada
+ * frame al cambiar de valor). box-shadow + text-shadow ya dan el
+ * efecto de resplandor; se dejan fijos en su intensidad media y no
+ * corren ninguna animación en reposo. */
+.filter-btn--active {
+  background: var(--border);
+  border-color: var(--border-hover);
+  color: var(--accent-orange);
+  box-shadow: inset 0 0 8px rgba(249,115,22,0.10), 0 0 11px rgba(249,115,22,0.65);
+  text-shadow: 0 0 8px rgba(249,115,22,0.65);
+}
+
+/* Terminal-blink for ONLINE / SECURE / MODS — el `color`/`text-shadow`
+ * ya NO se animan (no son compositable, forzaban Paint en cada frame,
+ * y este elemento vive en el header sticky global, así que corría
+ * siempre, incluso en pantallas sin ningún elemento "activo").
+ * `.status-badge` fija su color base; acá solo se anima `opacity`,
+ * que es compositor-only y da el mismo efecto visual de parpadeo. */
+@keyframes terminal-blink {
+  0%, 100% { opacity: 1; }
+  20%       { opacity: 0.92; }
+  35%       { opacity: 0.3; }
+  38%       { opacity: 1; }
+  50%       { opacity: 0.95; }
+  65%       { opacity: 1; }
+  80%       { opacity: 0.88; }
+}
+
+/* hexTick pulsing color base */
+#hexTick {
+  color: var(--accent-orange);
+  text-shadow: 0 0 8px rgba(249,115,22,0.55);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.18em;
+}
+
+/* Hidden card (filtered out) — smooth fade */
+.game-card--filtered {
+  pointer-events: none !important;
+  opacity: 0 !important;
+  transform: scale(0.94) translateY(6px) !important;
+  transition:
+    opacity 0.28s cubic-bezier(0.4, 0, 1, 1),
+    transform 0.28s cubic-bezier(0.4, 0, 1, 1) !important;
+}
+.game-card:not(.game-card--filtered) {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  transition:
+    opacity 0.32s cubic-bezier(0, 0, 0.2, 1),
+    transform 0.32s cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Lifted card (matches active filter) — subtle bounce-up + glow */
+.game-card--lift {
+  animation: cardLift 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes cardLift {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  40% {
+    transform: translateY(-10px) scale(1.03);
+  }
+  100% {
+    transform: translateY(-4px) scale(1);
+  }
+}
+.game-card--lift {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
+    0 8px 30px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 4px 12px rgba(0,0,0,0.40),
+    inset 0 1px 0 rgba(255,255,255,0.06) !important;
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent) !important;
+}
+
+/* ── Music Player Widget ── */

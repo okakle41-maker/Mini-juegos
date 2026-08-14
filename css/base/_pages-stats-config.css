@@ -1,0 +1,842 @@
+/* ============================================================
+   MÓDULO: páginas internas — estadísticas, progreso, ranking,
+   configuración, cuenta (login/registro) y manual.
+   Parte 8/9 de css/styles.css.
+   ============================================================ */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.stat-card:hover {
+  border-color: var(--border-hover);
+  background: var(--surface);
+  transform: translateY(-2px);
+}
+.stat-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--accent-orange);
+  flex-shrink: 0;
+}
+.stat-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stat-card-value {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+.stat-card-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.category-card {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid rgba(249, 115, 22, 0.14);
+  transition: border-color 0.2s, background 0.2s;
+}
+.category-card:hover {
+  border-color: rgba(249, 115, 22, 0.30);
+  background: var(--surface);
+}
+.category-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.category-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--accent-orange);
+}
+.category-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.category-bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--surface);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.category-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #c2410c, var(--accent-orange));
+  border-radius: 99px;
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.category-pct {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+/* ── Progreso ── */
+.progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Comparar con vos mismo */
+.self-compare {
+  margin: 0 0 28px;
+  padding: 18px 16px 16px;
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  border-radius: 10px;
+  background: linear-gradient(160deg, rgba(249, 115, 22, 0.06), rgba(0, 0, 0, 0.2));
+}
+.self-compare-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 8px;
+}
+.self-compare-head h3 {
+  flex: 1 1 auto;
+  margin: 0;
+  font-family: var(--font-tactical);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+.self-compare-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.self-compare-select {
+  min-width: 160px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+.self-compare-hint {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.self-compare-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+@media (min-width: 560px) {
+  .self-compare-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.self-compare-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.self-compare-stat-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.self-compare-stat-value {
+  font-family: var(--font-mono-tactical);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.self-compare-trend--up { color: #4ade80; }
+.self-compare-trend--down { color: #f87171; }
+.self-compare-chart {
+  min-height: 88px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+.self-compare-empty {
+  margin: 0;
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.self-compare-svg {
+  display: block;
+  --cat: var(--accent-orange);
+}
+.self-compare-svg[data-category="memoria"] { --cat: var(--cat-memoria, #a78bfa); }
+.self-compare-svg[data-category="secuencia"] { --cat: var(--cat-secuencia, #60a5fa); }
+.self-compare-svg[data-category="reflejos"] { --cat: var(--cat-reflejos, #fb923c); }
+.self-compare-svg[data-category="cifrado"] { --cat: var(--cat-cifrado, #34d399); }
+.self-compare-svg[data-category="tipeo"] { --cat: var(--cat-tipeo, #22d3ee); }
+.self-compare-svg[data-category="percepcion"] { --cat: var(--cat-percepcion, #f472b6); }
+.self-compare-svg[data-category="analisis"] { --cat: var(--cat-analisis, #facc15); }
+.self-compare-svg[data-category="supervision"] { --cat: var(--cat-supervision, #f87171); }
+.self-compare-svg[data-category="estrategia"] { --cat: var(--cat-estrategia, #2dd4bf); }
+.self-compare-svg[data-category="logica"] { --cat: var(--cat-logica, #818cf8); }
+.self-compare-area {
+  fill: color-mix(in srgb, var(--cat) 18%, transparent);
+}
+.self-compare-line {
+  stroke: var(--cat);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.self-compare-dot {
+  fill: var(--cat);
+  opacity: 0.75;
+}
+.self-compare-dot--last {
+  opacity: 1;
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+.progress-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.40);
+  border: 1px solid rgba(249, 115, 22, 0.12);
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.progress-item:hover {
+  border-color: rgba(249, 115, 22, 0.28);
+  background: var(--surface);
+  transform: translateX(4px);
+}
+.progress-item--done {
+  border-color: rgba(249, 115, 22, 0.22);
+}
+.progress-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent, #f97316) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #f97316) 25%, transparent);
+  color: var(--accent, #f97316);
+  flex-shrink: 0;
+}
+.progress-item-icon svg {
+  width: 24px; height: 24px;
+}
+.progress-item-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.progress-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.progress-item-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+.progress-item-tag {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--accent, var(--accent-orange));
+  background: color-mix(in srgb, var(--accent, var(--accent-orange)) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, var(--accent-orange)) 22%, transparent);
+  padding: 2px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.progress-item-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.progress-item-record {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-orange);
+}
+.progress-item-date {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+/* ── Ranking ── */
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ranking-empty {
+  text-align: center;
+  padding: 40px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  border: 1px dashed rgba(249, 115, 22, 0.14);
+  border-radius: 12px;
+}
+.ranking-global-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 16px;
+}
+.ranking-global-controls label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+.ranking-global-controls select {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid rgba(249, 115, 22, 0.12);
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.ranking-item:hover {
+  border-color: rgba(249, 115, 22, 0.28);
+  background: var(--surface);
+  transform: translateX(4px);
+}
+.ranking-item--top {
+  border-color: rgba(249, 115, 22, 0.30);
+  background: rgba(249, 115, 22, 0.06);
+}
+.ranking-rank {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-dim);
+  min-width: 40px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.ranking-item--top .ranking-rank {
+  font-size: 22px;
+}
+.ranking-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent, #f97316) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #f97316) 22%, transparent);
+  color: var(--accent, #f97316);
+  flex-shrink: 0;
+}
+.ranking-icon svg { width: 20px; height: 20px; }
+.ranking-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ranking-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+.ranking-tag {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+}
+.ranking-value {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent-orange);
+  text-shadow: 0 0 8px rgba(255, 154, 60, 0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Configuración ── */
+.config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 24px;
+}
+.config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(249, 115, 22, 0.10);
+  transition: border-color 0.2s, background 0.2s;
+}
+.config-row:hover {
+  border-color: rgba(249, 115, 22, 0.22);
+  background: rgba(249, 115, 22, 0.04);
+}
+.config-hint {
+  margin: 2px 4px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+.config-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+}
+.config-select {
+  appearance: none;
+  background: rgba(249, 115, 22, 0.06);
+  border: 1px solid rgba(249, 115, 22, 0.20);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 28px 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.config-select:hover {
+  border-color: rgba(249, 115, 22, 0.40);
+  background: rgba(249, 115, 22, 0.10);
+}
+.config-select:focus {
+  border-color: rgba(249, 115, 22, 0.55);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+}
+
+/* Toggle switch */
+.config-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  cursor: pointer;
+}
+.config-toggle input {
+  opacity: 0;
+  width: 0; height: 0;
+  position: absolute;
+}
+.config-toggle-slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 99px;
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.22);
+  transition: background 0.25s, border-color 0.25s;
+}
+.config-toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  transform: translateY(-50%);
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: rgba(220, 165, 100, 0.55);
+  transition: transform 0.25s, background 0.25s;
+}
+.config-toggle input:checked + .config-toggle-slider {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.config-toggle input:checked + .config-toggle-slider::before {
+  transform: translate(20px, -50%);
+  background: var(--accent-orange);
+  box-shadow: 0 0 8px rgba(255, 154, 60, 0.5);
+}
+.config-toggle input:focus-visible + .config-toggle-slider {
+  outline: 2px solid var(--accent-orange);
+  outline-offset: 2px;
+}
+
+/* Danger zone */
+.config-danger {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(239, 68, 68, 0.15);
+}
+/* `!important` sacado en todo este bloque: `.config-danger-btn` (y sus
+   variantes con pseudo-clase) ya ganan por especificidad de clase
+   contra `button`/`button:hover` (selectores de elemento), sin
+   ambigüedad — no hacía falta forzarlo. */
+.config-danger-btn {
+  width: 100%;
+  background: rgba(239, 68, 68, 0.10);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 12px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  box-shadow: none;
+}
+.config-danger-btn:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.55);
+  color: #fca5a5;
+  transform: none;
+}
+/* Este `!important` sí es necesario (a diferencia del resto del
+   bloque de arriba): en estado hover, `.config-danger-btn:hover`
+   (0,2,0,0 — dos clases) pesa más que `.config-danger-btn--confirm`
+   sola (0,1,0,0), así que sin !important el hover ganaría y el
+   estado "confirmar" perdería su color de alerta justo cuando el
+   usuario tiene el mouse encima, el momento en que más importa que
+   se note. */
+.config-danger-btn--confirm {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: rgba(239, 68, 68, 0.70) !important;
+  color: #fff !important;
+  animation: dangerPulse 1s ease-in-out infinite;
+}
+@keyframes dangerPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+/* ── Cuenta (login / registro) ── */
+.account-card {
+  max-width: 420px;
+}
+.account-section.hidden {
+  display: none;
+}
+.account-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 18px 0 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+/* `.account-tab`/`.account-form button[type="submit"]`: mismo caso,
+   ya ganan por especificidad de clase contra `button`/`button:hover`/
+   `button:disabled` (selectores de elemento), sin necesitar
+   !important. */
+.account-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 10px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-dim, rgba(255,255,255,0.5));
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.account-tab--active {
+  color: var(--accent-cyan);
+  border-bottom-color: var(--accent-cyan);
+}
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.account-form.hidden {
+  display: none;
+}
+.account-form label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-dim, rgba(255,255,255,0.6));
+  margin-top: 10px;
+}
+.account-form input {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.account-form input:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-cyan) 25%, transparent);
+}
+.account-hint {
+  font-size: 10px;
+  color: var(--text-dim, rgba(255,255,255,0.4));
+  line-height: 1.4;
+}
+.account-form button[type="submit"] {
+  margin-top: 16px;
+  background: linear-gradient(160deg, var(--accent-cyan), var(--accent-orange));
+  border: none;
+  color: #1a1a1a;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 12px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.account-form button[type="submit"]:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.account-error {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.10);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 12px;
+}
+.account-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 18px 0 24px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+.account-profile-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim, rgba(255,255,255,0.5));
+}
+.account-profile-name {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--accent-cyan);
+}
+
+/* ── Manual ── */
+.manual-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+.manual-item {
+  display: flex;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(249, 115, 22, 0.14);
+  transition: border-color 0.25s, background 0.25s, transform 0.25s;
+}
+.manual-item:hover {
+  border-color: color-mix(in srgb, var(--accent, #f97316) 35%, transparent);
+  background: color-mix(in srgb, var(--accent, #f97316) 5%, rgba(0, 0, 0, 0.5));
+  transform: translateY(-3px);
+}
+.manual-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px; height: 52px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent, #f97316) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #f97316) 22%, transparent);
+  color: var(--accent, #f97316);
+  flex-shrink: 0;
+}
+.manual-item-icon svg { width: 26px; height: 26px; }
+.manual-item-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.manual-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.manual-item-tag {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--accent, var(--accent-orange));
+  background: color-mix(in srgb, var(--accent, var(--accent-orange)) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, var(--accent-orange)) 22%, transparent);
+  padding: 2px 7px;
+  border-radius: 3px;
+}
+.manual-item-num {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+.manual-item-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+.manual-item-desc {
+  font-size: 11px;
+  color: rgba(253, 210, 160, 0.65);
+  line-height: 1.55;
+  flex: 1;
+}
+.manual-item-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+/* Mismo caso que .config-danger-btn/.mp-btn: `.manual-item-launch` es
+   selector de clase, ya gana por especificidad contra
+   `button`/`button:hover` sin necesitar !important. */
+.manual-item-launch {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  background: color-mix(in srgb, var(--accent, #f97316) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #f97316) 30%, transparent);
+  color: var(--accent, var(--accent-orange));
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+.manual-item-launch:hover {
+  background: color-mix(in srgb, var(--accent, #f97316) 25%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #f97316) 50%, transparent);
+  transform: translateY(-1px);
+}
+
+/* Cursor disabled state */
+body.cursor-disabled #cursorDot {
+  display: none !important;
+}
+body.cursor-disabled * {
+  cursor: auto !important;
+}
+
+/* ============================================
+   GAME DESIGN SYSTEM — Unified Visual Language
+   ============================================
+
+   All games follow this design system:
+   - Game board container with corner accents
+   - Unified cell/button styling
+   - Consistent status displays and progress bars
+   - Shared animations (pulse-green on correct, shake on wrong) — juegos
+     que necesitan glow/float/spin propios los definen localmente (ver
+     virusBtnPulse en este mismo archivo, cyberpulse en lobby-new.css,
+     etc.); no forman parte de este set compartido.
+   - Color states: default, active, correct, wrong, warning
+   ============================================ */
+
+/* ── Shared Animations ── */

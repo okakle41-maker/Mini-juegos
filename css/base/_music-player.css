@@ -1,0 +1,520 @@
+/* ============================================================
+   MÓDULO: reproductor de música (widget arcade, versión
+   colapsada, animaciones de pulso).
+   Parte 6/9 de css/styles.css.
+   ============================================================ */
+
+/* ─── Music Player — Arcade Style ─── */
+.music-player {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(100vw - 32px, 360px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px 16px 14px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow:
+    0 10px 40px rgba(0,0,0,0.65),
+    0 0 0 1px var(--surface) inset,
+    0 0 60px var(--glow-orange-soft);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  user-select: none;
+  color-scheme: dark;
+}
+.music-player:hover {
+  border-color: var(--border-hover);
+  box-shadow:
+    0 12px 44px rgba(0,0,0,0.72),
+    0 0 24px var(--glow-orange-soft),
+    0 0 0 1px var(--surface) inset;
+}
+/* Mismo motivo que .music-player-fab[hidden]: sin esto, display:flex
+   le gana en especificidad al [hidden] nativo del navegador y el panel
+   queda visible aunque musicPlayer.ts le ponga musicPlayerEl.hidden = true. */
+.music-player[hidden] {
+  display: none;
+}
+
+/* Drag handle bar at top */
+.mp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: grab;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(200,120,30,0.14);
+  touch-action: none;
+}
+.mp-head:active { cursor: grabbing; }
+.mp-head::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(200,120,30,0.30);
+  pointer-events: none;
+}
+
+.mp-head-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.mp-head-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  color: rgba(220,160,80,0.65);
+}
+
+/* Track badge — pill on right, like "3/7" in the image */
+.mp-track-badge {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(240,170,70,0.90);
+  background: rgba(180,90,10,0.18);
+  border: 1.5px solid rgba(200,120,30,0.32);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+/* Note icon */
+.mp-label {
+  font-size: 13px;
+  color: var(--accent-orange);
+  opacity: 0.75;
+  flex-shrink: 0;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.mp-note--playing {
+  animation: mpNotePulse 1.6s ease-in-out infinite;
+  opacity: 1 !important;
+  /* Corre siempre que hay música sonando (estado por defecto de la
+     app) — misma razón que .status-dot/.particle/.beam más arriba. */
+  will-change: transform, opacity;
+}
+@keyframes mpNotePulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+}
+
+/* Equalizer bars */
+.mp-eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 13px;
+  opacity: 0.40;
+}
+.mp-eq span {
+  display: block;
+  width: 2px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--accent-orange);
+  /* `transform-origin: bottom` para que el scaleY (ver @keyframes
+     mpEq más abajo) crezca hacia arriba como una barra de ecualizador
+     real, no desde el centro. */
+  transform-origin: bottom;
+}
+.mp-eq--active span:nth-child(1) { animation: mpEq 0.9s ease-in-out infinite; }
+.mp-eq--active span:nth-child(2) { animation: mpEq 0.9s ease-in-out 0.15s infinite; }
+.mp-eq--active span:nth-child(3) { animation: mpEq 0.9s ease-in-out 0.3s infinite; }
+@keyframes mpEq {
+  /* Antes animaba `height` (4px → 12px): eso es Layout, no
+     composición — igual que el bug ya corregido en
+     #cursorDot (ver esa sección más arriba en este
+     archivo). Esta animación corre en 3 barras a la vez, SIEMPRE que
+     hay música sonando — que es el estado por defecto de la app — así
+     que el costo era continuo, no solo durante hover. Reemplazado por
+     `scale()`, compositor-only: 12/4 = 3x de escala vertical máxima
+     equivale visualmente al height original de 4px→12px. */
+  0%, 100% { transform: scaleY(1); opacity: 0.45; }
+  50% { transform: scaleY(3); opacity: 1; }
+}
+
+/* Track selector — prominent row like in the image */
+.mp-track-picker {
+  position: relative;
+}
+.mp-track-picker-label {
+  position: absolute;
+  width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+.mp-track-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 10px 36px 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 0 0 0px var(--surface);
+}
+.mp-track-select:hover {
+  border-color: var(--border-hover);
+  background: var(--surface);
+}
+.mp-track-select option {
+  background: var(--bg);
+  color: var(--text);
+}
+.mp-track-select:focus {
+  border-color: rgba(200,120,30,0.60);
+  box-shadow: 0 0 0 3px rgba(200,120,30,0.14);
+}
+.mp-track-picker::after {
+  content: '▾';
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(220,140,50,0.80);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* Bottom bar: controls + volume */
+/* ── Music player: cancelar resets globales de button ──
+   `!important` sacado: `.mp-btn`/`.mp-btn--play`/`.mp-btn--mute` son
+   selectores de clase (especificidad 0,1,0,0), que ya ganan sin
+   ambigüedad contra el `button{min-height:44px}` global (selector de
+   elemento, 0,0,1,1) — no hace falta forzarlo. */
+.mp-btn,
+.mp-btn--play,
+.mp-btn--mute {
+  min-height: unset;
+  background: none;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+  transform: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+.mp-btn:hover,
+.mp-btn--play:hover,
+.mp-btn--mute:hover {
+  transform: scale(1.06);
+}
+.mp-btn:active,
+.mp-btn--play:active,
+.mp-btn--mute:active {
+  transform: scale(0.93);
+}
+
+.mp-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* Big circular control buttons — arcade style */
+.mp-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.mp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-height: unset;
+  border-radius: 50%;
+  border: 1.5px solid rgba(180,100,20,0.28);
+  background: rgba(180,100,20,0.08);
+  color: rgba(210,145,70,0.75);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s, box-shadow 0.15s;
+  flex-shrink: 0;
+  box-shadow: none;
+}
+.mp-btn:hover {
+  background: var(--surface);
+  border-color: var(--border-hover);
+  color: var(--accent-orange);
+  transform: scale(1.06);
+  box-shadow: 0 0 12px var(--glow-orange-soft);
+}
+.mp-btn:active { transform: scale(0.93); }
+
+/* Play button — larger, glowing */
+.mp-btn--play {
+  width: 30px;
+  height: 30px;
+  min-height: unset;
+  background: radial-gradient(circle at 40% 35%, var(--border), var(--surface));
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  padding: 0;
+  color: #e58535;
+  box-shadow:
+    0 0 18px rgba(200,120,30,0.22),
+    inset 0 1px 0 rgba(255,200,100,0.10);
+}
+.mp-btn--play:hover {
+  background: radial-gradient(circle at 40% 35%, var(--border-hover), var(--border));
+  box-shadow: 0 0 26px var(--glow-orange);
+  transform: scale(1.08);
+}
+.mp-btn--active {
+  background: var(--border);
+  border-color: var(--border-hover);
+  color: var(--accent-orange);
+}
+
+/* Volume area */
+.mp-volume {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
+}
+.mp-btn--mute {
+  width: 24px;
+  height: 24px;
+  min-height: unset;
+  border-radius: 50%;
+  border: 1.5px solid rgba(180,100,20,0.18);
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  color: rgba(200,140,60,0.50);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+.mp-btn--mute:hover {
+  background: var(--surface);
+  border-color: var(--border-hover);
+  color: var(--accent-orange);
+  transform: scale(1.06);
+}
+
+/* Volume slider — horizontal amber glowing track */
+.mp-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  max-width: 140px;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(180,100,20,0.20);
+  outline: none;
+  cursor: pointer;
+  flex: 1;
+}
+.mp-volume-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 99px;
+  background: var(--surface);
+}
+.mp-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f0a040, #c06010);
+  border: 2px solid rgba(6,4,2,0.80);
+  box-shadow:
+    0 0 10px rgba(200,120,30,0.55),
+    0 0 4px rgba(0,0,0,0.5);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+.mp-volume-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.14);
+  box-shadow: 0 0 16px var(--glow-orange);
+}
+.mp-volume-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 0 10px rgba(200,120,30,0.55);
+}
+.mp-volume-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 99px;
+  background: var(--surface);
+  border: none;
+}
+.mp-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f0a040, #c06010);
+  border: 2px solid rgba(6,4,2,0.80);
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(200,120,30,0.55);
+}
+.mp-volume-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 0 10px rgba(200,120,30,0.55);
+}
+
+@media (max-width: 480px) {
+  .music-player {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+  }
+  .mp-volume-slider { max-width: 72px; }
+  .mp-btn--play { width: 26px; height: 26px; }
+  .mp-btn { width: 20px; height: 20px; }
+}
+
+/* ── Reproductor colapsable: botón flotante (♪) ── */
+/* El botón de colapsar en el header ya no encoge el panel — lo oculta
+   por completo (index.html: hidden) y en su lugar aparece
+   #musicPlayerFab, que ocupa la misma posición fija. Ambos son
+   arrastrables por separado (ver musicPlayerDrag.ts), así que la
+   posición se sincroniza entre uno y otro al colapsar/expandir. */
+.mp-collapse-btn svg {
+  transition: transform 0.25s ease;
+}
+.music-player.mp--collapsed .mp-collapse-btn svg {
+  transform: rotate(180deg);
+}
+
+.music-player-fab {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 9999;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  color-scheme: dark;
+  background: rgba(6, 4, 2, 0.92);
+  border: 1px solid rgba(200, 120, 30, 0.35);
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.6),
+    0 0 0 1px rgba(200,120,30,0.08) inset,
+    0 0 40px rgba(180,90,10,0.08);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+/* Sin esto, `display: flex` de arriba le gana en especificidad al
+   comportamiento por defecto de [hidden] del navegador (display: none),
+   y el botón queda visible aunque musicPlayer.ts le ponga
+   fabEl.hidden = true — el panel y el FAB terminan superpuestos en vez
+   de mostrarse de a uno por vez. */
+.music-player-fab[hidden] {
+  display: none;
+}
+.music-player-fab:hover {
+  border-color: var(--border-hover);
+  box-shadow:
+    0 12px 34px rgba(0,0,0,0.68),
+    0 0 22px var(--glow-orange-soft),
+    0 0 0 1px var(--surface) inset;
+  transform: scale(1.06);
+}
+.music-player-fab:active { cursor: grabbing; }
+.mp-fab-note {
+  font-size: 19px;
+  color: var(--accent-orange);
+  opacity: 0.85;
+  transition: opacity 0.3s, transform 0.3s;
+}
+/* Reutiliza la misma animación de pulso que la nota del panel expandido
+   (mpNotePulse, definida más arriba junto a .mp-note--playing) cuando
+   suena música mientras el reproductor está colapsado. */
+.music-player-fab.mp-fab--playing .mp-fab-note {
+  animation: mpNotePulse 1.6s ease-in-out infinite;
+  opacity: 1;
+  will-change: transform, opacity;
+}
+
+@media (max-width: 480px) {
+  .music-player-fab {
+    left: 10px;
+    bottom: 10px;
+  }
+}
+
+
+/* ── Music player: pulso en borde cuando reproduce ──
+ *
+ * Antes esto animaba `box-shadow` en 4 capas (blur hasta 40px) en
+ * loop infinito de 2s mientras había música sonando — un estado que
+ * puede durar toda la sesión, no un efecto puntual. `box-shadow` con
+ * blur no es compositable por GPU, así que el navegador repintaba
+ * ese blur cada tick del loop de forma sostenida en 2do plano.
+ *
+ * Fix (mismo patrón que #cursorDot en la sección CURSOR GAMER más
+ * arriba): el pulso ahora vive en un pseudo-elemento con
+ * `filter: drop-shadow(...)` FIJO (se compone una sola vez) animado
+ * por `opacity`, que sí es GPU-compositable y no dispara repaint. El
+ * `.music-player` ya es `position: fixed` (ver arriba), que también
+ * sirve como contenedor de posicionamiento para el pseudo-elemento
+ * (`position: absolute; inset: 0`) — no hace falta agregar
+ * `position: relative` acá.
+ */
+.music-player::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  filter: drop-shadow(0 0 22px var(--glow-orange));
+  opacity: 0;
+  will-change: opacity;
+}
+
+.music-player.mp--playing {
+  border-color: var(--accent-orange);
+}
+
+.music-player.mp--playing::after {
+  animation: mpBorderPulse 2s ease-in-out infinite;
+}
+
+@keyframes mpBorderPulse {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 1; }
+}
+
+
