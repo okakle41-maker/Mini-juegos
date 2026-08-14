@@ -87,6 +87,8 @@ declare global {
     >;
     exportPerformanceReport: () => string;
     pwaSystem: typeof import('../pwaSystem').default;
+    skeletonSystem: typeof import('../skeletonSystem').default;
+    transitionSystem: typeof import('../transitionSystem').default;
     // Evento nativo `beforeinstallprompt`, capturado para disparar el
     // prompt de instalación más tarde. No tiene tipo DOM estándar porque
     // aún no está en todos los navegadores; se guarda como Event | null

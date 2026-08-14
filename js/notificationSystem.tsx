@@ -31,7 +31,7 @@
  * exportado como named export y default.
  */
 import { render } from 'preact';
-import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback } from 'preact/hooks';
 
 type NotificationType = 'success' | 'error' | 'warning' | 'info' | 'achievement';
 

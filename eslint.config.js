@@ -16,6 +16,15 @@ export default tseslint.config(
       'test-results/**',
       'coverage/**',
       'public/**',
+      // components/ui/**: scaffolding de shadcn/ui fuera del árbol
+      // `js/` real del proyecto (depende de '@base-ui/react/button' y
+      // del alias '@/lib/utils', ninguno de los dos configurado acá).
+      // No está cubierto por el `include` de tsconfig.json ni
+      // importado por ningún archivo del proyecto — lintearlo con
+      // parserOptions.project rompe con "file not found in any of the
+      // provided project(s)" porque, con razón, no pertenece a
+      // ningún proyecto TS del repo.
+      'components/**',
       // Script k6 (JS plano, ejecutado por el runtime de k6 en CI, no
       // por tsc/vite) — no forma parte de ningún tsconfig del repo.
       'load-test/**',
