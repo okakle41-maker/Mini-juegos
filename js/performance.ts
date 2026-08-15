@@ -38,15 +38,20 @@ export function memoize<T extends (...args: unknown[]) => any>(
 
 /**
  * Memoiza una función asíncrona
+ *
+ * A diferencia de memoize()/debounce()/throttle() de arriba y abajo
+ * (que sí necesitan `any` en el constraint — ver nota de archivo),
+ * acá se puede separar parámetros (`Args`) y retorno (`R`) en dos
+ * genéricos en vez de un único `T extends (...args) => Promise<any>`,
+ * conservando la inferencia real de ambos sin `any` en ningún lado.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
-export function memoizeAsync<T extends (...args: unknown[]) => Promise<any>>(
-  fn: T,
-  keyGenerator?: (...args: Parameters<T>) => string
-): T {
-  const cache = new Map<string, Promise<ReturnType<T>>>();
+export function memoizeAsync<Args extends unknown[], R>(
+  fn: (...args: Args) => Promise<R>,
+  keyGenerator?: (...args: Args) => string
+): (...args: Args) => Promise<R> {
+  const cache = new Map<string, Promise<R>>();
 
-  return (async (...args: Parameters<T>): Promise<ReturnType<T>> => {
+  return async (...args: Args): Promise<R> => {
     const key = keyGenerator ? keyGenerator(...args) : JSON.stringify(args);
     
     if (cache.has(key)) {
@@ -56,7 +61,7 @@ export function memoizeAsync<T extends (...args: unknown[]) => Promise<any>>(
     const promise = fn(...args);
     cache.set(key, promise);
     return promise;
-  }) as T;
+  };
 }
 
 /**
@@ -84,15 +89,16 @@ export function debounce<T extends (...args: unknown[]) => any>(
 /**
  * Debounce asíncrono
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
-export function debounceAsync<T extends (...args: unknown[]) => Promise<any>>(
-  fn: T,
+// Mismo motivo que memoizeAsync(): Args/R separados en vez de un
+// único T evita el `any` sin perder inferencia.
+export function debounceAsync<Args extends unknown[], R>(
+  fn: (...args: Args) => Promise<R>,
   delay: number
-): (...args: Parameters<T>) => Promise<ReturnType<T>> {
+): (...args: Args) => Promise<R> {
   let timeoutId: number | null = null;
-  let lastPromise: Promise<ReturnType<T>> | null = null;
+  let lastPromise: Promise<R> | null = null;
 
-  return async (...args: Parameters<T>): Promise<ReturnType<T>> => {
+  return async (...args: Args): Promise<R> => {
     if (timeoutId !== null) {
       clearTimeout(timeoutId);
     }
@@ -141,15 +147,16 @@ export function throttle<T extends (...args: unknown[]) => any>(
 /**
  * Throttle asíncrono
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
-export function throttleAsync<T extends (...args: unknown[]) => Promise<any>>(
-  fn: T,
+// Mismo motivo que memoizeAsync(): Args/R separados en vez de un
+// único T evita el `any` sin perder inferencia.
+export function throttleAsync<Args extends unknown[], R>(
+  fn: (...args: Args) => Promise<R>,
   limit: number
-): (...args: Parameters<T>) => Promise<ReturnType<T>> {
+): (...args: Args) => Promise<R> {
   let inThrottle = false;
-  let lastPromise: Promise<ReturnType<T>> | null = null;
+  let lastPromise: Promise<R> | null = null;
 
-  return async (...args: Parameters<T>): Promise<ReturnType<T>> => {
+  return async (...args: Args): Promise<R> => {
     if (!inThrottle) {
       inThrottle = true;
       lastPromise = fn(...args);
@@ -376,13 +383,15 @@ export function measurePerformance<T extends (...args: unknown[]) => any>(
 
 /**
  * Mide el tiempo de ejecución de una función asíncrona
+ *
+ * Mismo motivo que memoizeAsync(): Args/R separados en vez de un
+ * único T evita el `any` sin perder inferencia.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver nota de archivo sobre any en el retorno del constraint
-export async function measurePerformanceAsync<T extends (...args: unknown[]) => Promise<any>>(
-  fn: T,
+export async function measurePerformanceAsync<Args extends unknown[], R>(
+  fn: (...args: Args) => Promise<R>,
   label: string,
-  ...args: Parameters<T>
-): Promise<ReturnType<T>> {
+  ...args: Args
+): Promise<R> {
   const start = performance.now();
   const result = await fn(...args);
   const end = performance.now();

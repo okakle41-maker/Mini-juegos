@@ -1,4 +1,7 @@
-/* ── Color Count — Visual Analysis ── */
+/* ── Color Count — Visual Analysis ──
+   Acentos naranja de UI migrados a var(--accent-orange)/
+   var(--glow-orange*). Verde/rojo de correct/wrong/success/failed
+   son feedback de gameplay — no se tocan. */
 .colorcount-card {
   max-width: 760px;
   margin: 0 auto;
@@ -43,8 +46,8 @@
   padding: 6px 14px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(249, 115, 22, 0.22);
-  color: #ff9a3c;
+  border: 1px solid var(--glow-orange-soft);
+  color: var(--accent-orange);
 }
 .colorcount-board {
   padding: 24px;
@@ -60,8 +63,8 @@
   font-size: 24px;
   letter-spacing: 0.15em;
   margin-bottom: 20px;
-  color: #ff9a3c;
-  text-shadow: 0 0 22px rgba(255, 154, 60, 0.45);
+  color: var(--accent-orange);
+  text-shadow: 0 0 22px var(--glow-orange-soft);
 }
 .colorcount-grid {
   display: grid;
@@ -105,11 +108,11 @@
   color: #fff;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.2s ease;
-  box-shadow: 0 10px 28px -8px rgba(249, 115, 22, 0.55);
+  box-shadow: 0 10px 28px -8px var(--glow-orange-soft);
 }
 .colorcount-controls button:hover:not(:disabled) {
   transform: translateY(-3px);
-  box-shadow: 0 16px 38px -8px rgba(249, 115, 22, 0.7);
+  box-shadow: 0 16px 38px -8px var(--glow-orange);
 }
 .colorcount-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
 .colorcount-answer-list {

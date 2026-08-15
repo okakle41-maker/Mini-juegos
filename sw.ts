@@ -119,9 +119,18 @@ self.addEventListener('fetch', (event) => {
           });
           return response;
         })
-        .catch(() => {
-          // Si falla network, intentar servir desde cache
-          return caches.match(request);
+        .catch(async () => {
+          // Si falla network, intentar servir desde cache. caches.match
+          // puede resolver a undefined (nunca se cacheó este request),
+          // así que ese caso se cubre con un 503 explícito en vez de
+          // dejar que event.respondWith() reciba undefined — lo cual
+          // el navegador rechaza en runtime, no solo TypeScript.
+          const cached = await caches.match(request);
+          return cached ?? new Response('Sin conexión y sin copia en caché.', {
+            status: 503,
+            statusText: 'Offline',
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+          });
         })
     );
     return;

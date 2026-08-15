@@ -23,6 +23,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Diagnóstico rápido para un fallo que ya se dio en un entorno de
+      # desarrollo local (nunca en este CI hasta ahora): `npm ci` en
+      # teoría siempre instala el binario nativo correcto de
+      # `lightningcss` para la plataforma del runner (ubuntu-latest =
+      # linux-x64-gnu) a partir del lockfile — pero si alguna vez una
+      # cache de npm corrupta o parcial hiciera que faltara, el error
+      # real que tira Vite/Rolldown más abajo (en "Run unit tests", que
+      # corre buildStaticAssets.test.ts, un test que sí ejecuta
+      # `vite build` de verdad) es un stack trace de WASM binding
+      # críptico que no menciona lightningcss en ningún lado obvio.
+      # Este paso falla rápido y con un mensaje que sí lo dice.
+      - name: Verify lightningcss native binding
+        run: node -e "require('lightningcss'); console.log('lightningcss OK — binario nativo cargado correctamente')"
+
       - name: Run unit tests
         run: npm test
 

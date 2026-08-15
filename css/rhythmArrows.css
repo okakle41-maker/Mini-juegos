@@ -1,4 +1,8 @@
-/* ── Rhythm Arrows — Ritmo y precisión ── */
+/* ── Rhythm Arrows — Ritmo y precisión ──
+   Acentos naranja de UI/trayectoria (trail, head, vertex) migrados a
+   var(--accent-orange)/var(--glow-orange*). El amarillo del target
+   marker y verde/rojo (good/bad, success/fail) son feedback de
+   gameplay — no se tocan. */
 .rhythm-arrows-container {
   max-width: 720px;
   margin: 0 auto;
@@ -85,16 +89,16 @@
 }
 
 .rhythm-arrows-trail {
-  stroke: #f97316;
+  stroke: var(--accent-orange);
   stroke-width: 5;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.8));
+  filter: drop-shadow(0 0 6px var(--glow-orange-soft));
   transition: opacity 0.15s ease;
 }
 
 .rhythm-arrows-head {
-  fill: #ff9a3c;
-  filter: drop-shadow(0 0 8px rgba(255, 154, 60, 0.9));
+  fill: var(--accent-orange);
+  filter: drop-shadow(0 0 8px var(--glow-orange-soft));
   transition: opacity 0.15s ease;
 }
 
@@ -121,7 +125,7 @@
   stroke: rgba(255, 154, 60, 0.5);
 }
 .rhythm-arrows-vertex.active {
-  stroke: #ff9a3c;
+  stroke: var(--accent-orange);
   stroke-width: 4;
 }
 .rhythm-arrows-vertex.lit {
@@ -177,7 +181,7 @@
 .rhythm-arrows-start-btn {
   width: 100%;
   padding: 12px;
-  background: linear-gradient(180deg, #ff9a3c, #f97316);
+  background: linear-gradient(180deg, var(--accent-orange), #f97316);
   border: none;
   border-radius: 10px;
   color: #1a0800;

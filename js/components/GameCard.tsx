@@ -40,6 +40,7 @@
 import type { GameConfig } from '../core/gameRegistry.js';
 import { UiIcons } from '../core/gameIcons.js';
 import { categorySlug } from '../utils/categorySlug.js';
+import type { CSSPropertiesWithVars } from '../types/cssVars.js';
 
 const MAX_DIFFICULTY_DOTS = 5;
 
@@ -101,8 +102,7 @@ export function GameCard({ game, display, isFavorite, plays, ringPct, lastPlayed
       data-game-id={game.id}
       data-tag={display.tag}
       data-category={categorySlug(display.tag)}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Preact no tipa custom properties (--x) en CSSProperties; mismo patrón que el atributo style="--accent:..." de antes.
-      style={{ '--accent': game.accent } as any}
+      style={{ '--accent': game.accent } as CSSPropertiesWithVars}
       role="listitem"
     >
       <span className="card-accent-strip" />

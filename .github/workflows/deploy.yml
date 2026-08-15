@@ -32,6 +32,12 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      # Ver el mismo paso en .github/workflows/ci.yml para el porqué:
+      # falla rápido y con mensaje claro si el binario nativo de
+      # lightningcss no cargó, en vez de dejar que el build de abajo
+      # tire un stack trace de WASM binding que no lo menciona.
+      - name: Verify lightningcss native binding
+        run: node -e "require('lightningcss'); console.log('lightningcss OK — binario nativo cargado correctamente')"
       - name: Build
         # vite.config.ts usa VITE_BASE (default: '/Mini-juegos/') como
         # subpath de todos los assets — necesario porque GitHub Pages

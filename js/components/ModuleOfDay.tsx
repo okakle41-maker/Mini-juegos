@@ -26,6 +26,7 @@
  */
 import { UiIcons } from '../core/gameIcons.js';
 import { categorySlug } from '../utils/categorySlug.js';
+import type { CSSPropertiesWithVars } from '../types/cssVars.js';
 
 const MAX_DIFFICULTY_DOTS = 5;
 
@@ -79,8 +80,7 @@ export function ModuleOfDay({
     <div
       className="module-of-day"
       data-category={categorySlug(display.tag)}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Preact no tipa custom properties (--x) en CSSProperties; mismo patrón que GameCard.tsx.
-      style={{ '--accent': accent } as any}
+      style={{ '--accent': accent } as CSSPropertiesWithVars}
     >
       <span className="mod-brackets" aria-hidden="true">
         <span></span><span></span><span></span><span></span>

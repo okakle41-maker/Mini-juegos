@@ -9,7 +9,7 @@
 Plataforma PWA de minijuegos de entrenamiento cognitivo: reflejos, memoria, lógica, percepción, cifrado, tipeo y análisis bajo presión. 34 módulos jugables (19 en el lobby + 15 sub-juegos ocultos), en español, pensados para sesiones cortas y repetibles con seguimiento de récords personales.
 
 - **Versión:** 3.0.0
-- **Stack:** TypeScript + Vite, sin framework de UI (DOM nativo, HTML generado como strings)
+- **Stack:** TypeScript + Vite. Arquitectura principal en DOM nativo (HTML generado como strings), con **Preact adoptado de forma incremental** en componentes y vistas puntuales (ver [Preact incremental](#preact-incremental))
 - **Persistencia:** `localStorage` offline-first vía `SafeStorage`, con backend opcional en Supabase para cuentas, ranking global, multiplayer, social y torneos
 - **Distribución:** PWA instalable con Service Worker
 
@@ -26,6 +26,7 @@ Plataforma PWA de minijuegos de entrenamiento cognitivo: reflejos, memoria, lóg
    - [Orden de arranque (`main.ts`)](#orden-de-arranque-maints)
    - [Sistema de vistas lazy](#sistema-de-vistas-lazy)
    - [`data-ui`: el contrato entre vista y lógica](#data-ui-el-contrato-entre-vista-y-lógica)
+   - [Preact incremental](#preact-incremental)
 5. [Estructura de carpetas](#estructura-de-carpetas)
 6. [Módulos `core/`](#módulos-core)
 7. [Managers de estado](#managers-de-estado)
@@ -256,6 +257,16 @@ export function init(ui: GameUi) {
 **Este contrato es puramente por convención de nombres** — no hay ningún chequeo de tipos que impida que la lógica lea `ui.algo` sin que ninguna vista declare `data-ui="algo"`. Cuando eso pasa, el código no crashea (casi siempre hay guards `if (ui.algo)` o `ui.algo?.method()`), simplemente esa parte de la UI queda muerta en silencio.
 
 Esto ocurrió realmente en este proyecto (ver [Testing](#testing) → `dataUiIntegrity.test.ts`) y por eso existe un test dedicado a verificarlo automáticamente para los 34 juegos.
+
+### Preact incremental
+
+El proyecto está migrando a **Preact de forma incremental**, no como un rewrite total: la arquitectura descrita arriba (vistas como HTML-string + `init(ui)`/`stop()`) sigue siendo la norma para los 30 minijuegos jugables, y convive con componentes Preact ya migrados en las vistas de sistema (paneles de meta-juego) y en componentes de UI reutilizables. El criterio completo, con el estado auditado y el plan para lo que falta, está en **[ADR-001: Migración incremental a Preact](docs/ADR-001-preact-migration.md)** — este apartado es solo el resumen.
+
+- **Dependencias:** `preact` (runtime) y `@preact/preset-vite` (plugin de build), configurado en `vite.config.ts`.
+- **Dónde ya se usa Preact:** componentes de UI reutilizables en `js/components/` (`GameCard.tsx`, `FilterBar.tsx`, `ModuleOfDay.tsx`, `HealthCheck.tsx`, `HeaderUserBadge.tsx`), y 4 de las 9 vistas de sistema registradas en `registerSystemViews.ts` — `logros.logic.tsx`, `progresion.logic.tsx`, `torneos.logic.tsx`, `personalizacion.logic.tsx` — junto con `accountView.tsx`, `notificationSystem.tsx` y `lobbyRenderer.tsx` (que monta los componentes vía `render(<X />, host)`).
+- **Dónde NO se usa (todavía):** ninguno de los 30 `js/games/*.logic.ts` está migrado — el contrato `data-ui` de gameplay no se toca sin antes correr un piloto (ver ADR). Tampoco las 5 vistas de sistema restantes (`estadisticas-avanzadas`, `multiplayer`, `online-lobby`, `match-waiting`, `social`).
+- **Convención de archivos:** un archivo con JSX se nombra `.tsx`; el resto de la base sigue en `.ts`. La presencia de la extensión `.tsx` es la señal de si un módulo ya fue migrado o no.
+- **Por qué incremental:** migrar los 30 minijuegos de una sola vez implicaría reescribir el contrato `data-ui` completo (ver sección anterior) a la vez que se corre el riesgo de regresiones silenciosas del mismo tipo que ya documenta este README. La convivencia permite migrar módulo por módulo, validando cada uno con la suite de tests existente antes de tocar el siguiente.
 
 ---
 

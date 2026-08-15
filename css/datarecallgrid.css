@@ -1,4 +1,7 @@
-/* ── Data Recall Grid — Memory Recall ── */
+/* ── Data Recall Grid — Memory Recall ──
+   Acentos naranja de UI migrados a var(--accent-orange)/
+   var(--glow-orange*). Ámbar (warning), verde (success) y rojo
+   (error) son feedback de gameplay — no se tocan. */
 
 #datarecallgrid .grid-display {
   display: grid;
@@ -42,7 +45,7 @@
 #datarecallgrid .grid-item:hover {
   background: rgba(249, 115, 22, 0.1);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.15);
+  box-shadow: 0 4px 12px var(--glow-orange-soft);
 }
 
 #datarecallgrid .grid-item.hidden {
@@ -55,8 +58,8 @@
 #datarecallgrid .item-name {
   flex: 1;
   font-weight: 700;
-  color: #ff9a3c;
-  text-shadow: 0 0 10px rgba(255, 145, 0, 0.35);
+  color: var(--accent-orange);
+  text-shadow: 0 0 10px var(--glow-orange-soft);
 }
 
 #datarecallgrid .item-arrow {
@@ -79,11 +82,11 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #ff9a3c;
+  color: var(--accent-orange);
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(249, 115, 22, 0.22);
   border-radius: 10px;
-  text-shadow: 0 0 12px rgba(255, 145, 0, 0.45);
+  text-shadow: 0 0 12px var(--glow-orange-soft);
 }
 
 #datarecallgrid .answer-section {
@@ -107,8 +110,8 @@
 }
 
 #datarecallgrid input[data-ui="answerInput"]:focus {
-  border-color: rgba(249, 115, 22, 0.55);
-  box-shadow: 0 0 12px rgba(249, 115, 22, 0.2);
+  border-color: var(--glow-orange-soft);
+  box-shadow: 0 0 12px var(--glow-orange-soft);
 }
 
 #datarecallgrid input[data-ui="answerInput"]:disabled {
@@ -176,7 +179,7 @@
   color: var(--text-dim);
 }
 #datarecallgrid .game-stats span strong {
-  color: #ff9a3c;
+  color: var(--accent-orange);
   font-size: 1.1rem;
-  text-shadow: 0 0 10px rgba(255, 145, 0, 0.45);
+  text-shadow: 0 0 10px var(--glow-orange-soft);
 }

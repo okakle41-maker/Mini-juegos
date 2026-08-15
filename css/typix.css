@@ -1,4 +1,7 @@
-/* ── Typix — Word Guessing ── */
+/* ── Typix — Word Guessing ──
+   Acentos naranja de UI migrados a var(--accent-orange)/
+   var(--glow-orange*). El ámbar de .typix-summary y verde/rojo de
+   mensajes success/fail son feedback de gameplay — no se tocan. */
 #typix .card { max-width: 480px; margin: 0 auto; }
 #typix .typix-header {
   display: flex;
@@ -12,9 +15,9 @@
   padding: 10px 28px;
   border-radius: 14px;
   background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(249, 115, 22, 0.32);
-  color: #ff9a3c;
-  text-shadow: 0 0 18px rgba(255, 154, 60, 0.55);
+  border: 1px solid var(--glow-orange-soft);
+  color: var(--accent-orange);
+  text-shadow: 0 0 18px var(--glow-orange-soft);
   letter-spacing: 0.12em;
   min-width: 110px;
   text-align: center;
@@ -102,7 +105,7 @@
 }
 #typixInput:focus {
   border-color: var(--accent-orange);
-  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.18), 0 0 28px rgba(249, 115, 22, 0.25);
+  box-shadow: 0 0 0 4px var(--glow-orange-soft), 0 0 28px var(--glow-orange-soft);
 }
 #typixGuessBtn {
   width: 100%;
@@ -118,11 +121,11 @@
   color: #fff;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.2s ease;
-  box-shadow: 0 10px 28px -8px rgba(249, 115, 22, 0.55);
+  box-shadow: 0 10px 28px -8px var(--glow-orange-soft);
 }
 #typixGuessBtn:hover {
   transform: translateY(-3px);
-  box-shadow: 0 16px 38px -8px rgba(249, 115, 22, 0.7);
+  box-shadow: 0 16px 38px -8px var(--glow-orange);
 }
 #typix .typix-message {
   text-align: center;

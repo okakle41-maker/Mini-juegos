@@ -1,4 +1,18 @@
 // @ts-check
+// Nota sobre 2 clases de aviso de tipos que puede marcar el editor en
+// este archivo (VS Code con @ts-check), sin tsconfig.json real detrás
+// (eslint.config.js queda fuera del `include` de tsconfig.json/
+// tsconfig.sw.json a propósito, ver bloque de e2e/eslint.config.js más
+// abajo) — ninguno afecta a `npm run lint` ni a `npm run type-check`,
+// que sí pasan limpio:
+// 1) `import.meta.dirname` necesita lib/target Node reciente para que
+//    el checker lo reconozca; la referencia de abajo se lo indica
+//    explícitamente sin tocar el target del proyecto principal.
+// 2) el spread de `tseslint.configs.disableTypeChecked` (más abajo)
+//    infiere un tipo más angosto que no incluye `languageOptions`
+//    aunque la propiedad exista en runtime — limitación de inferencia
+//    conocida de typescript-eslint en flat-config, no un bug real.
+/// <reference types="node" />
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import eslintConfigPrettier from 'eslint-config-prettier';
@@ -159,6 +173,12 @@ export default tseslint.config(
     files: ['e2e/**/*.ts', 'e2e/**/*.mjs', 'eslint.config.js'],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: {
+      // @ts-expect-error — el spread de disableTypeChecked infiere un
+      // tipo (CompatibleConfig) más angosto que no expone
+      // languageOptions en su unión, aunque la propiedad exista en
+      // runtime (limitación de inferencia de typescript-eslint en
+      // flat-config, no afecta a `eslint .` real — ver nota al inicio
+      // del archivo).
       ...tseslint.configs.disableTypeChecked.languageOptions,
       globals: globals.node,
     },
