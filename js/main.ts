@@ -77,7 +77,6 @@ import './games/index';
 import './gameBootstrap';
 import './lobbyRenderer';
 import './app';
-import './transitions';
 import './sidebarViews';
 
 // Widgets de UI que dependen del DOM del shell (sidebar y reproductor de música)

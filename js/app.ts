@@ -5,7 +5,6 @@
 
 import GameRegistry from './core/gameRegistry.js';
 import ViewManager from './core/viewManager.js';
-import Transitions from './transitions.js';
 import ErrorLogger from './core/errorLogger.js';
 import GameHelpers from './utils/gameHelpers.js';
 import LobbyRenderer from './lobbyRenderer.js';
@@ -79,8 +78,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   try {
-    // Inicializar sistema de transiciones
-    Transitions.init?.();
+    // Nota: el sistema de transiciones vive directamente en
+    // ViewManager.showView() (ver core/viewManager.ts) — ya maneja
+    // exit/enter con las clases view--exit(-game)/view--enter(-game).
+    // Antes existía además js/transitions.ts, que parcheaba
+    // ViewManager.showView por encima para añadir OTRA ronda idéntica
+    // de exit/enter: cada navegación pagaba el costo de ambas capas en
+    // secuencia (hasta exitMs+410ms de fallback + enterMs, dos veces),
+    // sintiéndose como un "trabón" al cambiar de pantalla. Se eliminó
+    // esa capa duplicada; transitions.ts queda sin uso.
 
     // Inicializar sistemas adicionales de mejoras
     // Estos sistemas se auto-inicializan en sus constructores
