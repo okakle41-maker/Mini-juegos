@@ -305,17 +305,27 @@ class LobbyRenderer {
    *
    * La búsqueda matchea contra nombre, tag/categoría y descripción —
    * igual que el performSearch original en lobbySidebarUI.ts. La
-   * animación de entrada (fade + translateY) para resultados de
-   * búsqueda también se preserva, pero solo se dispara cuando hay una
-   * query activa: aplicarla también al cambiar de filtro sin buscar
-   * produciría un parpadeo en TODAS las cards visibles en cada click
-   * de filtro, que el comportamiento original no tenía.
+   * animación de entrada (fade + translateY) se dispara para
+   * cualquier card que pase de oculta a visible, sea por escribir en
+   * el buscador o por hacer click en un filtro de categoría (Todos,
+   * Análisis, Cifrado, etc.) — mismo trigger (wasHidden), sin
+   * distinguir el origen del cambio.
    */
   private applyVisibility(): void {
     const cards = this.gridEl?.querySelectorAll<HTMLElement>('.game-card') ?? [];
     let visibleCount = 0;
 
     cards.forEach(card => {
+      // Cada `.game-card` vive dentro de un `host` <div> (ver
+      // renderCards) que es el grid item real de `.game-grid`. Ocultar
+      // solo `.game-card` dejaba ese wrapper vacío pero VISIBLE como
+      // celda del grid — el navegador seguía reservándole espacio, así
+      // que las cards restantes no se compactaban hacia las primeras
+      // posiciones (quedaban en sus huecos originales dispersos). El
+      // toggle de display tiene que aplicarse al wrapper, que es el
+      // elemento que el grid realmente layoutea.
+      const host = card.parentElement ?? card;
+
       const matchesFilter = this.activeFilter === 'TODOS' || card.dataset.tag === this.activeFilter;
 
       const matchesSearch =
@@ -332,10 +342,10 @@ class LobbyRenderer {
       const visible = matchesFilter && matchesSearch;
 
       if (visible) {
-        const wasHidden = card.style.display === 'none';
-        card.style.display = '';
+        const wasHidden = host.style.display === 'none';
+        host.style.display = '';
 
-        if (wasHidden && this.searchQuery !== '') {
+        if (wasHidden) {
           card.style.opacity = '0';
           card.style.transform = 'translateY(10px)';
           requestAnimationFrame(() => {
@@ -347,7 +357,7 @@ class LobbyRenderer {
 
         visibleCount++;
       } else {
-        card.style.display = 'none';
+        host.style.display = 'none';
       }
     });
 
