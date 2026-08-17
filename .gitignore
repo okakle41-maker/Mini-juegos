@@ -1,7 +1,0 @@
-node_modules/
-dist/
-dist-test-build-check/
-test-results/
-playwright-report/
-*.local
-.DS_Store

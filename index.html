@@ -40,22 +40,45 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://yhtanhtuxcowpwbgwupj.supabase.co wss://yhtanhtuxcowpwbgwupj.supabase.co; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Minijuegos · Entrenador de Bots</title>
+  <meta name="description" content="Plataforma de minijuegos para entrenamiento cognitivo: memoria, reflejos, atención y lógica. Jugá solo, en cooperativo o en torneos online.">
+
+  <!--
+    Open Graph / Twitter Card — usan rutas relativas (no una URL
+    absoluta hardcodeada) porque el dominio real depende de dónde se
+    haga fork/deploy del repo (GitHub Pages lo publica como
+    https://<usuario>.github.io/<repo>/, ver VITE_BASE en
+    .github/workflows/deploy.yml) — no hay un único dominio fijo que
+    poner acá sin romperse en cualquier fork. og:image sí requiere URL
+    absoluta por spec (los crawlers de redes sociales no resuelven
+    rutas relativas), así que esa la arma socialMeta.ts en runtime a
+    partir de location.origin + BASE_URL.
+  -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Minijuegos · Entrenador de Bots">
+  <meta property="og:title" content="Minijuegos · Entrenador de Bots">
+  <meta property="og:description" content="Plataforma de minijuegos para entrenamiento cognitivo: memoria, reflejos, atención y lógica. Jugá solo, en cooperativo o en torneos online.">
+  <meta property="og:image" content="assets/icon-512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Minijuegos · Entrenador de Bots">
+  <meta name="twitter:description" content="Plataforma de minijuegos para entrenamiento cognitivo: memoria, reflejos, atención y lógica. Jugá solo, en cooperativo o en torneos online.">
+  <meta name="twitter:image" content="assets/icon-512.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@400;500;600;700&display=swap">
-  <!-- Fuentes para los temas visuales adicionales (ver css/lobby-themes.css):
-       Orbitron para "Neón", Comfortaa para "Océano". Se cargan siempre
-       (livianas) pero solo se usan cuando el tema activo las requiere. -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Comfortaa:wght@400;500;600;700&display=swap">
+  <!-- Tema visual adicional (ver css/lobby-themes.css): usa Quicksand,
+       ya cargada arriba — sin sumar otra fuente externa para "Invernal". -->
   <link rel="stylesheet" href="css/styles.css?v=4">
   <link rel="stylesheet" href="css/lobby-tactical.css?v=1">
   <link rel="stylesheet" href="css/lobby-new.css?v=1">
   <link rel="stylesheet" href="css/lobby-header-redesign.css?v=1">
   <link rel="stylesheet" href="css/redesign-extras.css?v=1">
-  <!-- Temas visuales adicionales (todos variantes oscuras: solo
-       cambian la paleta de color). -->
+  <!-- Tema visual adicional (variante oscura: solo cambia la paleta
+       de color, tipografía y algunos detalles de forma/animación). -->
   <link rel="stylesheet" href="css/lobby-themes.css?v=1">
   <link rel="stylesheet" href="css/category-identity.css?v=1">
+  <link rel="stylesheet" href="css/skeleton.css?v=1">
   <!-- CSS de las nuevas vistas del sistema v3.0.0 se cargan bajo demanda
        vía GameRegistry.injectCSS() para optimizar rendimiento -->
   <link rel="manifest" href="manifest.json">
@@ -245,9 +268,7 @@
         <div class="theme-wrapper theme-wrapper--compact">
           <select id="themeSelect" class="theme-select" aria-label="Seleccionar tema visual">
             <option value="dark" selected>Oscuro</option>
-            <option value="neon">💠 Neón</option>
-            <option value="ocean">🌊 Océano</option>
-            <option value="orange">🔥 Naranja</option>
+            <option value="winter">❄️ Invernal</option>
           </select>
           <label class="accessibility-toggle">
             <input type="checkbox" id="reducedMotionToggle">
@@ -289,22 +310,22 @@
             </div>
           </div>
           <div class="stat-card-row" aria-label="Resumen del sistema">
-            <div class="stat-card">
+            <div class="stat-card" style="--stat-i:0">
               <span class="stat-card-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
               <span class="stat-card-label">MÓDULOS</span>
               <span class="stat-card-value" id="modsCountStats">10</span>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" style="--stat-i:1">
               <span class="stat-card-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
               <span class="stat-card-label">COMPLETADOS</span>
               <span class="stat-card-value" id="sysCompletedStat">0</span>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" style="--stat-i:2">
               <span class="stat-card-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
               <span class="stat-card-label">SESIONES</span>
               <span class="stat-card-value" id="sysSessionsStat">1</span>
             </div>
-            <div class="stat-card stat-card--favorite">
+            <div class="stat-card stat-card--favorite" style="--stat-i:3">
               <span class="stat-card-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
               <span class="stat-card-label">FAVORITOS</span>
               <span class="stat-card-value" id="favCountStat">0</span>

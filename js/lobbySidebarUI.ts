@@ -9,6 +9,7 @@
 
 import Favorites from './favoritesManager.js';
 import LobbyRenderer from './lobbyRenderer.js';
+import safeStorage from './core/safeStorage.js';
 
 const COLLAPSE_STORAGE_KEY = 'minijuegos_sidenav_collapsed';
 
@@ -17,7 +18,7 @@ function initSidebarCollapse(): void {
   const btn = document.getElementById('sideNavCollapseBtn');
   if (!sideNav || !btn) return;
 
-  const collapsed = localStorage.getItem(COLLAPSE_STORAGE_KEY) === 'true';
+  const collapsed = safeStorage.getString(COLLAPSE_STORAGE_KEY, 'false') === 'true';
   sideNav.classList.toggle('side-nav--collapsed', collapsed);
   btn.setAttribute('aria-label', collapsed ? 'Expandir barra lateral' : 'Colapsar barra lateral');
   // aria-expanded va en el botón que controla el colapso (patrón estándar
@@ -27,7 +28,7 @@ function initSidebarCollapse(): void {
 
   btn.addEventListener('click', () => {
     const isCollapsed = sideNav.classList.toggle('side-nav--collapsed');
-    localStorage.setItem(COLLAPSE_STORAGE_KEY, String(isCollapsed));
+    safeStorage.setString(COLLAPSE_STORAGE_KEY, String(isCollapsed));
     btn.setAttribute('aria-label', isCollapsed ? 'Expandir barra lateral' : 'Colapsar barra lateral');
     btn.setAttribute('aria-expanded', String(!isCollapsed));
   });

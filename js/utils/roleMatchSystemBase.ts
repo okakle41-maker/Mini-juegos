@@ -37,9 +37,21 @@
 
 import Auth from '../authManager.js';
 import { lobbySystem } from '../lobbySystem.js';
-import { getSupabaseClient } from '../core/supabaseClient.js';
 import ErrorLogger from '../core/errorLogger.js';
 import type { SupabaseClient, RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+
+/**
+ * import() dinámico inline en vez de un import estático de
+ * supabaseClient.ts arriba del archivo — ver el comentario homónimo en
+ * authManager.ts para el porqué: un solo import estático de
+ * supabaseClient.ts en cualquiera de sus 4 consumidores le impedía a
+ * Rolldown separar '@supabase/supabase-js' en su propio chunk lazy
+ * para los otros tres también.
+ */
+async function getSupabaseClientLazy(): Promise<SupabaseClient> {
+  const { getSupabaseClient } = await import('../core/supabaseClient.js');
+  return getSupabaseClient();
+}
 
 export interface RoleMatchSystemConfig<TMatch> {
   /** Nombre de la tabla de partidas (sin "public."), p.ej. 'ship_control_matches'. */
@@ -92,7 +104,7 @@ export abstract class RoleMatchSystemBase<TMatch> {
 
   private async initializeSupabase(): Promise<void> {
     try {
-      this.supabaseClient = await getSupabaseClient();
+      this.supabaseClient = await getSupabaseClientLazy();
       this.isConnected = true;
     } catch (e) {
       ErrorLogger?.log(`${this.config.moduleName}.init`, e, {});

@@ -4,7 +4,7 @@
  */
 
 export interface BackgroundManagerInterface {
-  setTheme: (theme: 'dark' | 'neon' | 'ocean' | 'orange' | 'light') => void;
+  setTheme: (theme: 'dark' | 'winter') => void;
   setBackground: (type: string) => void;
   toggleScanlines: () => void;
   applyRandomEffect: () => void;
@@ -30,7 +30,7 @@ class BackgroundManager implements BackgroundManagerInterface {
     }
   }
 
-  setTheme(theme: 'dark' | 'neon' | 'ocean' | 'orange' | 'light'): void {
+  setTheme(theme: 'dark' | 'winter'): void {
     this.body.setAttribute('data-theme', theme);
 
     // Notificar a otros módulos (p. ej. gameRegistry / lobby) de que el

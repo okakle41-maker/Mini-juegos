@@ -34,6 +34,31 @@
  * varias veces en paralelo (p.ej. login y una consulta de scoreboard
  * disparadas casi al mismo tiempo) no dispara múltiples import()
  * simultáneos ni crea más de un cliente.
+ *
+ * IMPORTANTE para quien consuma este módulo: importar `getSupabaseClient`
+ * con un `import { getSupabaseClient } from './core/supabaseClient.js'`
+ * estático arriba de tu archivo ROMPE el code-splitting descrito
+ * arriba — no importa que la función en sí se llame recién en runtime,
+ * Rolldown decide si puede separar el chunk mirando si el módulo
+ * `supabaseClient.ts` está enlazado de forma estática desde algún
+ * punto del grafo, y con UN solo consumidor haciéndolo así alcanza
+ * para neutralizarlo para todos los demás (confirmado con el warning
+ * [INEFFECTIVE_DYNAMIC_IMPORT] del build: listaba a la vez los
+ * consumidores que sí usaban `await import(...)` inline). Cada
+ * consumidor debe usar su propio wrapper local:
+ *
+ *   async function getSupabaseClientLazy(): Promise<SupabaseClient> {
+ *     const { getSupabaseClient } = await import('./core/supabaseClient.js');
+ *     return getSupabaseClient();
+ *   }
+ *
+ * Sí, esto se repite en cada archivo que lo necesita (authManager.ts,
+ * globalScores.ts, lobbySystem.ts, utils/roleMatchSystemBase.ts,
+ * multiplayerSystem.ts, socialSystem.ts, tournamentSystem.ts) — no se
+ * puede centralizar en una función exportada desde este mismo archivo
+ * ni desde ningún otro: cualquier módulo que la importara de forma
+ * estática volvería a enlazar supabaseClient.ts estáticamente y
+ * reproduciría el mismo problema un nivel más arriba.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';

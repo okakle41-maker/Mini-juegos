@@ -3,6 +3,8 @@
  * Sistema de progresión con niveles, XP, habilidades y daily quests
  */
 
+import safeStorage from './core/safeStorage.js';
+
 export interface PlayerLevel {
   level: number;
   xpRequired: number;
@@ -276,43 +278,59 @@ class ProgressionSystem {
   }
 
   private loadProgress(): void {
-    this.currentLevel = parseInt(localStorage.getItem(this.storageKeys.level) || '1', 10);
-    this.currentXP = parseInt(localStorage.getItem(this.storageKeys.xp) || '0', 10);
-    this.skillPoints = parseInt(localStorage.getItem(this.storageKeys.skillPoints) || '0', 10);
-    this.seasonPassProgress = parseInt(localStorage.getItem(this.storageKeys.seasonPass) || '0', 10);
-    this.premiumUnlocked = localStorage.getItem(this.storageKeys.premium) === 'true';
-    this.streak = parseInt(localStorage.getItem(this.storageKeys.streak) || '0', 10);
-    this.lastQuestReset = parseInt(localStorage.getItem(this.storageKeys.lastReset) || '0', 10);
+    // Migrado a safeStorage (ver core/safeStorage.ts): antes,
+    // saveProgress() hacía 9 localStorage.setItem() seguidos sin
+    // ningún try/catch — si el primero lanzaba (cuota excedida, modo
+    // privado de Safari, storage bloqueado por política), la excepción
+    // se propagaba sin capturar justo en medio de guardar el progreso
+    // de una partida (nivel, XP, racha, misiones diarias), pudiendo
+    // cortar a mitad de camino el flujo de fin de partida que la llama.
+    this.currentLevel = safeStorage.getNumber(this.storageKeys.level, 1);
+    this.currentXP = safeStorage.getNumber(this.storageKeys.xp, 0);
+    this.skillPoints = safeStorage.getNumber(this.storageKeys.skillPoints, 0);
+    this.seasonPassProgress = safeStorage.getNumber(this.storageKeys.seasonPass, 0);
+    this.premiumUnlocked = safeStorage.getString(this.storageKeys.premium, 'false') === 'true';
+    this.streak = safeStorage.getNumber(this.storageKeys.streak, 0);
+    this.lastQuestReset = safeStorage.getNumber(this.storageKeys.lastReset, 0);
 
-    const savedSkills = localStorage.getItem(this.storageKeys.skills);
-    if (savedSkills) {
-      try {
-        this.unlockedSkills = new Map(JSON.parse(savedSkills));
-      } catch (e) {
-        console.error('[Progression] Failed to load skills:', e);
+    // validate: si el valor guardado no es un array de pares
+    // [string, number] (forma que produce `[...Map]` en saveProgress),
+    // safeStorage lo descarta como corrupto en vez de dejar pasar un
+    // valor con forma inesperada al resto del sistema de skills.
+    const savedSkills = safeStorage.getJSON<Array<[string, number]>>(
+      this.storageKeys.skills,
+      [],
+      {
+        validate: (value): value is Array<[string, number]> =>
+          Array.isArray(value) &&
+          value.every(
+            (entry) =>
+              Array.isArray(entry) &&
+              entry.length === 2 &&
+              typeof entry[0] === 'string' &&
+              typeof entry[1] === 'number'
+          ),
       }
-    }
+    );
+    this.unlockedSkills = new Map(savedSkills);
 
-    const savedQuests = localStorage.getItem(this.storageKeys.quests);
-    if (savedQuests) {
-      try {
-        this.dailyQuests = JSON.parse(savedQuests);
-      } catch (e) {
-        console.error('[Progression] Failed to load quests:', e);
-      }
-    }
+    this.dailyQuests = safeStorage.getJSON<DailyQuest[]>(
+      this.storageKeys.quests,
+      [],
+      { validate: (value): value is DailyQuest[] => Array.isArray(value) }
+    );
   }
 
   private saveProgress(): void {
-    localStorage.setItem(this.storageKeys.level, this.currentLevel.toString());
-    localStorage.setItem(this.storageKeys.xp, this.currentXP.toString());
-    localStorage.setItem(this.storageKeys.skillPoints, this.skillPoints.toString());
-    localStorage.setItem(this.storageKeys.seasonPass, this.seasonPassProgress.toString());
-    localStorage.setItem(this.storageKeys.premium, this.premiumUnlocked ? 'true' : 'false');
-    localStorage.setItem(this.storageKeys.streak, this.streak.toString());
-    localStorage.setItem(this.storageKeys.lastReset, this.lastQuestReset.toString());
-    localStorage.setItem(this.storageKeys.skills, JSON.stringify([...this.unlockedSkills]));
-    localStorage.setItem(this.storageKeys.quests, JSON.stringify(this.dailyQuests));
+    safeStorage.setNumber(this.storageKeys.level, this.currentLevel);
+    safeStorage.setNumber(this.storageKeys.xp, this.currentXP);
+    safeStorage.setNumber(this.storageKeys.skillPoints, this.skillPoints);
+    safeStorage.setNumber(this.storageKeys.seasonPass, this.seasonPassProgress);
+    safeStorage.setString(this.storageKeys.premium, this.premiumUnlocked ? 'true' : 'false');
+    safeStorage.setNumber(this.storageKeys.streak, this.streak);
+    safeStorage.setNumber(this.storageKeys.lastReset, this.lastQuestReset);
+    safeStorage.setJSON(this.storageKeys.skills, [...this.unlockedSkills]);
+    safeStorage.setJSON(this.storageKeys.quests, this.dailyQuests);
   }
 
   private initializeDailyQuests(): void {

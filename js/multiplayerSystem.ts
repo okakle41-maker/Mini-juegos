@@ -5,6 +5,7 @@
 
 import { sanitizeInput } from './security.js';
 import { notificationSystem } from './notificationSystem.js';
+import safeStorage from './core/safeStorage.js';
 import type { SupabaseClient, RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 interface Player {
@@ -294,21 +295,14 @@ class MultiplayerSystem {
   }
 
   private loadLocalData(): void {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        this.playerStatus = data.playerStatus || null;
-      } catch (e) {
-        console.error('[Multiplayer] Failed to load local data:', e);
-      }
-    }
+    const data = safeStorage.getJSON<{ playerStatus?: Player | null }>(this.storageKey, {});
+    this.playerStatus = data.playerStatus || null;
   }
 
   private saveLocalData(): void {
-    localStorage.setItem(this.storageKey, JSON.stringify({
+    safeStorage.setJSON(this.storageKey, {
       playerStatus: this.playerStatus
-    }));
+    });
   }
 
   // Player management

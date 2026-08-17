@@ -226,278 +226,33 @@ class SkeletonSystem {
     `;
   }
 
-  // Inyectar CSS de skeleton
-  injectStyles(): void {
-    if (document.getElementById('skeleton-styles')) return;
-
-    const style = document.createElement('style');
-    style.id = 'skeleton-styles';
-    style.textContent = `
-      .skeleton {
-        background: linear-gradient(90deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%);
-        background-size: 200% 100%;
-        border-radius: 8px;
-        pointer-events: none;
-      }
-
-      .skeleton--shimmer {
-        animation: shimmer 1.5s infinite;
-      }
-
-      @keyframes shimmer {
-        0% { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
-      }
-
-      .skeleton--dark {
-        background: linear-gradient(90deg, #0f0f1a 0%, #1a1a2e 50%, #0f0f1a 100%);
-        background-size: 200% 100%;
-      }
-
-      .skeleton-wrapper {
-        padding: 1rem;
-      }
-
-      .skeleton-card {
-        display: flex;
-        gap: 1rem;
-        padding: 1rem;
-        background: rgba(255, 255, 255, 0.02);
-        border-radius: 12px;
-        margin-bottom: 1rem;
-      }
-
-      .skeleton-card__image {
-        width: 60px;
-        height: 60px;
-        border-radius: 8px;
-        flex-shrink: 0;
-      }
-
-      .skeleton-card__content {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-
-      .skeleton-card__title {
-        height: 20px;
-        width: 60%;
-        border-radius: 4px;
-      }
-
-      .skeleton-card__text {
-        height: 16px;
-        width: 100%;
-        border-radius: 4px;
-      }
-
-      .skeleton-card__text--short {
-        width: 40%;
-      }
-
-      .skeleton-list {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      }
-
-      .skeleton-list__avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        flex-shrink: 0;
-      }
-
-      .skeleton-list__content {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-
-      .skeleton-list__title {
-        height: 16px;
-        width: 50%;
-        border-radius: 4px;
-      }
-
-      .skeleton-list__text {
-        height: 14px;
-        width: 70%;
-        border-radius: 4px;
-      }
-
-      .skeleton-list__action {
-        width: 80px;
-        height: 32px;
-        border-radius: 4px;
-        flex-shrink: 0;
-      }
-
-      .skeleton-text {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        padding: 0.5rem;
-      }
-
-      .skeleton-text__line {
-        height: 16px;
-        width: 100%;
-        border-radius: 4px;
-      }
-
-      .skeleton-text__line--short {
-        width: 60%;
-      }
-
-      .skeleton-avatar {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-      }
-
-      .skeleton-button {
-        height: 40px;
-        width: 120px;
-        border-radius: 8px;
-      }
-
-      .skeleton-badge {
-        width: 60px;
-        height: 24px;
-        border-radius: 12px;
-      }
-
-      .skeleton-stat {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 1rem;
-        background: rgba(255, 255, 255, 0.02);
-        border-radius: 8px;
-      }
-
-      .skeleton-stat__value {
-        height: 32px;
-        width: 60px;
-        border-radius: 4px;
-      }
-
-      .skeleton-stat__label {
-        height: 14px;
-        width: 40px;
-        border-radius: 4px;
-      }
-
-      .skeleton-chart {
-        display: flex;
-        align-items: flex-end;
-        gap: 0.5rem;
-        height: 100px;
-        padding: 1rem;
-      }
-
-      .skeleton-chart__bar {
-        flex: 1;
-        border-radius: 4px 4px 0 0;
-        min-height: 20px;
-      }
-
-      .skeleton-chart__bar--1 { height: 40%; }
-      .skeleton-chart__bar--2 { height: 70%; }
-      .skeleton-chart__bar--3 { height: 50%; }
-      .skeleton-chart__bar--4 { height: 90%; }
-      .skeleton-chart__bar--5 { height: 30%; }
-
-      .skeleton-summary {
-        display: flex;
-        gap: 1rem;
-        padding: 1rem;
-        margin-bottom: 1rem;
-      }
-
-      .skeleton-summary__item {
-        flex: 1;
-        height: 60px;
-        border-radius: 8px;
-      }
-
-      .skeleton-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1rem;
-      }
-
-      .skeleton-stats {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1rem;
-        margin-top: 1rem;
-      }
-
-      .skeleton-level {
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        background: rgba(255, 255, 255, 0.02);
-        border-radius: 12px;
-      }
-
-      .skeleton-level__info {
-        height: 40px;
-        width: 60%;
-        margin-bottom: 1rem;
-        border-radius: 4px;
-      }
-
-      .skeleton-level__bar {
-        height: 20px;
-        width: 100%;
-        border-radius: 10px;
-      }
-
-      .skeleton-profile {
-        display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        padding: 2rem;
-        margin-bottom: 2rem;
-        background: rgba(255, 255, 255, 0.02);
-        border-radius: 12px;
-      }
-
-      .skeleton-profile__avatar {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        flex-shrink: 0;
-      }
-
-      .skeleton-profile__info {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-      }
-
-      .skeleton-profile__name {
-        height: 24px;
-        width: 40%;
-        border-radius: 4px;
-      }
-
-      .skeleton-profile__title {
-        height: 18px;
-        width: 30%;
-        border-radius: 4px;
-      }
+  /** Skeleton de pantalla completa para una vista de juego que
+   *  todavía no terminó de cargar (ver ViewManager.loadLazyView). No
+   *  se arma con generateSkeleton()/getSkeletonByType() porque esos
+   *  están pensados para bloques de contenido dentro de una vista ya
+   *  montada (listas, cards, stats) — acá no sabemos de antemano qué
+   *  juego es, así que en vez de forzar alguno de esos tipos a
+   *  parecerse a "una pantalla de juego" se define un layout propio
+   *  (ver .skeleton-game-view en css/skeleton.css): encabezado con
+   *  ícono + título, y un área de contenido genérica debajo. */
+  getGameViewSkeleton(): string {
+    return `
+      <div class="skeleton-wrapper skeleton-game-view">
+        <div class="skeleton-game-view__header">
+          <div class="skeleton skeleton--shimmer skeleton-game-view__icon"></div>
+          <div class="skeleton skeleton--shimmer skeleton-game-view__title"></div>
+        </div>
+        <div class="skeleton skeleton--shimmer skeleton-game-view__body"></div>
+      </div>
     `;
-    document.head.appendChild(style);
+  }
+
+  // Los estilos de skeleton viven en css/skeleton.css (cargado desde
+  // index.html como el resto de la hoja de estilos del proyecto) — ya
+  // no se inyectan desde acá. Este método queda como no-op para no
+  // romper cualquier llamada existente a skeletonSystem.injectStyles().
+  injectStyles(): void {
+    // Intencionalmente vacío — ver css/skeleton.css.
   }
 
   // Limpiar todos los skeletons activos

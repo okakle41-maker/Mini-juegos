@@ -4,6 +4,7 @@
  */
 
 import Auth from './authManager.js';
+import safeStorage from './core/safeStorage.js';
 import type { SupabaseClient, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 // Fila cruda tal como llega de Supabase Realtime (snake_case), ver
@@ -300,68 +301,39 @@ class TournamentSystem {
   }
 
   private loadLocalData(): void {
-    const tournamentsData = localStorage.getItem(this.storageKeys.tournaments);
-    if (tournamentsData) {
-      try {
-        this.tournaments = new Map(JSON.parse(tournamentsData));
-      } catch (e) {
-        console.error('[Tournament] Failed to load tournaments:', e);
-      }
-    }
-
-    const eventsData = localStorage.getItem(this.storageKeys.events);
-    if (eventsData) {
-      try {
-        this.events = new Map(JSON.parse(eventsData));
-      } catch (e) {
-        console.error('[Tournament] Failed to load events:', e);
-      }
-    }
-
-    const currentTournamentData = localStorage.getItem(this.storageKeys.currentTournament);
-    if (currentTournamentData) {
-      try {
-        this.currentTournament = JSON.parse(currentTournamentData);
-      } catch (e) {
-        console.error('[Tournament] Failed to load current tournament:', e);
-      }
-    }
-
-    const currentEventData = localStorage.getItem(this.storageKeys.currentEvent);
-    if (currentEventData) {
-      try {
-        this.currentEvent = JSON.parse(currentEventData);
-      } catch (e) {
-        console.error('[Tournament] Failed to load current event:', e);
-      }
-    }
-
-    const historyData = localStorage.getItem(this.storageKeys.history);
-    if (historyData) {
-      try {
-        this.tournamentHistory = JSON.parse(historyData);
-      } catch (e) {
-        console.error('[Tournament] Failed to load history:', e);
-      }
-    }
-
-    const eventHistoryData = localStorage.getItem(this.storageKeys.eventHistory);
-    if (eventHistoryData) {
-      try {
-        this.eventHistory = JSON.parse(eventHistoryData);
-      } catch (e) {
-        console.error('[Tournament] Failed to load event history:', e);
-      }
-    }
+    // Migrado a safeStorage (ver core/safeStorage.ts): saveLocalData()
+    // hacía 6 localStorage.setItem() seguidos sin ningún try/catch —
+    // mismo patrón de bug que progressionSystem.ts y socialSystem.ts.
+    this.tournaments = new Map(
+      safeStorage.getJSON<Array<[string, Tournament]>>(this.storageKeys.tournaments, [], {
+        validate: (v): v is Array<[string, Tournament]> => Array.isArray(v),
+      })
+    );
+    this.events = new Map(
+      safeStorage.getJSON<Array<[string, Event]>>(this.storageKeys.events, [], {
+        validate: (v): v is Array<[string, Event]> => Array.isArray(v),
+      })
+    );
+    this.currentTournament = safeStorage.getJSON<Tournament | null>(
+      this.storageKeys.currentTournament,
+      null
+    );
+    this.currentEvent = safeStorage.getJSON<Event | null>(this.storageKeys.currentEvent, null);
+    this.tournamentHistory = safeStorage.getJSON<Tournament[]>(this.storageKeys.history, [], {
+      validate: (v): v is Tournament[] => Array.isArray(v),
+    });
+    this.eventHistory = safeStorage.getJSON<Event[]>(this.storageKeys.eventHistory, [], {
+      validate: (v): v is Event[] => Array.isArray(v),
+    });
   }
 
   private saveLocalData(): void {
-    localStorage.setItem(this.storageKeys.tournaments, JSON.stringify([...this.tournaments]));
-    localStorage.setItem(this.storageKeys.events, JSON.stringify([...this.events]));
-    localStorage.setItem(this.storageKeys.currentTournament, JSON.stringify(this.currentTournament));
-    localStorage.setItem(this.storageKeys.currentEvent, JSON.stringify(this.currentEvent));
-    localStorage.setItem(this.storageKeys.history, JSON.stringify(this.tournamentHistory));
-    localStorage.setItem(this.storageKeys.eventHistory, JSON.stringify(this.eventHistory));
+    safeStorage.setJSON(this.storageKeys.tournaments, [...this.tournaments]);
+    safeStorage.setJSON(this.storageKeys.events, [...this.events]);
+    safeStorage.setJSON(this.storageKeys.currentTournament, this.currentTournament);
+    safeStorage.setJSON(this.storageKeys.currentEvent, this.currentEvent);
+    safeStorage.setJSON(this.storageKeys.history, this.tournamentHistory);
+    safeStorage.setJSON(this.storageKeys.eventHistory, this.eventHistory);
   }
 
   private generateWeeklyTournament(): void {

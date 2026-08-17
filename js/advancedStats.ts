@@ -3,6 +3,8 @@
  * Sistema de estadísticas avanzadas con análisis, gráficos y predicciones
  */
 
+import safeStorage from './core/safeStorage.js';
+
 interface CognitiveCategory {
   name: string;
   games: string[];
@@ -137,27 +139,26 @@ class AdvancedStatsSystem {
   }
 
   private loadData(): void {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        this.gameAnalyses = new Map(data.gameAnalyses || []);
-        this.heatmapData = data.heatmapData || [];
-        this.weeklyData = new Map(data.weeklyData || []);
-        this.monthlyData = new Map(data.monthlyData || []);
-      } catch (e) {
-        console.error('[AdvancedStats] Failed to load data:', e);
-      }
-    }
+    const data = safeStorage.getJSON<{
+      gameAnalyses?: Array<[string, GameAnalysis]>;
+      heatmapData?: Array<{ day: number; hour: number; value: number }>;
+      weeklyData?: Array<[number, number]>;
+      monthlyData?: Array<[number, number]>;
+    }>(this.storageKey, {});
+
+    this.gameAnalyses = new Map(data.gameAnalyses || []);
+    this.heatmapData = data.heatmapData || [];
+    this.weeklyData = new Map(data.weeklyData || []);
+    this.monthlyData = new Map(data.monthlyData || []);
   }
 
   private saveData(): void {
-    localStorage.setItem(this.storageKey, JSON.stringify({
+    safeStorage.setJSON(this.storageKey, {
       gameAnalyses: [...this.gameAnalyses],
       heatmapData: this.heatmapData,
       weeklyData: [...this.weeklyData],
       monthlyData: [...this.monthlyData]
-    }));
+    });
   }
 
   private initializeHeatmap(): void {
@@ -240,6 +241,12 @@ class AdvancedStatsSystem {
   private calculateImprovementRate(gameId: string): number {
     const analysis = this.gameAnalyses.get(gameId);
     if (!analysis || analysis.totalPlays < 2) return 0;
+
+    // Si bestScore es 0 (todas las partidas dieron score 0), no hay una
+    // "mejora" significativa que medir — se devuelve 0 en vez de NaN
+    // (0/0), siguiendo la misma convención que calculateConsistency()
+    // para su propio caso degenerado (mean === 0).
+    if (analysis.bestScore === 0) return 0;
 
     // Calculate improvement based on score progression
     // This is a simplified version - real implementation would track historical scores

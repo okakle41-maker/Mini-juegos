@@ -14,38 +14,23 @@
  */
 
 import BackgroundManager from './backgroundManager.js';
+import safeStorage from './core/safeStorage.js';
 
 const THEME_STORAGE_KEY = 'st_theme';
 const THEME_SELECT_IDS = ['themeSelect', 'configThemeSelect'];
 
-type ThemeValue = 'dark' | 'neon' | 'ocean' | 'orange';
+type ThemeValue = 'dark' | 'winter';
 
 function isThemeValue(value: string): value is ThemeValue {
-  return value === 'dark' || value === 'neon' || value === 'ocean' || value === 'orange';
+  return value === 'dark' || value === 'winter';
 }
 
-function safeGetStoredTheme(): string | null {
-  try {
-    return localStorage.getItem(THEME_STORAGE_KEY);
-  } catch {
-    // Tracking Prevention (Edge), modo privado estricto, o storage
-    // bloqueado en iframes: no debe impedir que el resto de la app
-    // (sobre todo el registro de listeners más abajo) funcione.
-    return null;
-  }
-}
-
-function safeSetStoredTheme(value: ThemeValue): void {
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, value);
-  } catch {
-    // Persistencia best-effort: si el storage está bloqueado, el tema
-    // igual se aplica para la sesión actual, solo no sobrevive a un reload.
-  }
-}
+// safeGetStoredTheme/safeSetStoredTheme se reemplazaron por
+// safeStorage.getString/setString (ver core/safeStorage.ts) — hacían
+// exactamente lo mismo con su propio try/catch local.
 
 function applyStoredTheme(): void {
-  const stored = safeGetStoredTheme();
+  const stored = safeStorage.getString(THEME_STORAGE_KEY, '');
   if (stored && isThemeValue(stored)) {
     BackgroundManager.setTheme(stored);
   }
@@ -77,7 +62,7 @@ function bindDelegatedListeners(): void {
     if (!isThemeValue(value)) return;
 
     BackgroundManager.setTheme(value);
-    safeSetStoredTheme(value);
+    safeStorage.setString(THEME_STORAGE_KEY, value);
     // BackgroundManager.setTheme ya dispara 'theme-changed', que a su
     // vez llama a syncAllSelectsWithCurrentTheme — así el OTRO select
     // (el que el usuario no tocó) queda sincronizado también.

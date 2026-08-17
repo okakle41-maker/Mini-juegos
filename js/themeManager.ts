@@ -3,6 +3,8 @@
  * Gestión de temas con persistencia
  */
 
+import safeStorage from './core/safeStorage.js';
+
 type Theme = 'dark' | 'auto';
 
 class ThemeManager {
@@ -22,7 +24,7 @@ class ThemeManager {
   }
 
   private loadTheme(): Theme {
-    const saved = localStorage.getItem(this.storageKey);
+    const saved = safeStorage.getString(this.storageKey, 'auto');
     if (saved === 'dark' || saved === 'auto') {
       return saved as Theme;
     }
@@ -30,7 +32,7 @@ class ThemeManager {
   }
 
   private saveTheme(theme: Theme): void {
-    localStorage.setItem(this.storageKey, theme);
+    safeStorage.setString(this.storageKey, theme);
   }
 
   private getEffectiveTheme(): 'dark' {

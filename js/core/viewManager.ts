@@ -22,6 +22,7 @@ import { viewTemplates } from './viewTemplates.js';
 import { devLog } from './devLog.js';
 import BackgroundManager from '../backgroundManager.js';
 import GameRegistry from './gameRegistry.js';
+import { skeletonSystem } from '../skeletonSystem.js';
 
 /**
  * Nota de arquitectura (Fase 4 de la migración a Preact — ver
@@ -70,6 +71,13 @@ export interface ViewManagerInterface {
 
 class ViewManager implements ViewManagerInterface {
   private currentViewId: string | null = null;
+
+  /** Cancela cualquier transición de salida en curso (listener +
+   *  timeout de respaldo) para evitar que un showView() disparado a
+   *  medio camino de otra transición (doble click rápido) ejecute un
+   *  runShow() "fantasma" más tarde, pisando el estado que una
+   *  navegación posterior ya dejó montado. Ver showView() más abajo. */
+  private pendingTransition: { cleanup: () => void } | null = null;
 
   /**
    * Si la vista tiene `data-lazy`, trae su template vía import() dinámico
@@ -128,58 +136,160 @@ class ViewManager implements ViewManagerInterface {
       return;
     }
 
-    // Detener el juego de la vista anterior (si tenía uno activo)
-    if (this.currentViewId && this.currentViewId !== id) {
-      GameRegistry.stopGame(this.currentViewId);
+    const previousView = this.currentViewId
+      ? document.getElementById(this.currentViewId)
+      : null;
+    const previousViewId = this.currentViewId;
+
+    // Si había una transición de salida pendiente de una navegación
+    // anterior (doble click rápido: A→B→A antes de que B terminara de
+    // montarse), cancelarla — su runShow() ya no debe ejecutar, la
+    // navegación actual manda.
+    if (this.pendingTransition) {
+      this.pendingTransition.cleanup();
+      this.pendingTransition = null;
     }
 
-    // Ocultar todas las vistas
-    document.querySelectorAll('.view').forEach((view: Element) => {
-      view.classList.add('hidden');
-    });
+    // ¿Es una transición hacia/desde un minijuego (home <-> juego), o
+    // entre dos pantallas del shell (home <-> estadísticas, etc.)? El
+    // CSS tiene dos juegos de variantes (--exit/--enter vs
+    // --exit-game/--enter-game, ver _lobby-toolbar-sidebar.css) porque
+    // entrar a un juego pide más presencia (blur/scale mayor) que
+    // moverse entre secciones del propio shell.
+    const isGameTransition = id !== 'home' || (previousViewId ?? 'home') !== 'home';
+    const exitClass = isGameTransition ? 'view--exit-game' : 'view--exit';
+    const enterClass = isGameTransition ? 'view--enter-game' : 'view--enter';
 
-    // Mostrar la vista solicitada
-    targetView.classList.remove('hidden');
+    // currentViewId se actualiza de inmediato (síncrono), como antes de
+    // agregar las transiciones: es la fuente de verdad de "a dónde
+    // navegó el usuario", y otras llamadas a showView() que puedan
+    // llegar durante la animación de salida (isGameTransition de la
+    // *siguiente* navegación, stopGame, etc.) necesitan verlo
+    // actualizado ya. Lo que se difiere hasta que termina la animación
+    // de salida es solo el trabajo pesado: ocultar la vista anterior,
+    // montar/inicializar la nueva.
     this.currentViewId = id;
 
-    const initGame = () => {
-      // Trigger para lazy initialization de juegos
-      void GameRegistry.ensureInit(id).catch((err: unknown) => {
-        console.error('[ViewManager] Error al inicializar el juego:', err);
+    const runShow = () => {
+      // Detener el juego de la vista anterior (si tenía uno activo)
+      if (previousViewId && previousViewId !== id) {
+        GameRegistry.stopGame(previousViewId);
+      }
+
+      // Ocultar todas las vistas
+      document.querySelectorAll('.view').forEach((view: Element) => {
+        view.classList.add('hidden');
+        view.classList.remove('view--exit', 'view--exit-game');
       });
-      document.dispatchEvent(new CustomEvent('view-shown', { detail: { id } }));
+
+      // Mostrar la vista solicitada, arrancando desde el estado
+      // "recién entrando" (--enter/--enter-game) para que el navegador
+      // tenga un frame con opacity:0 antes de que la quitemos: sin ese
+      // frame previo no hay nada de qué animar (la transición de .view
+      // no dispara si el elemento pasa de display:none a su estado
+      // final en el mismo tick).
+      targetView.classList.remove('hidden');
+      targetView.classList.add(enterClass);
+
+      // Doble rAF: el primero deja pintar el frame inicial
+      // (opacity:0, trasladado), el segundo recién quita la clase de
+      // entrada para que el navegador anime hacia el estado base de
+      // .view en vez de saltar directo sin transición.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          targetView.classList.remove(enterClass);
+        });
+      });
+
+      const initGame = () => {
+        // Trigger para lazy initialization de juegos
+        void GameRegistry.ensureInit(id).catch((err: unknown) => {
+          console.error('[ViewManager] Error al inicializar el juego:', err);
+        });
+        document.dispatchEvent(new CustomEvent('view-shown', { detail: { id } }));
+      };
+
+      if (targetView.dataset.lazy) {
+        // El HTML del juego aún no existe en el DOM: mostrar un
+        // skeleton (silueta de carga con shimmer) mientras el
+        // import() dinámico está en vuelo, para que la espera no se
+        // sienta como una vista en blanco. Con el chunk ya cacheado
+        // por el navegador (visitas repetidas a un juego dentro de la
+        // misma sesión) esto dura un frame o dos y ni se percibe; el
+        // valor real es la primera visita de la sesión o con red
+        // lenta, donde el import() sí puede tardar. Se pisa con el
+        // HTML real apenas loadLazyView() lo asigna más abajo.
+        targetView.innerHTML = skeletonSystem.getGameViewSkeleton();
+
+        // El HTML del juego aún no existe en el DOM: pedirlo primero y
+        // solo entonces resolver `ui` e inicializar (resolveUi necesita
+        // los elementos `data-ui` ya presentes).
+        //
+        // Antes, esta promesa encadenaba `.then(initGame)` sin ninguna
+        // verificación posterior: si el usuario navegaba a otra vista B
+        // mientras el import() de A todavía estaba en curso (dos clicks
+        // rápidos en el lobby), currentViewId ya valía 'B' para cuando A
+        // terminaba de cargar, pero initGame() para 'A' se ejecutaba
+        // igual — inicializando (rAF loops, listeners, timers) un juego
+        // que el usuario ya no estaba viendo y que nadie iba a detener
+        // con stopGame (que solo se dispara al ENTRAR a la siguiente
+        // vista, no al abandonar la actual a mitad de una carga
+        // pendiente). El guard de abajo descarta esa inicialización
+        // fantasma si, para cuando la carga termina, esta vista ya dejó
+        // de ser la actual.
+        void this.loadLazyView(targetView).then(() => {
+          if (this.currentViewId === id) initGame();
+        }).catch((err: unknown) => {
+          console.error('[ViewManager] Error al cargar vista lazy:', err);
+        });
+      } else {
+        initGame();
+      }
+
+      // Notificar cambio de vista para efectos de fondo por juego
+      BackgroundManager.onViewChange(id);
+
+      devLog(`[ViewManager] Vista mostrada: ${id}`);
     };
 
-    if (targetView.dataset.lazy) {
-      // El HTML del juego aún no existe en el DOM: pedirlo primero y
-      // solo entonces resolver `ui` e inicializar (resolveUi necesita
-      // los elementos `data-ui` ya presentes).
-      //
-      // Antes, esta promesa encadenaba `.then(initGame)` sin ninguna
-      // verificación posterior: si el usuario navegaba a otra vista B
-      // mientras el import() de A todavía estaba en curso (dos clicks
-      // rápidos en el lobby), currentViewId ya valía 'B' para cuando A
-      // terminaba de cargar, pero initGame() para 'A' se ejecutaba
-      // igual — inicializando (rAF loops, listeners, timers) un juego
-      // que el usuario ya no estaba viendo y que nadie iba a detener
-      // con stopGame (que solo se dispara al ENTRAR a la siguiente
-      // vista, no al abandonar la actual a mitad de una carga
-      // pendiente). El guard de abajo descarta esa inicialización
-      // fantasma si, para cuando la carga termina, esta vista ya dejó
-      // de ser la actual.
-      void this.loadLazyView(targetView).then(() => {
-        if (this.currentViewId === id) initGame();
-      }).catch((err: unknown) => {
-        console.error('[ViewManager] Error al cargar vista lazy:', err);
-      });
-    } else {
-      initGame();
+    // Si no hay vista previa (primera carga) o es la misma vista, no
+    // hay nada que animar de salida: mostrar directo.
+    if (!previousView || previousView === targetView) {
+      runShow();
+      return;
     }
 
-    // Notificar cambio de vista para efectos de fondo por juego
-    BackgroundManager.onViewChange(id);
-
-    devLog(`[ViewManager] Vista mostrada: ${id}`);
+    // Animar la salida de la vista anterior y, solo cuando termina esa
+    // transición (evento 'transitionend', con un timeout de respaldo
+    // por si el navegador no dispara el evento — pestaña en background,
+    // reduced-motion con transition:none, etc.), recién entonces montar
+    // la nueva vista. Un solo listener con { once: true }: transitionend
+    // dispara una vez por propiedad animada (opacity/transform/filter),
+    // así que sin el guard onEnd() ya ejecutado, runShow() correría 3
+    // veces.
+    let settled = false;
+    const onEnd = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(fallbackTimer);
+      previousView.removeEventListener('transitionend', onEnd);
+      this.pendingTransition = null;
+      runShow();
+    };
+    previousView.addEventListener('transitionend', onEnd, { once: true });
+    // Duración base: la salida de vistas de juego (--exit-game) dura
+    // 350ms en el CSS; el margen de 60ms cubre variación de frame
+    // timing sin sentirse como una demora perceptible.
+    const fallbackTimer = window.setTimeout(onEnd, 410);
+    this.pendingTransition = {
+      cleanup: () => {
+        settled = true;
+        clearTimeout(fallbackTimer);
+        previousView.removeEventListener('transitionend', onEnd);
+        previousView.classList.remove('view--exit', 'view--exit-game');
+      },
+    };
+    previousView.classList.add(exitClass);
   }
 
   /**
@@ -200,8 +310,13 @@ class ViewManager implements ViewManagerInterface {
    * Oculta todas las vistas
    */
   hideAll(): void {
+    if (this.pendingTransition) {
+      this.pendingTransition.cleanup();
+      this.pendingTransition = null;
+    }
     document.querySelectorAll('.view').forEach((view: Element) => {
       view.classList.add('hidden');
+      view.classList.remove('view--exit', 'view--exit-game', 'view--enter', 'view--enter-game');
     });
     this.currentViewId = null;
   }

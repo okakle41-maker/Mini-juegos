@@ -14,7 +14,7 @@ interface MemoryGridInstance {
   stop: () => void;
 }
 
-interface MemoryGridConfig {
+export interface MemoryGridConfig {
   size: number;
   minVal: number;
   maxVal: number;
@@ -34,7 +34,7 @@ interface MemoryGridConfig {
   showSolutionOnEnd: boolean;
 }
 
-const DEFAULT_MEMORY_GRID_CONFIG: MemoryGridConfig = {
+export const DEFAULT_MEMORY_GRID_CONFIG: MemoryGridConfig = {
   size: 4,
   minVal: 1,
   maxVal: 3,
@@ -94,23 +94,23 @@ function manhattan(a: { x: number; y: number }, b: { x: number; y: number }) {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }
 
-function getDirections(dirMode: string) {
+export function getDirections(dirMode: string) {
   if (dirMode === 'all8') return CARDINAL.concat(DIAGONAL);
   if (dirMode === 'knight') return KNIGHT_OFFSETS;
   return CARDINAL;
 }
 
-function stepDistance(from: { x: number; y: number }, to: { x: number; y: number }) {
+export function stepDistance(from: { x: number; y: number }, to: { x: number; y: number }) {
   const dx = Math.abs(to.x - from.x);
   const dy = Math.abs(to.y - from.y);
   return Math.max(dx, dy);
 }
 
-function inBounds(x: number, y: number, size: number) {
+export function inBounds(x: number, y: number, size: number) {
   return x >= 0 && y >= 0 && x < size && y < size;
 }
 
-function getValidMoves(from: { x: number; y: number }, value: number, size: number, dirMode: string, visited: Set<string> | null) {
+export function getValidMoves(from: { x: number; y: number }, value: number, size: number, dirMode: string, visited: Set<string> | null) {
   if (value <= 0) return [];
 
   if (dirMode === 'knight') {
@@ -160,7 +160,7 @@ function enumerateRawSteps(from: { x: number; y: number }, size: number, dirMode
   return steps;
 }
 
-function buildFallbackPath(size: number) {
+export function buildFallbackPath(size: number) {
   const path = [{ x: 0, y: 0 }];
   let x = 0;
   let y = 0;
@@ -175,7 +175,7 @@ function buildFallbackPath(size: number) {
   return path;
 }
 
-function generatePath(size: number, dirMode: string, minVal: number, maxVal: number, allowRepeat: boolean) {
+export function generatePath(size: number, dirMode: string, minVal: number, maxVal: number, allowRepeat: boolean) {
   const end = { x: size - 1, y: size - 1 };
 
   for (let attempt = 0; attempt < 400; attempt++) {
@@ -205,7 +205,7 @@ function generatePath(size: number, dirMode: string, minVal: number, maxVal: num
   return buildFallbackPath(size);
 }
 
-function assignValuesFromPath(path: { x: number; y: number }[], size: number, minVal: number, maxVal: number, dirMode: string) {
+export function assignValuesFromPath(path: { x: number; y: number }[], size: number, minVal: number, maxVal: number, dirMode: string) {
   const values = Array.from({ length: size }, () => Array(size).fill(0));
 
   for (let i = 0; i < path.length - 1; i++) {
@@ -230,7 +230,7 @@ function assignValuesFromPath(path: { x: number; y: number }[], size: number, mi
   return values;
 }
 
-function generateBoard(cfg: Pick<MemoryGridConfig, 'size' | 'minVal' | 'maxVal' | 'dirMode' | 'allowRepeat' | 'addTraps'>) {
+export function generateBoard(cfg: Pick<MemoryGridConfig, 'size' | 'minVal' | 'maxVal' | 'dirMode' | 'allowRepeat' | 'addTraps'>) {
   const { size, minVal, maxVal, dirMode, allowRepeat, addTraps } = cfg;
 
   for (let attempt = 0; attempt < 60; attempt++) {
@@ -258,7 +258,7 @@ function generateBoard(cfg: Pick<MemoryGridConfig, 'size' | 'minVal' | 'maxVal' 
   };
 }
 
-function verifySolution(values: number[][], path: { x: number; y: number }[], size: number, dirMode: string, allowRepeat: boolean) {
+export function verifySolution(values: number[][], path: { x: number; y: number }[], size: number, dirMode: string, allowRepeat: boolean) {
   if (!path.length) return false;
   let pos = { ...path[0] };
   const visited = allowRepeat ? null : new Set([key(pos.x, pos.y)]);

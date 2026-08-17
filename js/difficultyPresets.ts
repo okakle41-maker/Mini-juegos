@@ -3,6 +3,8 @@
  * Sistema de presets de dificultad para juegos
  */
 
+import safeStorage from './core/safeStorage.js';
+
 type DifficultyLevel = 'easy' | 'normal' | 'hard' | 'expert' | 'custom';
 
 interface DifficultyPreset {
@@ -103,20 +105,16 @@ class DifficultyPresetsManager {
   }
 
   private loadGameSettings(): Map<string, GameDifficultySettings> {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        return new Map(data);
-      } catch (e) {
-        console.error('[DifficultyPresets] Failed to load settings:', e);
-      }
-    }
-    return new Map();
+    const data = safeStorage.getJSON<Array<[string, GameDifficultySettings]>>(
+      this.storageKey,
+      [],
+      { validate: (v): v is Array<[string, GameDifficultySettings]> => Array.isArray(v) }
+    );
+    return new Map(data);
   }
 
   private saveGameSettings(): void {
-    localStorage.setItem(this.storageKey, JSON.stringify([...this.gameSettings]));
+    safeStorage.setJSON(this.storageKey, [...this.gameSettings]);
   }
 
   getPreset(level: DifficultyLevel): DifficultyPreset | undefined {

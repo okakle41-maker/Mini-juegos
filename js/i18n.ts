@@ -3,6 +3,8 @@
  * Sistema de traducciones para múltiples idiomas
  */
 
+import safeStorage from './core/safeStorage.js';
+
 interface Translation {
   [key: string]: string | Translation;
 }
@@ -36,7 +38,7 @@ class I18nManager {
 
   private detectLocale(): void {
     // Check localStorage first
-    const savedLocale = localStorage.getItem('locale');
+    const savedLocale = safeStorage.getString('locale', '');
     if (savedLocale && this.isLocaleAvailable(savedLocale)) {
       this.currentLocale = savedLocale;
       return;
@@ -554,10 +556,22 @@ class I18nManager {
 
   private getNestedValue(obj: Translation | undefined, key: string): string | undefined {
     if (!obj) return undefined;
-    
+
+    // Los diccionarios reales (loadTranslations) son PLANOS: la clave
+    // 'game.start' es un string literal en el objeto, no un objeto
+    // anidado {game: {start: ...}}. Se prueba primero como clave
+    // literal completa, que es el caso real y común.
+    const direct = obj[key];
+    if (typeof direct === 'string') {
+      return direct;
+    }
+
+    // Fallback: soporte para un Translation genuinamente anidado
+    // (por si algún llamador construye uno a mano), navegando
+    // segmento a segmento por '.'.
     const keys = key.split('.');
     let value: Translation | string = obj;
-    
+
     for (const k of keys) {
       if (value && typeof value === 'object' && k in value) {
         value = value[k];
@@ -565,7 +579,7 @@ class I18nManager {
         return undefined;
       }
     }
-    
+
     return typeof value === 'string' ? value : undefined;
   }
 
@@ -576,7 +590,7 @@ class I18nManager {
     }
 
     this.currentLocale = locale;
-    localStorage.setItem('locale', locale);
+    safeStorage.setString('locale', locale);
     
     // Dispatch event for UI update
     window.dispatchEvent(new CustomEvent('locale:changed', { detail: locale }));

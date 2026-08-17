@@ -124,7 +124,7 @@ class DevTools {
     });
 
     this.registerCommand('theme', 'Set theme', (theme: string) => {
-      const validThemes = ['dark', 'neon', 'ocean'];
+      const validThemes = ['dark', 'winter'];
       if (!validThemes.includes(theme)) {
         return `Invalid theme. Valid: ${validThemes.join(', ')}`;
       }

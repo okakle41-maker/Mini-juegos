@@ -4,6 +4,8 @@
  * screen readers, alto contraste, ajuste de texto y daltonismo
  */
 
+import safeStorage from './core/safeStorage.js';
+
 interface HTMLElementWithFocusTrap extends HTMLElement {
   _trapHandler?: (e: KeyboardEvent) => void;
 }
@@ -34,15 +36,7 @@ class AccessibilitySystem {
     this.init();
   }
 
-  private loadConfig(): AccessibilityConfig {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('[Accessibility] Failed to load config:', e);
-      }
-    }
+  private defaultConfig(): AccessibilityConfig {
     return {
       keyboardNavigation: true,
       screenReaderOptimized: true,
@@ -55,8 +49,24 @@ class AccessibilitySystem {
     };
   }
 
+  private loadConfig(): AccessibilityConfig {
+    // Migrado a safeStorage (ver core/safeStorage.ts): saveConfig() no
+    // tenía try/catch — si localStorage.setItem lanzaba (cuota, modo
+    // privado), la excepción se propagaba sin capturar desde cada
+    // toggle de accesibilidad, justo el sistema pensado para usuarios
+    // con necesidades especiales.
+    return safeStorage.getJSON<AccessibilityConfig>(
+      this.storageKey,
+      this.defaultConfig(),
+      {
+        validate: (value): value is AccessibilityConfig =>
+          typeof value === 'object' && value !== null && 'contrastMode' in value,
+      }
+    );
+  }
+
   private saveConfig(): void {
-    localStorage.setItem(this.storageKey, JSON.stringify(this.config));
+    safeStorage.setJSON(this.storageKey, this.config);
     this.applyConfig();
   }
 

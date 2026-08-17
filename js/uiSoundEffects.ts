@@ -61,11 +61,20 @@ class UISoundEffects {
   }
 
   // Efectos de sonido predefinidos
+  //
+  // click/hover recalibrados de 'sine' puro a 'triangle': la onda sine a
+  // estas frecuencias suena limpia/cristalina (buen calce con la paleta
+  // cian anterior), pero sobre la UI naranja/cálida actual quedaba "fría"
+  // por contraste con el resto de las transiciones (ver .stagger-in,
+  // colores de estado). 'triangle' agrega armónicos impares suaves que dan
+  // más cuerpo/calidez al timbre sin cambiar el rol funcional del sonido
+  // (mismo patrón corto y sutil, solo timbre distinto). Frecuencias y
+  // duración sin tocar para no alterar el "feel" ya afinado de la UI.
   click(): void {
     this.playSound({
       frequency: 800,
       duration: 0.1,
-      type: 'sine',
+      type: 'triangle',
       volume: 0.5
     });
   }
@@ -74,7 +83,7 @@ class UISoundEffects {
     this.playSound({
       frequency: 400,
       duration: 0.05,
-      type: 'sine',
+      type: 'triangle',
       volume: 0.3
     });
   }

@@ -18,10 +18,23 @@
  * sería rechazado igual por la base de datos.
  */
 
-import { getSupabaseClient } from './core/supabaseClient.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import Auth from './authManager.js';
 import { showToast } from './toast.js';
 import ErrorLogger from './core/errorLogger.js';
+
+/**
+ * import() dinámico inline en vez de un import estático de
+ * supabaseClient.ts arriba del archivo — ver el comentario homónimo en
+ * authManager.ts para el porqué: un solo import estático de
+ * supabaseClient.ts en cualquiera de sus 4 consumidores le impedía a
+ * Rolldown separar '@supabase/supabase-js' en su propio chunk lazy
+ * para los otros tres también.
+ */
+async function getSupabaseClientLazy(): Promise<SupabaseClient> {
+  const { getSupabaseClient } = await import('./core/supabaseClient.js');
+  return getSupabaseClient();
+}
 
 export interface GlobalScoreRow {
   username: string;
@@ -47,7 +60,7 @@ export async function submitScore(gameKey: string, value: number, total?: number
   // este try/catch era un unhandled promise rejection real en cada
   // partida jugada sin conexión, no solo un score no subido.
   try {
-    const supabase = await getSupabaseClient();
+    const supabase = await getSupabaseClientLazy();
     const { error } = await supabase.from('scores').insert({
       user_id: user.id,
       game_key: gameKey,
@@ -97,7 +110,7 @@ export async function fetchGlobalTop(gameKey: string, limit = 10): Promise<Globa
   // vista en vez de simplemente devolver [] como ya se hace para el
   // resto de los casos de error de esta función.
   try {
-    const supabase = await getSupabaseClient();
+    const supabase = await getSupabaseClientLazy();
     const { data, error } = await supabase
       .from('best_scores')
       .select('username, value, total, created_at')

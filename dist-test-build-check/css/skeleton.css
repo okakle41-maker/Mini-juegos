@@ -1,0 +1,339 @@
+/* ============================================================
+   MÓDULO: skeleton loading (placeholders "shimmer" mientras
+   carga contenido async — ver js/skeletonSystem.ts).
+
+   Antes este CSS se inyectaba desde JS (skeletonSystem.injectStyles,
+   un <style> armado con template string) en vez de vivir en un
+   archivo .css del proyecto como el resto de los estilos — eso lo
+   dejaba fuera de cualquier revisión/lint de CSS y, más relevante acá,
+   con colores hardcodeados (#1a1a2e/#16213e/#0f0f1a, un navy que
+   quedó de antes de unificar la paleta a negro/naranja) en vez de las
+   variables de tema. Migrado a archivo real + variables: el shimmer
+   ahora sigue el tema activo (naranja en el oscuro, celeste en
+   Invernal) igual que el resto de la UI, sin --dark hardcodeado. */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-2) 0%,
+    color-mix(in srgb, var(--bg-2) 60%, var(--accent-cyan) 12%) 50%,
+    var(--bg-2) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.skeleton--shimmer {
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton--shimmer {
+    animation: none;
+  }
+}
+
+/* --dark ya no aporta un segundo gradiente distinto del base: con la
+   paleta unificada, "oscuro" y "normal" convergen al mismo --bg-2. Se
+   mantiene la clase por compatibilidad con el código que la aplica
+   (generateSkeleton con dark:true por default) sin duplicar reglas. */
+.skeleton--dark {
+  background: linear-gradient(
+    90deg,
+    var(--bg-1) 0%,
+    var(--bg-2) 50%,
+    var(--bg-1) 100%
+  );
+  background-size: 200% 100%;
+}
+
+.skeleton-wrapper {
+  padding: 1rem;
+}
+
+.skeleton-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.skeleton-card__image {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.skeleton-card__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-card__title {
+  height: 20px;
+  width: 60%;
+  border-radius: 4px;
+}
+
+.skeleton-card__text {
+  height: 16px;
+  width: 100%;
+  border-radius: 4px;
+}
+
+.skeleton-card__text--short {
+  width: 40%;
+}
+
+.skeleton-list {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.skeleton-list__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-list__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-list__title {
+  height: 16px;
+  width: 50%;
+  border-radius: 4px;
+}
+
+.skeleton-list__text {
+  height: 14px;
+  width: 70%;
+  border-radius: 4px;
+}
+
+.skeleton-list__action {
+  width: 80px;
+  height: 32px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.skeleton-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.skeleton-text__line {
+  height: 16px;
+  width: 100%;
+  border-radius: 4px;
+}
+
+.skeleton-text__line--short {
+  width: 60%;
+}
+
+.skeleton-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+.skeleton-button {
+  height: 40px;
+  width: 120px;
+  border-radius: 8px;
+}
+
+.skeleton-badge {
+  width: 60px;
+  height: 24px;
+  border-radius: 12px;
+}
+
+.skeleton-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--surface);
+  border-radius: 8px;
+}
+
+.skeleton-stat__value {
+  height: 32px;
+  width: 60px;
+  border-radius: 4px;
+}
+
+.skeleton-stat__label {
+  height: 14px;
+  width: 40px;
+  border-radius: 4px;
+}
+
+.skeleton-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  height: 100px;
+  padding: 1rem;
+}
+
+.skeleton-chart__bar {
+  flex: 1;
+  border-radius: 4px 4px 0 0;
+  min-height: 20px;
+}
+
+.skeleton-chart__bar--1 { height: 40%; }
+.skeleton-chart__bar--2 { height: 70%; }
+.skeleton-chart__bar--3 { height: 50%; }
+.skeleton-chart__bar--4 { height: 90%; }
+.skeleton-chart__bar--5 { height: 30%; }
+
+.skeleton-summary {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.skeleton-summary__item {
+  flex: 1;
+  height: 60px;
+  border-radius: 8px;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.skeleton-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.skeleton-level {
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  background: var(--surface);
+  border-radius: 12px;
+}
+
+.skeleton-level__info {
+  height: 40px;
+  width: 60%;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+
+.skeleton-level__bar {
+  height: 20px;
+  width: 100%;
+  border-radius: 10px;
+}
+
+.skeleton-profile {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  background: var(--surface);
+  border-radius: 12px;
+}
+
+.skeleton-profile__avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-profile__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skeleton-profile__name {
+  height: 24px;
+  width: 40%;
+  border-radius: 4px;
+}
+
+.skeleton-profile__title {
+  height: 18px;
+  width: 30%;
+  border-radius: 4px;
+}
+
+/* ── Skeleton de vista de juego (lazy loading) ──
+   Usado por ViewManager mientras el import() dinámico de un minijuego
+   está en vuelo (ver loadLazyView en core/viewManager.ts). A
+   diferencia de los skeletons de arriba (pensados para contenido de
+   lista/card dentro de una vista ya montada), este ocupa la vista
+   completa: no sabemos de antemano qué juego es, así que se muestra
+   una silueta genérica de "pantalla de juego" (encabezado + área de
+   contenido) en vez de intentar adivinar el layout real. */
+.skeleton-game-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 2rem clamp(1rem, 4vw, 2.5rem);
+  min-height: 60vh;
+}
+
+.skeleton-game-view__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.skeleton-game-view__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.skeleton-game-view__title {
+  height: 28px;
+  width: min(280px, 50%);
+  border-radius: 6px;
+}
+
+.skeleton-game-view__body {
+  flex: 1;
+  min-height: 240px;
+  border-radius: 16px;
+}

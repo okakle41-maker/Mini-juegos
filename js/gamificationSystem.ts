@@ -3,6 +3,8 @@
  * Sistema de gamificación avanzado: puntos globales, niveles con perks, misiones semanales, eventos temporales
  */
 
+import safeStorage from './core/safeStorage.js';
+
 export interface UserLevel {
   level: number;
   xp: number;
@@ -60,15 +62,7 @@ class GamificationSystem {
     this.init();
   }
 
-  private loadConfig(): GamificationConfig {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('[Gamification] Failed to load config:', e);
-      }
-    }
+  private defaultConfig(): GamificationConfig {
     return {
       globalPoints: 0,
       level: {
@@ -84,8 +78,19 @@ class GamificationSystem {
     };
   }
 
+  private loadConfig(): GamificationConfig {
+    return safeStorage.getJSON<GamificationConfig>(
+      this.storageKey,
+      this.defaultConfig(),
+      {
+        validate: (value): value is GamificationConfig =>
+          typeof value === 'object' && value !== null && 'globalPoints' in value,
+      }
+    );
+  }
+
   private saveConfig(): void {
-    localStorage.setItem(this.storageKey, JSON.stringify(this.config));
+    safeStorage.setJSON(this.storageKey, this.config);
   }
 
   private init(): void {

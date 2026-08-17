@@ -1,0 +1,2 @@
+var t=()=>'\n  <div class="game-view-inner">\n    <button class="back-btn" data-back-to="skillchecks"></button>\n    <div id="multipoint-root"></div>\n  </div>\n';export{t as default};
+//# sourceMappingURL=multipoint-CtgKB3ox.js.map

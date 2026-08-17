@@ -3,6 +3,8 @@
  * Sistema de logros y recompensas para los usuarios
  */
 
+import safeStorage from './core/safeStorage.js';
+
 export interface Achievement {
   id: string;
   name: string;
@@ -298,13 +300,11 @@ class AchievementManager {
   }
 
   private loadProgress(): Map<string, number> {
-    const saved = localStorage.getItem(this.progressKey);
-    if (saved) {
-      try {
-        return new Map(JSON.parse(saved));
-      } catch (e) {
-        console.error('[Achievements] Failed to load progress:', e);
-      }
+    const saved = safeStorage.getJSON<Array<[string, number]>>(this.progressKey, [], {
+      validate: (v): v is Array<[string, number]> => Array.isArray(v),
+    });
+    if (saved.length > 0) {
+      return new Map(saved);
     }
 
     // Initialize default progress
@@ -322,76 +322,55 @@ class AchievementManager {
   }
 
   private saveProgress(progress: Map<string, number>): void {
-    localStorage.setItem(this.progressKey, JSON.stringify([...progress]));
+    safeStorage.setJSON(this.progressKey, [...progress]);
   }
 
   private loadRewards(): void {
-    // Load XP
-    const savedXP = localStorage.getItem(this.xpKey);
-    if (savedXP) {
-      try {
-        this.totalXP = parseInt(savedXP, 10) || 0;
-      } catch (e) {
-        console.error('[Achievements] Failed to load XP:', e);
-      }
-    }
-
-    // Load titles
-    const savedTitles = localStorage.getItem(this.titlesKey);
-    if (savedTitles) {
-      try {
-        this.unlockedTitles = new Set(JSON.parse(savedTitles));
-      } catch (e) {
-        console.error('[Achievements] Failed to load titles:', e);
-      }
-    }
-
-    // Load cosmetics
-    const savedCosmetics = localStorage.getItem(this.cosmeticsKey);
-    if (savedCosmetics) {
-      try {
-        this.unlockedCosmetics = new Set(JSON.parse(savedCosmetics));
-      } catch (e) {
-        console.error('[Achievements] Failed to load cosmetics:', e);
-      }
-    }
-
-    // Load active title
-    const savedActiveTitle = localStorage.getItem('active-title');
+    // Migrado a safeStorage (ver core/safeStorage.ts): saveRewards()
+    // hacía 4 localStorage.setItem() seguidos sin ningún try/catch —
+    // si el primero (XP) lanzaba por cuota excedida, títulos,
+    // cosméticos y título activo ni se guardaban.
+    this.totalXP = safeStorage.getNumber(this.xpKey, 0);
+    this.unlockedTitles = new Set(
+      safeStorage.getJSON<string[]>(this.titlesKey, [], {
+        validate: (v): v is string[] => Array.isArray(v),
+      })
+    );
+    this.unlockedCosmetics = new Set(
+      safeStorage.getJSON<string[]>(this.cosmeticsKey, [], {
+        validate: (v): v is string[] => Array.isArray(v),
+      })
+    );
+    const savedActiveTitle = safeStorage.getString('active-title', '');
     if (savedActiveTitle) {
       this.activeTitle = savedActiveTitle;
     }
   }
 
   private saveRewards(): void {
-    localStorage.setItem(this.xpKey, this.totalXP.toString());
-    localStorage.setItem(this.titlesKey, JSON.stringify([...this.unlockedTitles]));
-    localStorage.setItem(this.cosmeticsKey, JSON.stringify([...this.unlockedCosmetics]));
-    localStorage.setItem('active-title', this.activeTitle);
+    safeStorage.setNumber(this.xpKey, this.totalXP);
+    safeStorage.setJSON(this.titlesKey, [...this.unlockedTitles]);
+    safeStorage.setJSON(this.cosmeticsKey, [...this.unlockedCosmetics]);
+    safeStorage.setString('active-title', this.activeTitle);
   }
 
   private loadUnlockedAchievements(): void {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        const unlockedIds: string[] = JSON.parse(saved);
-        unlockedIds.forEach(id => {
-          const achievement = this.achievements.get(id);
-          if (achievement) {
-            achievement.unlocked = true;
-          }
-        });
-      } catch (e) {
-        console.error('[Achievements] Failed to load unlocked achievements:', e);
+    const unlockedIds = safeStorage.getJSON<string[]>(this.storageKey, [], {
+      validate: (v): v is string[] => Array.isArray(v),
+    });
+    unlockedIds.forEach(id => {
+      const achievement = this.achievements.get(id);
+      if (achievement) {
+        achievement.unlocked = true;
       }
-    }
+    });
   }
 
   private saveUnlockedAchievements(): void {
     const unlockedIds = [...this.achievements.values()]
       .filter(a => a.unlocked)
       .map(a => a.id);
-    localStorage.setItem(this.storageKey, JSON.stringify(unlockedIds));
+    safeStorage.setJSON(this.storageKey, unlockedIds);
   }
 
   trackGamePlayed(gameId: string): void {

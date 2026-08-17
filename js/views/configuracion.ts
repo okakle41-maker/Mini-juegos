@@ -20,9 +20,7 @@ const template = (): string => {
               <span class="config-label" id="configThemeLabel">TEMA</span>
               <select id="configThemeSelect" class="config-select" aria-labelledby="configThemeLabel">
                 <option value="dark">Oscuro</option>
-                <option value="neon">💠 Neón</option>
-                <option value="ocean">🌊 Océano</option>
-                <option value="orange">🔥 Naranja</option>
+                <option value="winter">❄️ Invernal</option>
               </select>
             </div>
             <div class="config-row">

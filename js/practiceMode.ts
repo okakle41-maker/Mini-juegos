@@ -3,6 +3,8 @@
  * Sistema de modo de práctica para juegos sin afectar estadísticas
  */
 
+import safeStorage from './core/safeStorage.js';
+
 type PracticeMode = 'normal' | 'practice' | 'tutorial';
 
 interface PracticeSettings {
@@ -32,16 +34,7 @@ class PracticeModeManager {
     this.settings = this.loadSettings();
   }
 
-  private loadSettings(): PracticeSettings {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('[PracticeMode] Failed to load settings:', e);
-      }
-    }
-
+  private defaultSettings(): PracticeSettings {
     return {
       mode: 'normal',
       showHints: false,
@@ -51,8 +44,19 @@ class PracticeModeManager {
     };
   }
 
+  private loadSettings(): PracticeSettings {
+    return safeStorage.getJSON<PracticeSettings>(
+      this.storageKey,
+      this.defaultSettings(),
+      {
+        validate: (value): value is PracticeSettings =>
+          typeof value === 'object' && value !== null && 'mode' in value,
+      }
+    );
+  }
+
   private saveSettings(): void {
-    localStorage.setItem(this.storageKey, JSON.stringify(this.settings));
+    safeStorage.setJSON(this.storageKey, this.settings);
   }
 
   setMode(mode: PracticeMode): void {

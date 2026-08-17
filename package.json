@@ -30,6 +30,7 @@
     "@preact/preset-vite": "^2.10.6",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^20.10.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "@vitest/ui": "^4.1.9",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",

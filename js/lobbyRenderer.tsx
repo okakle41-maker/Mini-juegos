@@ -56,6 +56,22 @@ const ICON_FALLBACK_SVG =
 const HOVER_THROTTLE_MS = 120;
 let lastHoverAnimationStart = 0;
 
+/** El spotlight que sigue el cursor (ver .card-spotlight en
+ *  _lobby-cards-hover.css) solo tiene sentido con mouse real: en
+ *  touch no hay "posición del cursor" persistente que seguir, y el
+ *  propio CSS ya lo oculta vía `@media (hover: hover)`. Evaluar esta
+ *  media query una sola vez al construir el renderer (no por-card)
+ *  evita registrar cientos de listeners de 'mousemove' que nunca
+ *  harían nada útil en un dispositivo táctil.
+ *  `window.matchMedia` no existe en jsdom (entorno de test) salvo que
+ *  el test lo mockee explícitamente — de ahí el guard `typeof`: sin
+ *  él, cualquier test que importe este módulo rompería solo por tener
+ *  este spotlight, sin relación con lo que ese test intenta cubrir. */
+const spotlightMediaQuery =
+  typeof window.matchMedia === 'function'
+    ? window.matchMedia('(hover: hover) and (pointer: fine)')
+    : { matches: false };
+
 /** Techo de "dominio" del ring de progreso: a partir de esta cantidad de
  *  partidas jugadas (con récord guardado) se considera 100%. */
 const MASTERY_PLAYS_FOR_FULL_RING = 5;
@@ -398,6 +414,18 @@ class LobbyRenderer {
       render(<GameCard {...this.buildCardProps(game)} />, host);
     });
 
+    // Entrada escalonada (stagger): `.game-card` ya trae `animation:
+    // cardAppear` con `animation-delay: var(--stagger-delay, 0s)`
+    // definido en _lobby-cards.css (mismo mecanismo que usa el submenú
+    // de Skill Check, ver skillchecks.ts) — solo faltaba alimentar la
+    // variable acá, así que se reusa ese sistema existente en vez de
+    // crear uno nuevo en paralelo. Sin esto, cardAppear igual corría en
+    // cada card pero todas con el mismo delay (0s), por eso entraban
+    // todas juntas pese a que la animación de fade ya estaba definida.
+    this.gridEl.querySelectorAll<HTMLElement>('.game-card').forEach((card, i) => {
+      card.style.setProperty('--stagger-delay', `${i * 0.045}s`);
+    });
+
     this.gridEl.querySelectorAll<HTMLElement>('.game-card').forEach(card => {
       const gameId = card.dataset.gameId;
       if (!gameId) return;
@@ -459,6 +487,31 @@ class LobbyRenderer {
       card.addEventListener('mouseleave', removeHoverClass);
       openBtn?.addEventListener('focus', addHoverClass);
       openBtn?.addEventListener('blur', removeHoverClass);
+
+      // Spotlight que sigue el cursor (--mx/--my leídos por
+      // .card-spotlight en _lobby-cards-hover.css). Throttle por rAF:
+      // 'mousemove' puede disparar bastante más rápido que 60fps, así
+      // que sin este guard estaríamos escribiendo la custom property
+      // (y por lo tanto pintando el radial-gradient) muchas más veces
+      // por segundo de las que el monitor puede mostrar — trabajo
+      // puro desperdiciado. `spotlightRaf` es por-card (closure), no
+      // global: cada card puede tener su propio frame pendiente sin
+      // pisar el de otra si el usuario mueve el mouse rápido entre
+      // varias.
+      if (spotlightMediaQuery.matches) {
+        let spotlightRaf = 0;
+        card.addEventListener('mousemove', (e: MouseEvent) => {
+          if (spotlightRaf) return;
+          spotlightRaf = requestAnimationFrame(() => {
+            spotlightRaf = 0;
+            const rect = card.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            card.style.setProperty('--mx', `${x}%`);
+            card.style.setProperty('--my', `${y}%`);
+          });
+        });
+      }
 
       const favBtn = card.querySelector<HTMLButtonElement>('.card-favorite-btn');
       favBtn?.addEventListener('click', (e: MouseEvent) => {

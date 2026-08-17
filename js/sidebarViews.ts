@@ -40,6 +40,11 @@ function renderStatistics(): void {
   const favoritesCount = Favorites.count();
   const gamesWithRecord = games.filter(game => Leaderboard.get(game.id).length > 0).length;
 
+  // Nota: estas cards viven dentro de #statsGrid/.stats-grid (vista
+  // Estadísticas), un layout distinto al de .stat-card-row del header
+  // del lobby (ver _pages-stats-config.css vs redesign-extras.css) — no
+  // llevan el stagger fade-in de esas, que está scopeado a
+  // `.stat-card-row .stat-card` a propósito para no afectar esta vista.
   grid.innerHTML = `
     <div class="stat-card">
       <div class="stat-card-icon">🎮</div>

@@ -127,6 +127,27 @@ describe('bug fix: back-btn missing in non-lazy views without in-page back navig
     });
   });
 
+  /**
+   * Espera el evento 'view-shown' que ViewManager dispara dentro de
+   * initGame() al terminar de montar+inicializar una vista. Desde que
+   * showView() anima la salida de la vista anterior antes de montar la
+   * siguiente (ver viewManager.ts), ese montaje ya no es síncrono ni
+   * cae en un timeout fijo corto — awaitear el evento real es correcto
+   * tanto con transición como sin ella (setTimeout(0) alcanzaba antes
+   * porque todo pasaba en el mismo tick; ya no).
+   */
+  function waitForViewShown(id: string): Promise<void> {
+    return new Promise((resolve) => {
+      const onShown = (e: Event) => {
+        if ((e as CustomEvent).detail?.id === id) {
+          document.removeEventListener('view-shown', onShown);
+          resolve();
+        }
+      };
+      document.addEventListener('view-shown', onShown);
+    });
+  }
+
   it.each(cases)('$id has a hydrated back-btn after init and navigates home on click', async ({ id, logicPath }) => {
     const logic = await import(/* @vite-ignore */ logicPath);
     GameRegistry.register({
@@ -134,15 +155,17 @@ describe('bug fix: back-btn missing in non-lazy views without in-page back navig
       hidden: true, init: logic.init, stop: logic.stop
     });
 
+    const shown = waitForViewShown(id);
     ViewManager.showView(id);
-    await new Promise(r => setTimeout(r, 0));
+    await shown;
 
     const backBtn = document.getElementById(id)?.querySelector('.back-btn[data-back-to]') as HTMLElement | null;
     expect(backBtn, `expected a back-btn in #${id}`).toBeTruthy();
     expect(backBtn!.dataset.hydrated).toBe('true');
 
+    const home = waitForViewShown('home');
     backBtn!.click();
-    await new Promise(r => setTimeout(r, 0));
+    await home;
 
     expect(ViewManager.getCurrentView()).toBe('home');
   });

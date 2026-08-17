@@ -40,8 +40,33 @@
  * Auth.login(...)` directo, sin envolver la llamada).
  */
 
-import { getSupabaseClient } from './core/supabaseClient.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import ErrorLogger from './core/errorLogger.js';
+
+/**
+ * Wrapper de getSupabaseClient() con import() dinámico *inline*, en vez
+ * de un `import { getSupabaseClient } from './core/supabaseClient.js'`
+ * estático arriba del archivo.
+ *
+ * La diferencia no es cosmética: Rolldown (motor de build de Vite 8)
+ * decide si puede separar '@supabase/supabase-js' en su propio chunk
+ * lazy mirando si *algún* módulo importa supabaseClient.ts de forma
+ * estática — no importa que getSupabaseClient() en sí se llame recién
+ * en runtime dentro de una promesa. Con un import estático acá, el
+ * build tiraba el warning [INEFFECTIVE_DYNAMIC_IMPORT] y el SDK entero
+ * (~218 KB / 56 KB gzip) terminaba en el chunk 'bootstrap' que carga
+ * cualquier visitante — incluso alguien que solo juega offline y nunca
+ * abre "Cuenta" ni un juego online. multiplayerSystem.ts, socialSystem.ts
+ * y tournamentSystem.ts ya resolvían esto con el mismo patrón de
+ * `await import(...)` inline; este archivo era el único de los cuatro
+ * consumidores de supabaseClient.ts que todavía usaba un import
+ * estático, y bastaba ese uno para neutralizar el code-splitting de
+ * los otros tres también (el warning lista los cuatro archivos juntos).
+ */
+async function getSupabaseClientLazy(): Promise<SupabaseClient> {
+  const { getSupabaseClient } = await import('./core/supabaseClient.js');
+  return getSupabaseClient();
+}
 
 export interface AuthUser {
   id: string;
@@ -196,7 +221,7 @@ class AuthManager {
     // fallo de red en el constructor). Si el SDK no carga, simplemente
     // no hay listener de auth state — currentUser se queda en null
     // (estado "no logueado"), que ya es lo correcto para ese escenario.
-    getSupabaseClient()
+    getSupabaseClientLazy()
       .then((supabase) => {
         supabase.auth.onAuthStateChange((_event, session) => {
           // Ver comentario de selfInitiatedAuthChange: si este evento lo
@@ -235,7 +260,7 @@ class AuthManager {
     // mismo estado que "nunca inició sesión", que es lo correcto: el
     // usuario ve la pantalla de login, no un error.
     try {
-      const supabase = await getSupabaseClient();
+      const supabase = await getSupabaseClientLazy();
       const { data } = await supabase.auth.getSession();
       if (data.session) {
         await this.loadProfile(data.session.user.id);
@@ -246,7 +271,7 @@ class AuthManager {
   }
 
   private async loadProfile(userId: string): Promise<void> {
-    const supabase = await getSupabaseClient();
+    const supabase = await getSupabaseClientLazy();
     const { data, error } = await supabase
       .from('profiles')
       .select('username')
@@ -326,7 +351,7 @@ class AuthManager {
     // en vez de dejar la excepción sin capturar: accountView.ts hace
     // `await Auth.register(...)` sin su propio try/catch.
     try {
-      const supabase = await getSupabaseClient();
+      const supabase = await getSupabaseClientLazy();
 
       const { data, error } = await this.withSelfInitiatedAuthChange(() =>
         supabase.auth.signUp({
@@ -402,7 +427,7 @@ class AuthManager {
   async login(username: string, password: string): Promise<AuthResult> {
     const trimmed = username.trim();
     try {
-      const supabase = await getSupabaseClient();
+      const supabase = await getSupabaseClientLazy();
 
       const { data, error } = await this.withSelfInitiatedAuthChange(() =>
         supabase.auth.signInWithPassword({
@@ -428,7 +453,7 @@ class AuthManager {
 
   async logout(): Promise<void> {
     try {
-      const supabase = await getSupabaseClient();
+      const supabase = await getSupabaseClientLazy();
       await this.withSelfInitiatedAuthChange(() => supabase.auth.signOut());
     } catch (error) {
       // Aunque falle el signOut remoto (offline, red caída), igual

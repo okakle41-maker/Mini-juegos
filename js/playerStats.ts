@@ -3,6 +3,8 @@
  * Sistema de estadísticas detalladas del jugador
  */
 
+import safeStorage from './core/safeStorage.js';
+
 interface GameStats {
   gameId: string;
   gamesPlayed: number;
@@ -36,29 +38,7 @@ class PlayerStats {
     this.overallStats = this.loadOverallStats();
   }
 
-  private loadGameStats(): Map<string, GameStats> {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        return new Map(data);
-      } catch (e) {
-        console.error('[PlayerStats] Failed to load game stats:', e);
-      }
-    }
-    return new Map();
-  }
-
-  private loadOverallStats(): OverallStats {
-    const saved = localStorage.getItem(this.overallKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('[PlayerStats] Failed to load overall stats:', e);
-      }
-    }
-
+  private defaultOverallStats(): OverallStats {
     return {
       totalGamesPlayed: 0,
       totalGamesCompleted: 0,
@@ -71,12 +51,32 @@ class PlayerStats {
     };
   }
 
+  private loadGameStats(): Map<string, GameStats> {
+    const data = safeStorage.getJSON<Array<[string, GameStats]>>(
+      this.storageKey,
+      [],
+      { validate: (value): value is Array<[string, GameStats]> => Array.isArray(value) }
+    );
+    return new Map(data);
+  }
+
+  private loadOverallStats(): OverallStats {
+    return safeStorage.getJSON<OverallStats>(
+      this.overallKey,
+      this.defaultOverallStats(),
+      {
+        validate: (value): value is OverallStats =>
+          typeof value === 'object' && value !== null && 'totalGamesPlayed' in value,
+      }
+    );
+  }
+
   private saveGameStats(): void {
-    localStorage.setItem(this.storageKey, JSON.stringify([...this.gameStats]));
+    safeStorage.setJSON(this.storageKey, [...this.gameStats]);
   }
 
   private saveOverallStats(): void {
-    localStorage.setItem(this.overallKey, JSON.stringify(this.overallStats));
+    safeStorage.setJSON(this.overallKey, this.overallStats);
   }
 
   recordGamePlayed(gameId: string, duration: number): void {

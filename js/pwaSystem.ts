@@ -4,6 +4,7 @@
  */
 
 import { devLog } from './core/devLog.js';
+import safeStorage from './core/safeStorage.js';
 
 // El evento `beforeinstallprompt` no es un tipo DOM estándar (no todos
 // los navegadores lo implementan), así que TypeScript no lo trae de
@@ -60,24 +61,23 @@ class PWASystem {
   }
 
   private loadConfig(): PWAConfig {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('[PWA] Failed to load config:', e);
+    return safeStorage.getJSON<PWAConfig>(
+      this.storageKey,
+      {
+        pushNotifications: false,
+        backgroundSync: true,
+        offlineMode: true,
+        shortcutsEnabled: true
+      },
+      {
+        validate: (value): value is PWAConfig =>
+          typeof value === 'object' && value !== null && 'pushNotifications' in value,
       }
-    }
-    return {
-      pushNotifications: false,
-      backgroundSync: true,
-      offlineMode: true,
-      shortcutsEnabled: true
-    };
+    );
   }
 
   private saveConfig(): void {
-    localStorage.setItem(this.storageKey, JSON.stringify(this.config));
+    safeStorage.setJSON(this.storageKey, this.config);
   }
 
   private async init(): Promise<void> {

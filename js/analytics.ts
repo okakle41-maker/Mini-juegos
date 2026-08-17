@@ -4,6 +4,7 @@
  */
 
 import { devLog } from './core/devLog.js';
+import safeStorage from './core/safeStorage.js';
 
 interface ConsentSettings {
   analytics: boolean;
@@ -41,16 +42,12 @@ class AnalyticsManager {
   }
 
   private loadConsent(): ConsentSettings {
-    const saved = localStorage.getItem('analytics-consent');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.version === this.consentVersion) {
-          return parsed.settings;
-        }
-      } catch (e) {
-        console.error('[Analytics] Failed to parse consent:', e);
-      }
+    const saved = safeStorage.getJSON<{ version: string; settings: ConsentSettings } | null>(
+      'analytics-consent',
+      null
+    );
+    if (saved && saved.version === this.consentVersion) {
+      return saved.settings;
     }
 
     // Default consent (all false - opt-in)
@@ -63,11 +60,19 @@ class AnalyticsManager {
   }
 
   private saveConsent(): void {
-    localStorage.setItem('analytics-consent', JSON.stringify({
+    // El consentimiento de privacidad es justo el dato donde un
+    // localStorage.setItem() silenciosamente fallido es más grave que
+    // en otros sistemas: el usuario cree que retiró/dio su
+    // consentimiento y la UI lo refleja, pero si no persiste, la
+    // próxima carga vuelve al estado anterior sin que nadie se entere.
+    const ok = safeStorage.setJSON('analytics-consent', {
       version: this.consentVersion,
       settings: this.consent,
       timestamp: Date.now()
-    }));
+    });
+    if (!ok) {
+      devLog('[Analytics] No se pudo persistir el consentimiento (localStorage no disponible o cuota excedida)');
+    }
   }
 
   private initialize(): void {
@@ -284,8 +289,8 @@ class AnalyticsManager {
 
   deleteData(): void {
     // Clear all locally stored analytics data
-    localStorage.removeItem('analytics-consent');
-    localStorage.removeItem('analytics-data');
+    safeStorage.remove('analytics-consent');
+    safeStorage.remove('analytics-data');
     
     // Request deletion from analytics provider
     devLog('[Analytics] Data deletion requested');

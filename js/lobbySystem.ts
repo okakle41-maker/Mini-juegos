@@ -16,9 +16,22 @@
  */
 
 import Auth from './authManager.js';
-import { getSupabaseClient } from './core/supabaseClient.js';
 import ErrorLogger from './core/errorLogger.js';
+import safeStorage from './core/safeStorage.js';
 import type { SupabaseClient, RealtimePostgresChangesPayload, RealtimeChannel } from '@supabase/supabase-js';
+
+/**
+ * import() dinámico inline en vez de un import estático de
+ * supabaseClient.ts arriba del archivo — ver el comentario homónimo en
+ * authManager.ts para el porqué: un solo import estático de
+ * supabaseClient.ts en cualquiera de sus 4 consumidores le impedía a
+ * Rolldown separar '@supabase/supabase-js' en su propio chunk lazy
+ * para los otros tres también.
+ */
+async function getSupabaseClientLazy(): Promise<SupabaseClient> {
+  const { getSupabaseClient } = await import('./core/supabaseClient.js');
+  return getSupabaseClient();
+}
 
 export type LobbyGameId = 'simon' | 'arrow' | 'termita';
 export type LobbyPlayerStatus = 'idle' | 'waiting_match' | 'playing' | 'spectating';
@@ -133,7 +146,7 @@ class LobbySystem {
 
   private async initializeSupabase(): Promise<void> {
     try {
-      this.supabaseClient = await getSupabaseClient();
+      this.supabaseClient = await getSupabaseClientLazy();
       this.isConnected = true;
     } catch (e) {
       ErrorLogger?.log('lobbySystem.init', e, {});
@@ -160,11 +173,11 @@ class LobbySystem {
     const authId = Auth.getUser()?.id;
     if (authId) return authId;
 
-    let anonId = localStorage.getItem(ANON_ID_STORAGE_KEY);
-    if (!anonId) {
-      anonId = `anon_${crypto.randomUUID()}`;
-      localStorage.setItem(ANON_ID_STORAGE_KEY, anonId);
-    }
+    const existing = safeStorage.getString(ANON_ID_STORAGE_KEY, '');
+    if (existing) return existing;
+
+    const anonId = `anon_${crypto.randomUUID()}`;
+    safeStorage.setString(ANON_ID_STORAGE_KEY, anonId);
     return anonId;
   }
 

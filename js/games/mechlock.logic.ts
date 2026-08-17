@@ -21,7 +21,7 @@ interface MLNodeState {
   locked?: boolean;
 }
 
-interface MLNode {
+export interface MLNode {
   id: number;
   type: NodeType;
   x: number;
@@ -32,7 +32,7 @@ interface MLNode {
   _incoming?: number;
 }
 
-interface MLEdge {
+export interface MLEdge {
   from: number;
   to: number;
   kind: EdgeKind;
@@ -40,12 +40,12 @@ interface MLEdge {
   _touched?: boolean;
 }
 
-interface Mechanism {
+export interface Mechanism {
   nodes: MLNode[];
   edges: MLEdge[];
 }
 
-interface AllowedTypes {
+export interface AllowedTypes {
   magnets: boolean;
   chains: boolean;
   weights: boolean;
@@ -112,7 +112,7 @@ const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 // ──────────────────────────────────────────────────────────────────
 // Generador de mecanismo
 // ──────────────────────────────────────────────────────────────────
-function generateMechanism(opts: { partsCount: number; allowedTypes: AllowedTypes; difficulty: number }): Mechanism {
+export function generateMechanism(opts: { partsCount: number; allowedTypes: AllowedTypes; difficulty: number }): Mechanism {
   const { partsCount, allowedTypes, difficulty } = opts;
   const interTypes: NodeType[] = ['gear', 'gear', 'gear'];
   if (allowedTypes.chains)   interTypes.push('chain');

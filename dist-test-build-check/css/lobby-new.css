@@ -1,0 +1,449 @@
+/* ======================================================================
+   lobby-new.css — Pase "Lobby B" (Futuristic Tactical Training Dashboard)
+   ----------------------------------------------------------------------
+   Se carga DESPUÉS de styles.css y lobby-tactical.css. No toca markup
+   existente (salvo los elementos nuevos añadidos a propósito: ring de
+   progreso, streak, módulo del día). Usa variables propias para poder
+   ajustar la identidad visual sin pelear con las reglas anteriores.
+   ====================================================================== */
+
+/* ======================================================================
+   lobby-new.css — Pase "Lobby B" (Futuristic Tactical Training Dashboard)
+   ----------------------------------------------------------------------
+   Se carga DESPUÉS de styles.css y lobby-tactical.css. La fuente de
+   verdad de la paleta (--accent-orange, --bg-1, --bg-2, --card, --glow-*)
+   vive ahora en css/styles.css; aquí solo se declaran alias locales
+   (--accent, --bg-dark...) para no reescribir cada regla de este archivo,
+   y los componentes nuevos (ring, streak, módulo del día...).
+   ====================================================================== */
+
+:root {
+  /* Alias locales → variables reales definidas en styles.css */
+  --accent: var(--accent-orange);
+  --accent-2: var(--accent-orange-2);
+  --bg-dark: var(--bg-1);
+  --bg-dark-2: var(--bg-2);
+  --card-bg: var(--card);
+  --card-bg-hover: var(--card-hover);
+  --panel-bg: var(--panel-gradient);
+  --text-primary: #dce8f4;
+  --text-dim: #5a7080;
+  --text-dim-2: #40566a;
+}
+
+/* Fondo base + grid, igual que App.tsx (44px, naranja 0.04) */
+body {
+  background: var(--bg-dark);
+}
+body::before {
+  background-image:
+    linear-gradient(rgba(255, 107, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 107, 0, 0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* ----------------------------------------------------------------------
+   Sidebar / Header: paleta afinada al naranja exacto de B
+   ---------------------------------------------------------------------- */
+.side-nav {
+  background: var(--panel-bg);
+}
+.side-nav {
+  border-right-color: rgba(255, 107, 0, 0.35);
+  box-shadow: 4px 0 30px rgba(255, 107, 0, 0.12);
+}
+#site-header {
+  background: rgba(7, 10, 18, 0.97);
+  border-bottom-color: rgba(255, 107, 0, 0.42);
+  box-shadow: 0 1px 0 rgba(255, 107, 0, 0.18), 0 4px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+/* ----------------------------------------------------------------------
+   Cards: superficie + accent-strip alineados a card-bg/card-bg-hover
+   ---------------------------------------------------------------------- */
+.game-card {
+  background: var(--card-bg);
+}
+.game-card:hover {
+  background: var(--card-bg-hover);
+}
+.card-accent-strip {
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent, var(--accent)) 60%, transparent), transparent);
+}
+
+/* ----------------------------------------------------------------------
+   Ring de progreso (nuevo) — SVG generado en lobbyRenderer.ts,
+   equivalente al <Ring/> de App.tsx.
+   ---------------------------------------------------------------------- */
+.card-progress-ring {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+}
+.card-progress-ring svg {
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent, var(--accent)) 70%, transparent));
+}
+.card-progress-ring circle.ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 4;
+}
+.card-progress-ring circle.ring-value {
+  fill: none;
+  stroke: var(--accent, var(--accent));
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;
+}
+.card-progress-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--accent, var(--accent));
+}
+
+/* .card-hero (styles.css) centra un único hijo con justify-content:center;
+   forzamos el ancho completo para que .card-top-row pueda repartir
+   icono/ring con space-between, tal como en GameCard de App.tsx. */
+.card-hero {
+  padding: 0 14px;
+  height: auto;
+  min-height: 96px;
+}
+.card-top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+.card-top-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+/* Streak / veces jugado (nuevo) */
+.card-streak {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #f59e0b;
+  text-shadow: 0 0 4px rgba(245, 158, 11, 0.7);
+}
+.card-streak svg {
+  width: 9px;
+  height: 9px;
+  filter: drop-shadow(0 0 4px #f59e0b);
+}
+
+/* Icono del juego dentro del card-icon-lg (reemplaza el emoji).
+   El glow en hover NO se anima acá con `filter` (Paint caro, no
+   compositable, y esto corre sobre ~200 SVGs del grid) — styles.css
+   ya resuelve el glow de `.card-icon-lg` con un `::after` que solo
+   anima `opacity`; este `filter` estático da un glow base sutil
+   (fijo, se pinta una sola vez) y el hover lo hace visible entero
+   vía el `::after` existente, sin transición propia acá. */
+.card-icon-lg svg {
+  width: 30px;
+  height: 30px;
+  stroke: var(--accent, var(--accent));
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent, var(--accent)) 85%, transparent));
+}
+
+/* Footer de la card: última partida + mejor puntuación */
+.card-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  margin-top: 2px;
+  border-top: 1px solid color-mix(in srgb, var(--accent, var(--accent)) 15%, transparent);
+  font-family: var(--font-mono);
+}
+.card-footer-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  color: var(--text-dim);
+}
+.card-footer-time svg {
+  width: 9px;
+  height: 9px;
+  stroke: var(--text-dim);
+}
+.card-footer-score {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6a8090;
+  transition: color 0.25s ease, text-shadow 0.25s ease;
+}
+.game-card:hover .card-footer-score {
+  color: var(--accent, var(--accent));
+  text-shadow: 0 0 8px var(--accent, var(--accent));
+}
+
+/* ----------------------------------------------------------------------
+   Módulo del Día (nuevo)
+   ---------------------------------------------------------------------- */
+.module-of-day {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  margin: 18px 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(11, 17, 28, 0.98) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.18), inset 0 1px 0 rgba(255,255,255,0.02);
+}
+.module-of-day::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  filter: blur(42px);
+  opacity: 0.9;
+  transform: translate(24%, -24%);
+  pointer-events: none;
+}
+.mod-brackets span {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  border-color: color-mix(in srgb, var(--accent) 70%, rgba(255,255,255,0.2));
+}
+.mod-brackets span:nth-child(1) { top: 0; left: 0; border-top: 1px solid; border-left: 1px solid; }
+.mod-brackets span:nth-child(2) { top: 0; right: 0; border-top: 1px solid; border-right: 1px solid; }
+.mod-brackets span:nth-child(3) { bottom: 0; left: 0; border-bottom: 1px solid; border-left: 1px solid; opacity: 0.5; }
+.mod-brackets span:nth-child(4) { bottom: 0; right: 0; border-bottom: 1px solid; border-right: 1px solid; opacity: 0.5; }
+
+.mod-inner {
+  position: relative;
+  padding: 20px;
+}
+.mod-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-family: var(--font-mono);
+}
+.mod-eyebrow-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent);
+  animation: cyberpulse 1.8s ease-in-out infinite;
+  /* Este dot se repite UNA VEZ POR CARD del grid (ver
+     lobbyRenderer.ts) — con ~10 módulos activos son ~10 animaciones
+     `infinite` corriendo en paralelo, siempre, incluso en reposo.
+     will-change fuerza que cada una viva en su propia capa GPU en
+     vez de repintarse junto con el resto del documento en cada frame
+     (ver el mismo razonamiento en .status-dot / .beam / .particle,
+     css/styles.css). */
+  will-change: opacity, transform;
+}
+.mod-eyebrow-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: rgba(203, 213, 225, 0.82);
+}
+.mod-eyebrow-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.2), transparent);
+}
+.mod-eyebrow-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(203, 213, 225, 0.8);
+  background: rgba(148, 163, 184, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+.mod-eyebrow-priority svg {
+  width: 12px;
+  height: 12px;
+  stroke: rgba(203, 213, 225, 0.8);
+}
+
+.mod-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+}
+.mod-main { flex: 1; min-width: 260px; }
+.mod-head { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+.mod-icon-box {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, rgba(148,163,184,0.12));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+.mod-icon-box svg {
+  width: 28px;
+  height: 28px;
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 45%, transparent));
+}
+.mod-name {
+  font-family: var(--font-tactical, 'Rajdhani', sans-serif);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  font-size: 22px;
+  line-height: 1.08;
+  color: #f8fafc;
+  margin: 0 0 6px;
+}
+.mod-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 3px 7px;
+  color: rgba(203, 213, 225, 0.8);
+  background: rgba(148, 163, 184, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 999px;
+}
+.mod-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(191, 219, 254, 0.72);
+  max-width: 480px;
+  margin: 0 0 14px;
+}
+.mod-meta { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.mod-meta-label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(148, 163, 184, 0.8);
+}
+.mod-diffbar { width: 140px; }
+.mod-time { display: flex; align-items: center; gap: 6px; }
+.mod-time svg { width: 11px; height: 11px; stroke: rgba(203, 213, 225, 0.8); }
+.mod-time span {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(203, 213, 225, 0.9);
+}
+
+.mod-side { display: flex; flex-direction: column; align-items: flex-end; gap: 14px; }
+.mod-rewards { display: flex; gap: 18px; }
+.mod-reward { text-align: center; }
+.mod-reward-label {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(148, 163, 184, 0.75);
+}
+.mod-reward-value {
+  font-family: var(--font-tactical, 'Rajdhani', sans-serif);
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1;
+}
+.mod-reward-xp { color: var(--accent); }
+.mod-reward-bonus { color: rgba(203, 213, 225, 0.9); }
+
+.mod-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 18px;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-tactical, 'Rajdhani', sans-serif);
+  font-weight: 800;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #0f172a;
+  border-radius: 10px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff 12%) 0%, color-mix(in srgb, var(--accent) 78%, #000 22%) 100%);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.2);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.mod-cta:hover { transform: translateY(-1px); box-shadow: 0 10px 20px rgba(15,23,42,0.22); }
+.mod-cta:active { transform: translateY(0); }
+.mod-cta svg { width: 15px; height: 15px; fill: #0f172a; }
+
+/* ----------------------------------------------------------------------
+   DiffBar segmentada reutilizable (módulo del día + posibles usos futuros)
+   ---------------------------------------------------------------------- */
+.diffbar-seg {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+.diffbar-seg span {
+  height: 7px;
+  flex: 1;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.diffbar-seg span.filled {
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* ----------------------------------------------------------------------
+   Animaciones
+   Nota: @keyframes cyberpulse vive en css/styles.css (archivo principal),
+   junto al resto de animaciones de "puntos" (status-dot, logo-dot, etc.).
+   ---------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .mod-eyebrow-dot {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .mod-body { flex-direction: column; align-items: stretch; }
+  .mod-side { align-items: flex-start; }
+}

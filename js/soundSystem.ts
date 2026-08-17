@@ -3,6 +3,8 @@
  * Sistema de efectos de sonido con control de volumen y personalización
  */
 
+import safeStorage from './core/safeStorage.js';
+
 type SoundCategory = 'ui' | 'achievement' | 'game' | 'notification' | 'ambient';
 type SoundType = 'click' | 'hover' | 'success' | 'error' | 'achievement' | 'level_up' | 'notification' | 'game_start' | 'game_end';
 
@@ -31,30 +33,29 @@ class SoundSystem {
   }
 
   private loadConfig(): SoundConfig {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('[Sound] Failed to load config:', e);
-      }
-    }
-    return {
-      enabled: true,
-      volume: {
-        master: 0.7,
-        ui: 0.8,
-        achievement: 0.9,
-        game: 0.7,
-        notification: 0.8,
-        ambient: 0.5
+    return safeStorage.getJSON<SoundConfig>(
+      this.storageKey,
+      {
+        enabled: true,
+        volume: {
+          master: 0.7,
+          ui: 0.8,
+          achievement: 0.9,
+          game: 0.7,
+          notification: 0.8,
+          ambient: 0.5
+        },
+        theme: 'default'
       },
-      theme: 'default'
-    };
+      {
+        validate: (value): value is SoundConfig =>
+          typeof value === 'object' && value !== null && 'enabled' in value,
+      }
+    );
   }
 
   private saveConfig(): void {
-    localStorage.setItem(this.storageKey, JSON.stringify(this.config));
+    safeStorage.setJSON(this.storageKey, this.config);
   }
 
   private async initAudioContext(): Promise<void> {

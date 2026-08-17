@@ -106,6 +106,7 @@ export function GameCard({ game, display, isFavorite, plays, ringPct, lastPlayed
       role="listitem"
     >
       <span className="card-accent-strip" />
+      <span className="card-spotlight" aria-hidden="true" />
       <button
         className="card-favorite-btn"
         type="button"

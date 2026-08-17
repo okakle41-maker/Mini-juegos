@@ -59,6 +59,7 @@ import './configPanel';
 import './configReset';
 import './customCursor';
 import './perfMode';
+import './perfModeFirstRun';
 import './statsManager';
 import './authManager';
 import './accountView';

@@ -117,7 +117,7 @@ export function safeJsonParse<T>(json: string, fallback: T): T {
     if (typeof parsed === 'object' && parsed !== null) {
       const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
       for (const key of dangerousKeys) {
-        if (key in parsed) {
+        if (Object.prototype.hasOwnProperty.call(parsed, key)) {
           console.warn('[Security] Dangerous key detected in JSON:', key);
           return fallback;
         }

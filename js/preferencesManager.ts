@@ -3,8 +3,10 @@
  * Maneja la persistencia de preferencias del usuario en localStorage
  */
 
+import safeStorage from './core/safeStorage.js';
+
 interface UserPreferences {
-  theme: 'dark' | 'neon' | 'ocean';
+  theme: 'dark' | 'winter';
   reducedMotion: boolean;
   highContrast: boolean;
   musicVolume: number;
@@ -35,24 +37,12 @@ class PreferencesManager {
   }
 
   private loadPreferences(): UserPreferences {
-    try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return { ...DEFAULT_PREFERENCES, ...parsed };
-      }
-    } catch (error) {
-      console.error('[PreferencesManager] Error loading preferences:', error);
-    }
-    return { ...DEFAULT_PREFERENCES };
+    const parsed = safeStorage.getJSON<Partial<UserPreferences>>(this.STORAGE_KEY, {});
+    return { ...DEFAULT_PREFERENCES, ...parsed };
   }
 
   private savePreferences(): void {
-    try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.preferences));
-    } catch (error) {
-      console.error('[PreferencesManager] Error saving preferences:', error);
-    }
+    safeStorage.setJSON(this.STORAGE_KEY, this.preferences);
   }
 
   private applyPreferences(): void {
@@ -169,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (themeSelect) {
     themeSelect.addEventListener('change', (e) => {
-      const theme = (e.target as HTMLSelectElement).value as 'dark' | 'neon' | 'ocean';
+      const theme = (e.target as HTMLSelectElement).value as 'dark' | 'winter';
       preferencesManager.set('theme', theme);
       document.body.setAttribute('data-theme', theme);
     });

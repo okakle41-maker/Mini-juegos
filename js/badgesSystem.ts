@@ -3,6 +3,8 @@
  * Sistema de badges/insignias con colección y showcase
  */
 
+import safeStorage from './core/safeStorage.js';
+
 export interface Badge {
   id: string;
   name: string;
@@ -212,15 +214,7 @@ class BadgeSystem {
     });
   }
 
-  private loadCollection(): BadgeCollection {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Error loading badge collection:', e);
-      }
-    }
+  private defaultCollection(): BadgeCollection {
     return {
       badges: [],
       showcase: [],
@@ -229,11 +223,22 @@ class BadgeSystem {
     };
   }
 
+  private loadCollection(): BadgeCollection {
+    return safeStorage.getJSON<BadgeCollection>(
+      this.storageKey,
+      this.defaultCollection(),
+      {
+        validate: (value): value is BadgeCollection =>
+          typeof value === 'object' && value !== null && Array.isArray((value as BadgeCollection).badges),
+      }
+    );
+  }
+
   private saveCollection(): void {
     this.collection.badges = this.badges;
     this.collection.totalBadges = this.badges.length;
     this.collection.unlockedBadges = this.badges.filter(b => b.unlocked).length;
-    localStorage.setItem(this.storageKey, JSON.stringify(this.collection));
+    safeStorage.setJSON(this.storageKey, this.collection);
   }
 
   unlockBadge(badgeId: string): boolean {

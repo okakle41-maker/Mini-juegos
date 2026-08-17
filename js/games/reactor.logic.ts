@@ -11,9 +11,9 @@ import GameHelpers from '../utils/gameHelpers.js';
 import audioManager from '../audioManager.js';
 import Leaderboard from '../leaderboardManager.js';
 
-type VarKey = 'energy' | 'temp' | 'pressure' | 'cooling' | 'radiation' | 'fuel';
+export type VarKey = 'energy' | 'temp' | 'pressure' | 'cooling' | 'radiation' | 'fuel';
 
-interface ReactorMod {
+export interface ReactorMod {
   energySensitivity: number;
   tempSensitivity: number;
   coolingEff: number;
@@ -25,7 +25,7 @@ interface ReactorMod {
   reducedActions?: boolean;
 }
 
-interface ReactorType {
+export interface ReactorType {
   id: string;
   label: string;
   desc: string;
@@ -33,14 +33,14 @@ interface ReactorType {
   mod: ReactorMod;
 }
 
-interface VarLimit {
+export interface VarLimit {
   min: number;
   max: number;
   critLow: number;
   critHigh: number;
 }
 
-interface ReactorEvent {
+export interface ReactorEvent {
   id: string;
   label: string;
   desc: string;
@@ -51,7 +51,7 @@ interface ReactorEvent {
   resolveEffect: (s: ReactorState) => void;
 }
 
-interface ReactorAction {
+export interface ReactorAction {
   id: string;
   label: string;
   info: string;
@@ -60,7 +60,7 @@ interface ReactorAction {
   apply: (s: ReactorState) => void;
 }
 
-interface ReactorConfig {
+export interface ReactorConfig {
   duration: number;
   speed: number;
   eventFreq: number;
@@ -68,7 +68,7 @@ interface ReactorConfig {
   mod: ReactorMod;
 }
 
-interface ReactorState {
+export interface ReactorState {
   running: boolean;
   elapsed: number;
   duration: number;
@@ -100,7 +100,7 @@ interface ReactorState {
  * CONSTANTES
  * ──────────────────────────────────────────── */
 
-const REACTOR_TYPES: ReactorType[] = [
+export const REACTOR_TYPES: ReactorType[] = [
   {
     id: 'experimental',
     label: '🔵 Experimental',
@@ -139,7 +139,7 @@ const REACTOR_TYPES: ReactorType[] = [
 ];
 
 // Límites "zona segura" de cada variable (0-100)
-const LIMITS: Record<VarKey, VarLimit> = {
+export const LIMITS: Record<VarKey, VarLimit> = {
   energy:    { min: 10, max: 90, critLow: 5,  critHigh: 95 },
   temp:      { min: 20, max: 80, critLow: 10, critHigh: 92 },
   pressure:  { min: 15, max: 85, critLow: 5,  critHigh: 95 },
@@ -148,7 +148,7 @@ const LIMITS: Record<VarKey, VarLimit> = {
   fuel:      { min: 0,  max: 100, critLow: 0, critHigh: 100 }
 };
 
-const EVENTS: ReactorEvent[] = [
+export const EVENTS: ReactorEvent[] = [
   {
     id: 'steam_leak',
     label: '💨 Fuga de vapor',
@@ -220,7 +220,7 @@ let _mainInterval: ReturnType<typeof setInterval> | null = null;
 let _eventCheckInterval: ReturnType<typeof setInterval> | null = null;
 let _cooldowns: Record<string, number> = {};
 
-function makeState(cfg: ReactorConfig): ReactorState {
+export function makeState(cfg: ReactorConfig): ReactorState {
   return {
     running: false,
     elapsed: 0,
@@ -255,7 +255,7 @@ function makeState(cfg: ReactorConfig): ReactorState {
  * FÍSICA DEL REACTOR
  * ──────────────────────────────────────────── */
 
-function tick(state: ReactorState) {
+export function tick(state: ReactorState) {
   const m = state.mod;
   state.elapsed += 1;
 
@@ -310,7 +310,7 @@ function tick(state: ReactorState) {
   clampState(state);
 }
 
-function clampState(s: ReactorState) {
+export function clampState(s: ReactorState) {
   s.energy    = GameHelpers.clamp(s.energy,    0, 100);
   s.temp      = GameHelpers.clamp(s.temp,      0, 100);
   s.pressure  = GameHelpers.clamp(s.pressure,  0, 100);
@@ -321,7 +321,7 @@ function clampState(s: ReactorState) {
 
 // clamp: ver GameHelpers.clamp (js/utils/gameHelpers.ts)
 
-function checkFailure(state: ReactorState): string | null {
+export function checkFailure(state: ReactorState): string | null {
   const checks: { key: VarKey; label: string; lo: boolean; hi: boolean }[] = [
     { key: 'energy',    label: 'Energía',     lo: true,  hi: true  },
     { key: 'temp',      label: 'Temperatura', lo: true,  hi: true  },
@@ -337,7 +337,7 @@ function checkFailure(state: ReactorState): string | null {
   return null;
 }
 
-function getStability(state: ReactorState): number {
+export function getStability(state: ReactorState): number {
   let score = 100;
   const vars: VarKey[] = ['energy', 'temp', 'pressure'];
   for (const k of vars) {
@@ -356,7 +356,7 @@ function getStability(state: ReactorState): number {
  * ACCIONES DEL JUGADOR
  * ──────────────────────────────────────────── */
 
-const ACTIONS: ReactorAction[] = [
+export const ACTIONS: ReactorAction[] = [
   {
     id: 'insert_rods',
     label: 'Insertar barras de control',

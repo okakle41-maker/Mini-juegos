@@ -10,6 +10,7 @@ import ErrorLogger from './core/errorLogger.js';
 import GameHelpers from './utils/gameHelpers.js';
 import LobbyRenderer from './lobbyRenderer.js';
 import { devLog } from './core/devLog.js';
+import { fixSocialMetaImages } from './core/socialMeta.js';
 
 // Import system modules
 import { errorBoundary } from './errorBoundary.js';
@@ -24,10 +25,20 @@ import { performanceMonitor } from './performanceMonitor.js';
 import { achievementManager } from './achievements.js';
 import { progressionSystem } from './progressionSystem.js';
 import { customizationSystem } from './customizationSystem.js';
-import { advancedStatsSystem } from './advancedStats.js';
 import { multiplayerSystem } from './multiplayerSystem.js';
 import { socialSystem } from './socialSystem.js';
 import { tournamentSystem } from './tournamentSystem.js';
+// advancedStatsSystem (advancedStats.ts, ~600 líneas) NO se importa acá a
+// propósito (Aug 2026): es el único de estos sistemas sin ningún
+// dependiente fuera de su propia vista lazy (estadisticasAvanzadas.logic.ts,
+// cargada vía import() dinámico desde registerSystemViews.ts) — a
+// diferencia de achievementManager (usado por leaderboardManager.ts en
+// cada partida) o socialSystem/tournamentSystem/multiplayerSystem (que se
+// referencian entre sí), nada fuerza a advancedStats.ts a estar disponible
+// desde el arranque. Importarlo acá solo para exponerlo en
+// window.Minijuegos (ver el objeto de debug más abajo) sumaba ~600 líneas
+// al chunk que carga siempre, por una API de debugging manual — se expone
+// igual pero de forma perezosa (ver abajo), sin forzar la descarga.
 
 // Importar sistemas adicionales de mejoras
 import { accessibilitySystem } from './accessibilitySystem.js';
@@ -45,6 +56,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // en dev) para cualquiera que abra devtools — no es una traza de debug.
   // eslint-disable-next-line no-console
   console.log('%c🚀 Minijuegos - Entrenador de Bots v3.0.0', 'color:#ff9a3c; font-size:16px; font-weight:bold');
+
+  // og:image / twitter:image nacen relativas en el HTML (ver comentario
+  // en index.html y en core/socialMeta.ts) — se resuelven a absolutas acá.
+  fixSocialMetaImages();
 
   // Registrar Service Worker (PWA / soporte offline).
   // sw.ts existía y estaba completo, pero nada en el código lo registraba
@@ -117,7 +132,6 @@ interface MinijuegosDebugApi {
   achievementManager: typeof achievementManager;
   progressionSystem: typeof progressionSystem;
   customizationSystem: typeof customizationSystem;
-  advancedStatsSystem: typeof advancedStatsSystem;
   multiplayerSystem: typeof multiplayerSystem;
   socialSystem: typeof socialSystem;
   tournamentSystem: typeof tournamentSystem;
@@ -126,7 +140,7 @@ interface MinijuegosDebugApi {
   version: string;
 }
 
-(window as unknown as { Minijuegos: MinijuegosDebugApi }).Minijuegos = {
+const minijuegosDebugApi = {
   GameRegistry,
   ViewManager,
   GameHelpers,
@@ -140,7 +154,6 @@ interface MinijuegosDebugApi {
   achievementManager,
   progressionSystem,
   customizationSystem,
-  advancedStatsSystem,
   multiplayerSystem,
   socialSystem,
   tournamentSystem,
@@ -148,5 +161,26 @@ interface MinijuegosDebugApi {
   pwaSystem,
   version: '3.0.0'
 };
+
+// advancedStatsSystem se expone vía getter en vez de propiedad directa:
+// solo dispara el import() dinámico (y por lo tanto la descarga de
+// advancedStats.ts) la primera vez que alguien accede a
+// `window.Minijuegos.advancedStatsSystem` desde la consola — no en cada
+// carga de la app. Devuelve una promesa en vez del sistema en sí porque
+// no hay forma de resolver un import() de forma síncrona; quien lo use
+// para debugging hace `await Minijuegos.advancedStatsSystem` una vez.
+type MinijuegosDebugApiWithLazyStats = MinijuegosDebugApi & {
+  readonly advancedStatsSystem: Promise<typeof import('./advancedStats.js')['advancedStatsSystem']>;
+};
+
+const minijuegosApiWithLazyStats = minijuegosDebugApi as unknown as MinijuegosDebugApiWithLazyStats;
+Object.defineProperty(minijuegosApiWithLazyStats, 'advancedStatsSystem', {
+  enumerable: true,
+  get(): Promise<typeof import('./advancedStats.js')['advancedStatsSystem']> {
+    return import('./advancedStats.js').then((m) => m.advancedStatsSystem);
+  }
+});
+
+(window as unknown as { Minijuegos: MinijuegosDebugApiWithLazyStats }).Minijuegos = minijuegosApiWithLazyStats;
 
 export {};

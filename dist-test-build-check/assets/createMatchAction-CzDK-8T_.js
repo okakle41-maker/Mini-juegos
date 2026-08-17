@@ -1,0 +1,2 @@
+import{r}from"./asyncEventHandler-DJmkhBNI.js";async function c(c){const{clearError:a,checkEligibility:s,create:e,fallbackErrorMessage:o,showError:t,onSuccess:n}=c;a();const i=s?.();if(i)t(i);else try{n(await e())}catch(l){t(r(l,o))}}export{c as t};
+//# sourceMappingURL=createMatchAction-CzDK-8T_.js.map

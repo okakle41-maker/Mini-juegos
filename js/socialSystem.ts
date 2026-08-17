@@ -4,6 +4,7 @@
  */
 
 import Auth from './authManager.js';
+import safeStorage from './core/safeStorage.js';
 import type { SupabaseClient, RealtimePostgresChangesPayload, RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 
 interface Friend {
@@ -500,98 +501,58 @@ class SocialSystem {
   }
 
   private loadLocalData(): void {
-    const friendsData = localStorage.getItem(this.storageKeys.friends);
-    if (friendsData) {
-      try {
-        this.friends = new Map(JSON.parse(friendsData));
-      } catch (e) {
-        console.error('[Social] Failed to load friends:', e);
-      }
-    }
-
-    const requestsData = localStorage.getItem(this.storageKeys.requests);
-    if (requestsData) {
-      try {
-        this.friendRequests = new Map(JSON.parse(requestsData));
-      } catch (e) {
-        console.error('[Social] Failed to load requests:', e);
-      }
-    }
-
-    const clansData = localStorage.getItem(this.storageKeys.clans);
-    if (clansData) {
-      try {
-        this.clans = new Map(JSON.parse(clansData));
-      } catch (e) {
-        console.error('[Social] Failed to load clans:', e);
-      }
-    }
-
-    const currentClanData = localStorage.getItem(this.storageKeys.currentClan);
-    if (currentClanData) {
-      try {
-        this.currentClan = JSON.parse(currentClanData);
-      } catch (e) {
-        console.error('[Social] Failed to load current clan:', e);
-      }
-    }
-
-    const chatData = localStorage.getItem(this.storageKeys.chat);
-    if (chatData) {
-      try {
-        this.chatMessages = new Map(JSON.parse(chatData));
-      } catch (e) {
-        console.error('[Social] Failed to load chat:', e);
-      }
-    }
-
-    const postsData = localStorage.getItem(this.storageKeys.posts);
-    if (postsData) {
-      try {
-        this.profilePosts = JSON.parse(postsData);
-      } catch (e) {
-        console.error('[Social] Failed to load posts:', e);
-      }
-    }
-
-    const kudosData = localStorage.getItem(this.storageKeys.kudos);
-    if (kudosData) {
-      try {
-        this.kudos = JSON.parse(kudosData);
-      } catch (e) {
-        console.error('[Social] Failed to load kudos:', e);
-      }
-    }
-
-    const receivedKudosData = localStorage.getItem(this.storageKeys.receivedKudos);
-    if (receivedKudosData) {
-      try {
-        this.receivedKudos = JSON.parse(receivedKudosData);
-      } catch (e) {
-        console.error('[Social] Failed to load received kudos:', e);
-      }
-    }
-
-    const statsData = localStorage.getItem(this.storageKeys.stats);
-    if (statsData) {
-      try {
-        this.socialStats = JSON.parse(statsData);
-      } catch (e) {
-        console.error('[Social] Failed to load stats:', e);
-      }
-    }
+    // Migrado a safeStorage (ver core/safeStorage.ts) — antes,
+    // saveLocalData() hacía 9 localStorage.setItem() seguidos sin
+    // ningún try/catch (mismo patrón de bug que tenía
+    // progressionSystem.ts): si el primero lanzaba por cuota excedida,
+    // el resto ni se ejecutaba y la excepción se propagaba sin
+    // capturar. Acá además el chat y los posts sociales son de los
+    // datos que más rápido llenan la cuota de localStorage.
+    this.friends = new Map(
+      safeStorage.getJSON<Array<[string, Friend]>>(this.storageKeys.friends, [], {
+        validate: (v): v is Array<[string, Friend]> => Array.isArray(v),
+      })
+    );
+    this.friendRequests = new Map(
+      safeStorage.getJSON<Array<[string, Friend]>>(this.storageKeys.requests, [], {
+        validate: (v): v is Array<[string, Friend]> => Array.isArray(v),
+      })
+    );
+    this.clans = new Map(
+      safeStorage.getJSON<Array<[string, Clan]>>(this.storageKeys.clans, [], {
+        validate: (v): v is Array<[string, Clan]> => Array.isArray(v),
+      })
+    );
+    this.currentClan = safeStorage.getJSON<Clan | null>(this.storageKeys.currentClan, null);
+    this.chatMessages = new Map(
+      safeStorage.getJSON<Array<[string, ChatMessage[]]>>(this.storageKeys.chat, [], {
+        validate: (v): v is Array<[string, ChatMessage[]]> => Array.isArray(v),
+      })
+    );
+    this.profilePosts = safeStorage.getJSON<ProfilePost[]>(this.storageKeys.posts, [], {
+      validate: (v): v is ProfilePost[] => Array.isArray(v),
+    });
+    this.kudos = safeStorage.getJSON<Kudos[]>(this.storageKeys.kudos, [], {
+      validate: (v): v is Kudos[] => Array.isArray(v),
+    });
+    this.receivedKudos = safeStorage.getJSON<Kudos[]>(this.storageKeys.receivedKudos, [], {
+      validate: (v): v is Kudos[] => Array.isArray(v),
+    });
+    this.socialStats = safeStorage.getJSON<SocialStats>(this.storageKeys.stats, this.socialStats, {
+      validate: (v): v is SocialStats => typeof v === 'object' && v !== null && 'friendsCount' in v,
+    });
   }
 
   private saveLocalData(): void {
-    localStorage.setItem(this.storageKeys.friends, JSON.stringify([...this.friends]));
-    localStorage.setItem(this.storageKeys.requests, JSON.stringify([...this.friendRequests]));
-    localStorage.setItem(this.storageKeys.clans, JSON.stringify([...this.clans]));
-    localStorage.setItem(this.storageKeys.currentClan, JSON.stringify(this.currentClan));
-    localStorage.setItem(this.storageKeys.chat, JSON.stringify([...this.chatMessages]));
-    localStorage.setItem(this.storageKeys.posts, JSON.stringify(this.profilePosts));
-    localStorage.setItem(this.storageKeys.kudos, JSON.stringify(this.kudos));
-    localStorage.setItem(this.storageKeys.receivedKudos, JSON.stringify(this.receivedKudos));
-    localStorage.setItem(this.storageKeys.stats, JSON.stringify(this.socialStats));
+    safeStorage.setJSON(this.storageKeys.friends, [...this.friends]);
+    safeStorage.setJSON(this.storageKeys.requests, [...this.friendRequests]);
+    safeStorage.setJSON(this.storageKeys.clans, [...this.clans]);
+    safeStorage.setJSON(this.storageKeys.currentClan, this.currentClan);
+    safeStorage.setJSON(this.storageKeys.chat, [...this.chatMessages]);
+    safeStorage.setJSON(this.storageKeys.posts, this.profilePosts);
+    safeStorage.setJSON(this.storageKeys.kudos, this.kudos);
+    safeStorage.setJSON(this.storageKeys.receivedKudos, this.receivedKudos);
+    safeStorage.setJSON(this.storageKeys.stats, this.socialStats);
   }
 
   // Friend system
@@ -822,6 +783,15 @@ class SocialSystem {
     const clan = this.clans.get(clanId);
     if (!clan) return;
 
+    // Ya soy miembro: no reintentar el insert remoto (fallaría por la
+    // constraint única de clan_members) ni inflar memberCount de nuevo.
+    // Solo confirma el estado actual, útil si currentClan hubiera
+    // quedado desincronizado por algún motivo.
+    if (clan.isMember) {
+      this.currentClan = clan;
+      return;
+    }
+
     const myId = this.currentPlayerId();
     if (!myId) {
       console.error('[Social] Cannot join clan: no session');
@@ -882,7 +852,7 @@ class SocialSystem {
     }
 
     this.currentClan.isMember = false;
-    this.currentClan.memberCount--;
+    this.currentClan.memberCount = Math.max(0, this.currentClan.memberCount - 1);
     this.currentClan = null;
     this.socialStats.clanMembersCount = 0;
     this.saveLocalData();

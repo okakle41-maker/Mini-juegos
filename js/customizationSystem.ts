@@ -3,6 +3,8 @@
  * Sistema de personalización con avatares, skins, efectos de sonido y temas
  */
 
+import safeStorage from './core/safeStorage.js';
+
 export interface Avatar {
   id: string;
   name: string;
@@ -538,16 +540,7 @@ class CustomizationSystem {
     return new Map(themes.map(t => [t.id, t]));
   }
 
-  private loadCustomization(): PlayerCustomization {
-    const saved = localStorage.getItem(this.storageKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('[Customization] Failed to load customization:', e);
-      }
-    }
-
+  private defaultCustomization(): PlayerCustomization {
     return {
       activeAvatar: 'avatar_default',
       activeSkins: ['skin_interface_minimal'],
@@ -559,8 +552,19 @@ class CustomizationSystem {
     };
   }
 
+  private loadCustomization(): PlayerCustomization {
+    return safeStorage.getJSON<PlayerCustomization>(
+      this.storageKey,
+      this.defaultCustomization(),
+      {
+        validate: (value): value is PlayerCustomization =>
+          typeof value === 'object' && value !== null && 'activeAvatar' in value,
+      }
+    );
+  }
+
   private saveCustomization(): void {
-    localStorage.setItem(this.storageKey, JSON.stringify(this.playerCustomization));
+    safeStorage.setJSON(this.storageKey, this.playerCustomization);
   }
 
   private syncWithAchievements(): void {
