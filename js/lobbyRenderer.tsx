@@ -388,6 +388,16 @@ class LobbyRenderer {
       if (!msgEl) {
         msgEl = document.createElement('div');
         msgEl.className = 'no-results-message';
+        // `aria-live="polite"` + `role="status"`: sin esto, un usuario
+        // de lector de pantalla que filtra o busca y no obtiene
+        // resultados no recibe ningún anuncio — el mensaje aparece
+        // visualmente pero el DOM no notifica el cambio de forma
+        // pasiva (a diferencia de un cambio de foco, insertar un nodo
+        // nuevo no dispara nada por sí solo). "polite" espera a que
+        // termine cualquier anuncio en curso antes de leer este, en
+        // vez de interrumpir de inmediato como haría "assertive".
+        msgEl.setAttribute('role', 'status');
+        msgEl.setAttribute('aria-live', 'polite');
         this.gridEl.appendChild(msgEl);
       }
       const text = this.searchQuery
@@ -432,11 +442,15 @@ class LobbyRenderer {
     // crear uno nuevo en paralelo. Sin esto, cardAppear igual corría en
     // cada card pero todas con el mismo delay (0s), por eso entraban
     // todas juntas pese a que la animación de fade ya estaba definida.
+    //
+    // Antes esto vivía en su propio `querySelectorAll('.game-card').forEach()`,
+    // separado del loop de wiring de eventos que sigue — ambos recorren
+    // exactamente el mismo node list recién pintado, así que se
+    // fusionaron en un solo recorrido: mismo trabajo total, una sola
+    // consulta al DOM en vez de dos.
     this.gridEl.querySelectorAll<HTMLElement>('.game-card').forEach((card, i) => {
       card.style.setProperty('--stagger-delay', `${i * 0.045}s`);
-    });
 
-    this.gridEl.querySelectorAll<HTMLElement>('.game-card').forEach(card => {
       const gameId = card.dataset.gameId;
       if (!gameId) return;
 

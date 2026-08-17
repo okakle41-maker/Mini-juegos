@@ -32,7 +32,7 @@ import { setPending } from '../utils/matchWaitingContext.js';
 import { attachCopyButton } from '../utils/copyRoomCode.js';
 import { withButtonBusy } from '../utils/buttonBusyGuard.js';
 import { runCreateMatchAction } from '../utils/createMatchAction.js';
-import { describeMatchError } from '../utils/describeMatchError.js';
+import { renderEmptyState, wireMatchActions } from '../utils/matchListRenderer.js';
 import { onClickAsync, onClickAsyncVoid } from '../utils/asyncEventHandler.js';
 
 export function init(): void {
@@ -329,10 +329,7 @@ function renderStMatches(): void {
   const lobby = lobbySystem.getCurrentLobby();
   const myId = Auth.getUser()?.id ?? null;
 
-  if (matches.length === 0) {
-    list.innerHTML = '<p class="no-matches">Todavía no hay partidas de Signal Triangulation. ¡Creá una!</p>';
-    return;
-  }
+  if (renderEmptyState(list, matches.length > 0, '<p class="no-matches">Todavía no hay partidas de Signal Triangulation. ¡Creá una!</p>')) return;
 
   const usernameById = new Map((lobby?.players ?? []).map((p) => [p.id, p.username]));
 
@@ -358,31 +355,28 @@ function renderStMatches(): void {
         <span class="lobby-match-players">${namesLine} (${filledCount}/4)</span>
         <span class="lobby-match-status">${m.status === 'waiting' ? '⏳ Esperando jugadores' : '▶️ En curso'}</span>
         ${canResume ? `<button class="lobby-match-resume-btn" data-action="st-resume">▶️ Volver a mi partida</button>` : ''}
-        ${canJoin ? `<button class="lobby-match-join-btn" data-action="st-join" data-match-id="${m.id}">🆚 Unirse</button>` : ''}
+        ${canJoin ? `<button class="lobby-match-join-btn" data-action="st-join" data-match-id="${escapeHtml(m.id)}">🆚 Unirse</button>` : ''}
       </div>
     `;
   }).join('');
 
-  list.querySelectorAll('button[data-action]').forEach((btn) => {
-    btn.addEventListener('click', onClickAsyncVoid(async () => {
-      const el = btn as HTMLElement;
-      const action = el.dataset.action;
-      const matchId = el.dataset.matchId;
-
-      try {
-        if (action === 'st-resume') {
-          closeConfigModal();
-          window.showView?.('signal_triangulation');
-        } else if (action === 'st-join' && matchId) {
-          await signalTriangulationSystem.joinMatch(matchId);
-          closeConfigModal();
-          setPending('signal_triangulation', 'online-lobby');
-          window.showView?.('match-waiting');
-        }
-      } catch (e) {
-        showConfigError('olConfigStError', describeMatchError(e, 'No se pudo completar la acción.'));
+  wireMatchActions(list, {
+    errorElId: 'olConfigStError',
+    showError: showConfigError,
+    actions: {
+      'st-resume': async () => {
+        closeConfigModal();
+        window.showView?.('signal_triangulation');
+      },
+      'st-join': async (btn) => {
+        const matchId = btn.dataset.matchId;
+        if (!matchId) return;
+        await signalTriangulationSystem.joinMatch(matchId);
+        closeConfigModal();
+        setPending('signal_triangulation', 'online-lobby');
+        window.showView?.('match-waiting');
       }
-    }));
+    }
   });
 }
 
@@ -393,10 +387,7 @@ function renderScMatches(): void {
   const lobby = lobbySystem.getCurrentLobby();
   const myId = Auth.getUser()?.id ?? null;
 
-  if (matches.length === 0) {
-    list.innerHTML = '<p class="no-matches">Todavía no hay partidas de Centro de Control. ¡Creá una eligiendo tu rol!</p>';
-    return;
-  }
+  if (renderEmptyState(list, matches.length > 0, '<p class="no-matches">Todavía no hay partidas de Centro de Control. ¡Creá una eligiendo tu rol!</p>')) return;
 
   const usernameById = new Map((lobby?.players ?? []).map((p) => [p.id, p.username]));
 
@@ -417,7 +408,7 @@ function renderScMatches(): void {
       .join(' · ');
 
     const joinButtons = canJoin
-      ? openRoles.map((r) => `<button class="lobby-match-join-btn" data-action="sc-join" data-match-id="${m.id}" data-role="${r}">${SC_ROLE_LABELS[r]}</button>`).join('')
+      ? openRoles.map((r) => `<button class="lobby-match-join-btn" data-action="sc-join" data-match-id="${escapeHtml(m.id)}" data-role="${r}">${SC_ROLE_LABELS[r]}</button>`).join('')
       : '';
 
     return `
@@ -431,27 +422,24 @@ function renderScMatches(): void {
     `;
   }).join('');
 
-  list.querySelectorAll('button[data-action]').forEach((btn) => {
-    btn.addEventListener('click', onClickAsyncVoid(async () => {
-      const el = btn as HTMLElement;
-      const action = el.dataset.action;
-      const matchId = el.dataset.matchId;
-      const role = el.dataset.role as SCRole | undefined;
-
-      try {
-        if (action === 'sc-resume') {
-          closeConfigModal();
-          window.showView?.('ship_control');
-        } else if (action === 'sc-join' && matchId && role) {
-          await shipControlSystem.joinMatch(matchId, role);
-          closeConfigModal();
-          setPending('ship_control', 'online-lobby');
-          window.showView?.('match-waiting');
-        }
-      } catch (e) {
-        showConfigError('olConfigScError', describeMatchError(e, 'No se pudo completar la acción.'));
+  wireMatchActions(list, {
+    errorElId: 'olConfigScError',
+    showError: showConfigError,
+    actions: {
+      'sc-resume': async () => {
+        closeConfigModal();
+        window.showView?.('ship_control');
+      },
+      'sc-join': async (btn) => {
+        const matchId = btn.dataset.matchId;
+        const role = btn.dataset.role as SCRole | undefined;
+        if (!matchId || !role) return;
+        await shipControlSystem.joinMatch(matchId, role);
+        closeConfigModal();
+        setPending('ship_control', 'online-lobby');
+        window.showView?.('match-waiting');
       }
-    }));
+    }
   });
 }
 
@@ -468,10 +456,7 @@ function renderFlMatches(): void {
   const lobby = lobbySystem.getCurrentLobby();
   const myId = Auth.getUser()?.id ?? null;
 
-  if (matches.length === 0) {
-    list.innerHTML = '<p class="no-matches">Todavía no hay partidas de Fragmented Labyrinth. ¡Creá una!</p>';
-    return;
-  }
+  if (renderEmptyState(list, matches.length > 0, '<p class="no-matches">Todavía no hay partidas de Fragmented Labyrinth. ¡Creá una!</p>')) return;
 
   const usernameById = new Map((lobby?.players ?? []).map((p) => [p.id, p.username]));
 
@@ -497,31 +482,28 @@ function renderFlMatches(): void {
         <span class="lobby-match-players">${rolesLine} (${filledCount}/4)</span>
         <span class="lobby-match-status">${m.status === 'waiting' ? '⏳ Esperando jugadores' : '▶️ En curso'}</span>
         ${canResume ? `<button class="lobby-match-resume-btn" data-action="fl-resume">▶️ Volver a mi partida (Rol ${myRole})</button>` : ''}
-        ${canJoin ? `<button class="lobby-match-join-btn" data-action="fl-join" data-match-id="${m.id}">🌀 Unirse (Rol ${openRoles[0]} — ${FL_ROLE_DESCRIPTIONS[openRoles[0]]})</button>` : ''}
+        ${canJoin ? `<button class="lobby-match-join-btn" data-action="fl-join" data-match-id="${escapeHtml(m.id)}">🌀 Unirse (Rol ${openRoles[0]} — ${FL_ROLE_DESCRIPTIONS[openRoles[0]]})</button>` : ''}
       </div>
     `;
   }).join('');
 
-  list.querySelectorAll('button[data-action]').forEach((btn) => {
-    btn.addEventListener('click', onClickAsyncVoid(async () => {
-      const el = btn as HTMLElement;
-      const action = el.dataset.action;
-      const matchId = el.dataset.matchId;
-
-      try {
-        if (action === 'fl-resume') {
-          closeConfigModal();
-          window.showView?.('fragmented_labyrinth');
-        } else if (action === 'fl-join' && matchId) {
-          await fragmentedLabyrinthSystem.joinMatch(matchId);
-          closeConfigModal();
-          setPending('fragmented_labyrinth', 'online-lobby');
-          window.showView?.('match-waiting');
-        }
-      } catch (e) {
-        showConfigError('olConfigFlError', describeMatchError(e, 'No se pudo completar la acción.'));
+  wireMatchActions(list, {
+    errorElId: 'olConfigFlError',
+    showError: showConfigError,
+    actions: {
+      'fl-resume': async () => {
+        closeConfigModal();
+        window.showView?.('fragmented_labyrinth');
+      },
+      'fl-join': async (btn) => {
+        const matchId = btn.dataset.matchId;
+        if (!matchId) return;
+        await fragmentedLabyrinthSystem.joinMatch(matchId);
+        closeConfigModal();
+        setPending('fragmented_labyrinth', 'online-lobby');
+        window.showView?.('match-waiting');
       }
-    }));
+    }
   });
 }
 
@@ -541,10 +523,7 @@ function renderLobbyMatches(): void {
   const lobby = lobbySystem.getCurrentLobby();
   const myId = lobbySystem.currentPlayerId();
 
-  if (matches.length === 0) {
-    list.innerHTML = `<p class="no-matches">Todavía no hay partidas de ${escapeHtml(labels.name)}. ¡Creá una!</p>`;
-    return;
-  }
+  if (renderEmptyState(list, matches.length > 0, `<p class="no-matches">Todavía no hay partidas de ${escapeHtml(labels.name)}. ¡Creá una!</p>`)) return;
 
   const usernameById = new Map((lobby?.players ?? []).map((p) => [p.id, p.username]));
 
@@ -562,36 +541,36 @@ function renderLobbyMatches(): void {
         <span class="lobby-match-players">${escapeHtml(p1Name)}${p2Name ? ` vs ${escapeHtml(p2Name)}` : ' (esperando rival)'}</span>
         <span class="lobby-match-status">${m.status === 'waiting' ? '⏳ Esperando' : '▶️ En curso'}</span>
         ${canResume ? `<button class="lobby-match-resume-btn" data-action="lobby-resume">▶️ Volver a mi partida</button>` : ''}
-        ${canJoinAsPlayer ? `<button class="lobby-match-join-btn" data-action="lobby-join" data-match-id="${m.id}">🆚 Unirse como rival</button>` : ''}
-        ${canSpectate ? `<button class="lobby-match-spectate-btn" data-action="lobby-spectate" data-match-id="${m.id}">👁️ Espectar</button>` : ''}
+        ${canJoinAsPlayer ? `<button class="lobby-match-join-btn" data-action="lobby-join" data-match-id="${escapeHtml(m.id)}">🆚 Unirse como rival</button>` : ''}
+        ${canSpectate ? `<button class="lobby-match-spectate-btn" data-action="lobby-spectate" data-match-id="${escapeHtml(m.id)}">👁️ Espectar</button>` : ''}
       </div>
     `;
   }).join('');
 
-  list.querySelectorAll('button[data-action]').forEach((btn) => {
-    btn.addEventListener('click', onClickAsyncVoid(async () => {
-      const el = btn as HTMLElement;
-      const action = el.dataset.action;
-      const matchId = el.dataset.matchId;
-
-      try {
-        if (action === 'lobby-resume') {
-          closeConfigModal();
-          window.showView?.(gameId);
-        } else if (action === 'lobby-join' && matchId) {
-          await lobbySystem.joinMatchAsPlayer(matchId);
-          closeConfigModal();
-          setPending(gameId, 'online-lobby');
-          window.showView?.('match-waiting');
-        } else if (action === 'lobby-spectate' && matchId) {
-          await lobbySystem.spectateMatch(matchId);
-          closeConfigModal();
-          window.showView?.(gameId);
-        }
-      } catch (e) {
-        showConfigError('olConfigLobbyError', describeMatchError(e, 'No se pudo completar la acción.'));
+  wireMatchActions(list, {
+    errorElId: 'olConfigLobbyError',
+    showError: showConfigError,
+    actions: {
+      'lobby-resume': async () => {
+        closeConfigModal();
+        window.showView?.(gameId);
+      },
+      'lobby-join': async (btn) => {
+        const matchId = btn.dataset.matchId;
+        if (!matchId) return;
+        await lobbySystem.joinMatchAsPlayer(matchId);
+        closeConfigModal();
+        setPending(gameId, 'online-lobby');
+        window.showView?.('match-waiting');
+      },
+      'lobby-spectate': async (btn) => {
+        const matchId = btn.dataset.matchId;
+        if (!matchId) return;
+        await lobbySystem.spectateMatch(matchId);
+        closeConfigModal();
+        window.showView?.(gameId);
       }
-    }));
+    }
   });
 }
 

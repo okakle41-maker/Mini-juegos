@@ -24,6 +24,7 @@ import { attachCopyButton } from '../utils/copyRoomCode.js';
 import { withButtonBusy } from '../utils/buttonBusyGuard.js';
 import { runCreateMatchAction } from '../utils/createMatchAction.js';
 import { describeMatchError } from '../utils/describeMatchError.js';
+import { renderEmptyState, wireMatchActions } from '../utils/matchListRenderer.js';
 import { onClickAsync, onClickAsyncVoid } from '../utils/asyncEventHandler.js';
 
 let eventListeners: Array<() => void> = [];
@@ -229,10 +230,7 @@ function renderLobbyMatches(): void {
   const myId = lobbySystem.currentPlayerId();
   const lobby = lobbySystem.getCurrentLobby();
 
-  if (matches.length === 0) {
-    list.innerHTML = '<p class="no-matches">Todavía no hay partidas. ¡Creá una!</p>';
-    return;
-  }
+  if (renderEmptyState(list, matches.length > 0, '<p class="no-matches">Todavía no hay partidas. ¡Creá una!</p>')) return;
 
   const usernameById = new Map((lobby?.players ?? []).map((p) => [p.id, p.username]));
 
@@ -250,34 +248,39 @@ function renderLobbyMatches(): void {
         <span class="lobby-match-players">${escapeHtml(p1Name)}${p2Name ? ` vs ${escapeHtml(p2Name)}` : ' (esperando rival)'}</span>
         <span class="lobby-match-status">${m.status === 'waiting' ? '⏳ Esperando' : '▶️ En curso'}</span>
         ${canResume ? `<button class="lobby-match-resume-btn" data-action="resume" data-game="${m.gameId}">▶️ Volver a mi partida</button>` : ''}
-        ${canJoinAsPlayer ? `<button class="lobby-match-join-btn" data-action="join" data-match-id="${m.id}" data-game="${m.gameId}">🆚 Unirse como rival</button>` : ''}
-        ${canSpectate ? `<button class="lobby-match-spectate-btn" data-action="spectate" data-match-id="${m.id}" data-game="${m.gameId}">👁️ Espectar</button>` : ''}
+        ${canJoinAsPlayer ? `<button class="lobby-match-join-btn" data-action="join" data-match-id="${escapeHtml(m.id)}" data-game="${m.gameId}">🆚 Unirse como rival</button>` : ''}
+        ${canSpectate ? `<button class="lobby-match-spectate-btn" data-action="spectate" data-match-id="${escapeHtml(m.id)}" data-game="${m.gameId}">👁️ Espectar</button>` : ''}
       </div>
     `;
   }).join('');
 
-  list.querySelectorAll('button[data-action]').forEach((btn) => {
-    btn.addEventListener('click', onClickAsyncVoid(async () => {
-      const el = btn as HTMLElement;
-      const action = el.dataset.action;
-      const gameId = el.dataset.game as LobbyGameId;
-      const matchId = el.dataset.matchId;
-
-      try {
-        if (action === 'resume') {
-          window.showView?.(gameId);
-        } else if (action === 'join' && matchId) {
-          await lobbySystem.joinMatchAsPlayer(matchId);
-          setPending(gameId, 'multiplayer');
-          window.showView?.('match-waiting');
-        } else if (action === 'spectate' && matchId) {
-          await lobbySystem.spectateMatch(matchId);
-          window.showView?.(gameId);
-        }
-      } catch (e) {
-        showLobbyError(describeMatchError(e, 'No se pudo completar la acción.'));
+  wireMatchActions(list, {
+    // Esta vista tiene un único slot de error (showLobbyError), no uno
+    // por sección como onlineLobby — errorElId no se usa acá, se pasa
+    // solo para cumplir la firma compartida.
+    errorElId: '',
+    showError: (_elId, message) => showLobbyError(message),
+    actions: {
+      resume: async (btn) => {
+        const gameId = btn.dataset.game as LobbyGameId;
+        window.showView?.(gameId);
+      },
+      join: async (btn) => {
+        const gameId = btn.dataset.game as LobbyGameId;
+        const matchId = btn.dataset.matchId;
+        if (!matchId) return;
+        await lobbySystem.joinMatchAsPlayer(matchId);
+        setPending(gameId, 'multiplayer');
+        window.showView?.('match-waiting');
+      },
+      spectate: async (btn) => {
+        const gameId = btn.dataset.game as LobbyGameId;
+        const matchId = btn.dataset.matchId;
+        if (!matchId) return;
+        await lobbySystem.spectateMatch(matchId);
+        window.showView?.(gameId);
       }
-    }));
+    }
   });
 }
 

@@ -57,7 +57,9 @@ const template = (): string => {
 
         <div class="lobby-toolbar">
           <div class="lobby-filter-bar" id="onlineFilterBar" role="toolbar" aria-label="Filtrar por categoría">
-            <button class="filter-btn filter-btn--active" data-filter="TODOS">TODOS</button>
+            <!-- Los botones de filtro (incluido TODOS) se generan
+                 dinámicamente vía LobbyRenderer.render() -> FilterBar.tsx,
+                 igual que en #home (ver index.html) -->
           </div>
         </div>
 
