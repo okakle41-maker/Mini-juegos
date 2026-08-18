@@ -68,9 +68,18 @@ function lobbyAdapter(): MatchWaitingAdapter {
       const handler = () => {
         // `lobby:matches_changed` es genérico a toda la lista — solo nos
         // interesa si la partida que estamos esperando sigue siendo la
-        // misma (o ya no existe, p. ej. abandonada por el otro jugador).
+        // misma. Antes, `if (current && current.id !== matchId) return;`
+        // no filtraba nada cuando `current` era null (partida ya
+        // completada/abandonada y removida de lobbySystem.matches por
+        // handleMatchUpdate): CUALQUIER cambio de CUALQUIER otra
+        // sub-partida ajena del lobby terminaba llamando
+        // cb(countLobbyPlayers()) igual, que a su vez volvía a leer
+        // getCurrentMatch() (null) y devolvía 0 — pisando el contador
+        // "X / 2 jugadores" en pantalla con un falso "0 / 2" mientras la
+        // vista seguía esperando. El guard ahora también descarta el
+        // evento si la partida propia ya no está en memoria.
         const current = lobbySystem.getCurrentMatch();
-        if (current && current.id !== matchId) return;
+        if (!current || current.id !== matchId) return;
         cb(countLobbyPlayers());
       };
       window.addEventListener('lobby:matches_changed', handler);

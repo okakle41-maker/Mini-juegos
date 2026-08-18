@@ -713,38 +713,81 @@ class MultiplayerSystem {
 
   async endMatch(): Promise<void> {
     if (!this.currentMatch) return;
+    // Referencia local no-nula: this.currentMatch es una propiedad de
+    // instancia, TS no retiene el narrowing del guard de arriba a través
+    // del try/catch/return de más abajo (mismo patrón que
+    // handleMatchUpdate/handleMatchMessage en este mismo archivo).
+    const match = this.currentMatch;
 
-    // Determine winner — solo si hay más de una entrada en scores
-    // (juegos que no usan updateScore/finishRoomMatch de ambos lados
-    // pueden llegar acá con un solo score propio; declarar "ganador" a
-    // quien sea que tenga el único número cargado sería incorrecto).
-    let winner = '';
-    if (this.currentMatch.scores.size > 1) {
-      let maxScore = -1;
-      this.currentMatch.scores.forEach((score, playerId) => {
-        if (score > maxScore) {
-          maxScore = score;
-          winner = playerId;
-        }
-      });
-    }
-
-    this.currentMatch.winner = winner || undefined;
-    this.currentMatch.status = 'completed';
-    this.currentMatch.completedAt = Date.now();
-
-    const ownScore = this.playerStatus ? this.currentMatch.scores.get(this.playerStatus.id) : undefined;
+    const ownScore = this.playerStatus ? match.scores.get(this.playerStatus.id) : undefined;
+    let scoresForWinner = match.scores;
 
     if (this.supabaseClient && this.isConnected) {
       try {
+        // Releer la fila real antes de escribir — mismo motivo que el fix
+        // de lobbySystem.completeMatch() (ver comentario ahí): confiar en
+        // this.currentMatch.scores/status EN MEMORIA acá era el bug. Si el
+        // rival marcó la sala 'abandoned' (leaveRoomMatch) mientras esta
+        // llamada estaba en vuelo, un update sin condicionar al status
+        // observado revertía silenciosamente ese 'abandoned' de vuelta a
+        // 'completed' — y el winner se calculaba con un `scores` que
+        // todavía no tenía el score del rival, aunque ya hubiese llegado
+        // por Realtime a la fila real.
+        const { data: row } = await this.supabaseClient
+          .from('live_matches')
+          .select('scores, status')
+          .eq('id', match.id)
+          .maybeSingle();
+
+        // Si el rival ya cerró la sala (abandonada o completada por otra
+        // vía) entre esta lectura y la llamada que la originó, no hay nada
+        // que reportar: escribir encima pisaría ese estado terminal.
+        if (row && row.status !== 'waiting' && row.status !== 'playing') {
+          this.currentMatch = null;
+          return;
+        }
+
+        if (row && typeof row.scores === 'string') {
+          try {
+            scoresForWinner = new Map(JSON.parse(row.scores));
+          } catch {
+            // fila corrupta o vacía: conservar el Map local tal cual.
+          }
+        }
+
+        // Determine winner — solo si hay más de una entrada en scores
+        // (juegos que no usan updateScore/finishRoomMatch de ambos lados
+        // pueden llegar acá con un solo score propio; declarar "ganador" a
+        // quien sea que tenga el único número cargado sería incorrecto).
+        let winner = '';
+        if (scoresForWinner.size > 1) {
+          let maxScore = -1;
+          scoresForWinner.forEach((score, playerId) => {
+            if (score > maxScore) {
+              maxScore = score;
+              winner = playerId;
+            }
+          });
+        }
+
+        match.winner = winner || undefined;
+        match.status = 'completed';
+        match.completedAt = Date.now();
+
+        const observedStatus = row?.status ?? 'playing';
         await this.supabaseClient
           .from('live_matches')
-          .update({ 
+          .update({
             status: 'completed',
             winner_id: winner || null,
             completed_at: new Date().toISOString()
           })
-          .eq('id', this.currentMatch.id);
+          // Condicionar al status observado cierra la misma ventana de
+          // carrera que .eq('status', observedStatus) cierra en
+          // lobbySystem.completeMatch(): si la fila cambió de estado entre
+          // el select y este update, no afecta ninguna fila.
+          .eq('id', match.id)
+          .eq('status', observedStatus);
 
         // Actualiza el leaderboard en vivo con el score propio siempre
         // que se conozca, sea o no ganador de la comparación — así el
@@ -752,15 +795,38 @@ class MultiplayerSystem {
         // recibe datos de cada partida jugada, no solo de la que
         // resultó ganadora cuando hay ambos scores.
         if (ownScore !== undefined && (!winner || winner === this.playerStatus?.id)) {
-          await this.updateLeaderboard(this.currentMatch.gameId, ownScore);
+          await this.updateLeaderboard(match.gameId, ownScore);
         }
+
+        window.dispatchEvent(new CustomEvent('multiplayer:match_ended', {
+          detail: { match, winner }
+        }));
+        this.currentMatch = null;
+        return;
       } catch (e) {
         console.error('[Multiplayer] Failed to end match:', e);
       }
     }
 
+    // Sin conexión: no hay fila real que releer, se usa el estado local
+    // tal cual (mismo criterio de fallback que el resto de los métodos de
+    // esta clase cuando isConnected es false).
+    let winner = '';
+    if (scoresForWinner.size > 1) {
+      let maxScore = -1;
+      scoresForWinner.forEach((score, playerId) => {
+        if (score > maxScore) {
+          maxScore = score;
+          winner = playerId;
+        }
+      });
+    }
+    match.winner = winner || undefined;
+    match.status = 'completed';
+    match.completedAt = Date.now();
+
     window.dispatchEvent(new CustomEvent('multiplayer:match_ended', {
-      detail: { match: this.currentMatch, winner }
+      detail: { match, winner }
     }));
 
     this.currentMatch = null;
@@ -842,7 +908,7 @@ class MultiplayerSystem {
             created_at: new Date().toISOString()
           });
       } catch (e) {
-        console.error('[Multiplayer: Failed to send message:', e);
+        console.error('[Multiplayer] Failed to send message:', e);
       }
     }
 
