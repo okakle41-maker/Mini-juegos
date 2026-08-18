@@ -90,6 +90,20 @@ export function setupTeamLockView(ui: GameUi): TeamLockViewHandle {
       lastKnownRoundStatus = round.status;
       void refreshTeamStatus(round.id);
     }
+
+    // Una vez que la PARTIDA (no solo la ronda) terminó, no tiene sentido
+    // seguir pidiendo estado cada 1.5s: signalTriangulationSystem.leaveCurrentMatch()
+    // todavía no se llamó en este punto (eso ocurre recién en stop(), ver
+    // signalTriangulation.logic.ts), así que sin este guard el polling
+    // seguía corriendo en segundo plano —consultando refreshCurrentRound/
+    // getTeamLockStatus sin que nadie lo necesite— durante todo el tiempo
+    // que el jugador se queda mirando la pantalla de resultado final,
+    // hasta que finalmente navega afuera de la vista.
+    const currentMatch = signalTriangulationSystem.getCurrentMatch();
+    if (currentMatch && (currentMatch.status === 'completed' || currentMatch.status === 'abandoned') && pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
   };
 
   if (isActive) {

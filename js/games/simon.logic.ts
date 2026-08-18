@@ -11,6 +11,7 @@ import type { GameUi } from '../types/game.js';
 import audioManager from '../audioManager.js';
 import { lobbySystem } from '../lobbySystem.js';
 import { setupSplitView, findRivalElement, type SplitViewHandle } from '../utils/multiplayerSplitView.js';
+import GameHelpers from '../utils/gameHelpers.js';
 
 interface SimonInstance {
   stop: () => void;
@@ -28,7 +29,31 @@ export function init(ui: GameUi) {
   // (startSimonRound, listeners) necesitan el tipo ya no-nulo.
   const startSimonBtn: HTMLButtonElement = startSimon;
 
+  // Si init() se llama de nuevo sin que stop() haya corrido antes (doble
+  // init por routing, o el jugador vuelve a entrar rápido), la instancia
+  // anterior todavía tiene su listener de teclado y sus listeners de
+  // split-view (multiplayer:game_event, lobby:matches_changed) activos —
+  // sin este cleanup previo quedaban huérfanos para siempre y los
+  // eventos del rival se procesaban dos veces. Mismo fix ya aplicado en
+  // arrowGame.logic.ts/termita.logic.ts; faltaba portarlo acá.
+  const previousInstance = GameInstanceRegistry.get<SimonInstance>('simon');
+  if (previousInstance) previousInstance.stop();
+
   const simonColors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple'];
+
+  // Todos los setTimeout de esta partida (destello de botones, avance de
+  // secuencia, arranque de ronda) se registran acá en vez de usar
+  // setTimeout suelto — mismo patrón que arrowGame.logic.ts (ver
+  // GameHelpers.createCleanupManager). Sin esto, si el jugador vuelve a
+  // entrar a Simon (nuevo init() sin que stop() haya limpiado los
+  // timeouts de la partida anterior — p. ej. navegando afuera y volviendo
+  // rápido), los callbacks encadenados de playSimonSequence/
+  // startSimonRound seguían disparando sobre el simonBoard reutilizado
+  // (el contenedor de la vista se reusa entre init()s) y terminaban
+  // mezclando el estado de la partida vieja con el de la nueva —
+  // reproduciendo colores/reenviando eventos split.sendEvent que ya no
+  // correspondían a ninguna secuencia real en curso.
+  const timers = GameHelpers.createCleanupManager();
 
   // Split-screen "Vos"/"Rival" (ver js/utils/multiplayerSplitView.ts).
   // A diferencia del viejo flujo de sala 1v1 suelta (createRoomMatch/
@@ -196,7 +221,7 @@ export function init(ui: GameUi) {
     if (audioManager) audioManager.play(toneMap[color] || 'beep');
     const info = simonInfo as HTMLElement;
     info.textContent = `Escucha la secuencia... (${index + 1}/${simonState.sequence.length})`;
-    setTimeout(() => playSimonSequence(index + 1), simonState.speed);
+    timers.addTimeout(() => playSimonSequence(index + 1), simonState.speed);
   }
 
   function generateSimonSequence(length: number) {
@@ -218,7 +243,7 @@ export function init(ui: GameUi) {
     info.textContent = `Ronda ${simonState.currentRound}/${simonState.rounds}: observa la secuencia.`;
     disableSimonButtons(true);
     (simonBoard as HTMLElement).classList.remove('hidden');
-    setTimeout(() => playSimonSequence(0), 500);
+    timers.addTimeout(() => playSimonSequence(0), 500);
   }
 
   function endSimonGame(message: string) {
@@ -267,7 +292,7 @@ export function init(ui: GameUi) {
         const info = simonInfo as HTMLElement;
         info.textContent = `Correcto. Preparando siguiente ronda...`;
         disableSimonButtons(true);
-        setTimeout(startSimonRound, 900);
+        timers.addTimeout(startSimonRound, 900);
       }
     } else {
       const info = simonInfo as HTMLElement;
@@ -348,6 +373,7 @@ export function init(ui: GameUi) {
       simonState.playing = false;
       simonState.playerTurn = false;
       document.removeEventListener('keydown', onKeyDown);
+      timers.cleanup();
       split.cleanup();
     },
   });

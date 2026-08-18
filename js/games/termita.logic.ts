@@ -11,6 +11,7 @@ import audioManager from '../audioManager.js';
 import GameInstanceRegistry from '../core/gameInstanceRegistry.js';
 import { lobbySystem } from '../lobbySystem.js';
 import { setupSplitView, findRivalElement, type SplitViewHandle } from '../utils/multiplayerSplitView.js';
+import GameHelpers from '../utils/gameHelpers.js';
 
 interface TermitaInstance {
   stop: () => void;
@@ -37,6 +38,18 @@ export function init(ui: GameUi) {
     // terminaban procesándose dos veces.
     const previousInstance = GameInstanceRegistry.get<TermitaInstance>('termita');
     if (previousInstance) previousInstance.stop();
+
+    // Todos los setTimeout que encadenan el ciclo de juego (revelar
+    // objetivos → aceptar input, evaluar ronda → siguiente ronda) se
+    // registran en `timers` en vez de setTimeout suelto — mismo patrón
+    // que arrowGame.logic.ts (GameHelpers.createCleanupManager). El
+    // guard de arriba (previousInstance.stop()) ya limpiaba los
+    // listeners de split-view, pero no estos timeouts encadenados: sin
+    // esto, un evaluateRound()/playRound() en vuelo de la partida
+    // anterior seguía disparando sobre el grid reutilizado y terminaba
+    // arrancando una ronda nueva por encima de la que ya empezó init(),
+    // mezclando dos partidas en el mismo tablero.
+    const timers = GameHelpers.createCleanupManager();
 
     // Partida de lobby (ver lobbySystem.ts): la sub-partida ya queda en
     // 'playing' con settings fijados por quien la creó apenas se une el
@@ -225,7 +238,7 @@ export function init(ui: GameUi) {
       const info = termitaInfo as HTMLElement;
       info.textContent = `Ronda ${state.currentRound}/${state.rounds} — Aciertos: ${correct} — Puntuación total: ${state.score}`;
       split.sendEvent('termita:result', { score: state.score, rounds: state.rounds });
-      setTimeout(() => {
+      timers.addTimeout(() => {
         Array.from(grid.children).forEach((c, i) => {
           (c as HTMLElement).classList.remove('selected', 'correct', 'wrong');
           (c as HTMLElement).setAttribute('aria-label', `Celda ${i + 1}`);
@@ -256,7 +269,7 @@ export function init(ui: GameUi) {
       const grid = gridEl as HTMLElement;
       grid.classList.remove('hidden');
       lightTargets(state.targetsList);
-      setTimeout(() => {
+      timers.addTimeout(() => {
         clearLights();
         state.acceptingInput = true;
         const info = termitaInfo as HTMLElement;
@@ -284,7 +297,7 @@ export function init(ui: GameUi) {
       if (!split.isMultiplayer || split.isHost) {
         startTermitaBtn.disabled = true;
         const totalDuration = (state.showTime + 2000) * state.rounds;
-        setTimeout(() => { startTermitaBtn.disabled = false; }, totalDuration);
+        timers.addTimeout(() => { startTermitaBtn.disabled = false; }, totalDuration);
       }
     }
 
@@ -378,6 +391,7 @@ export function init(ui: GameUi) {
     GameInstanceRegistry.set<TermitaInstance>('termita', {
       stop: () => {
         state.acceptingInput = false;
+        timers.cleanup();
         split.cleanup();
       },
     });

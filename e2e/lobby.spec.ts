@@ -57,7 +57,17 @@ test.describe('Lobby - Critical Flows', () => {
     // Verificar que se muestran juegos filtrados. Playwright no tiene
     // un matcher toHaveCountGreaterThan — el equivalente real es leer
     // el conteo y comparar con un matcher de número normal.
-    const visibleCards = page.locator('.game-card:not([style*="display: none"])');
+    //
+    // Nota: el filtro/búsqueda oculta el `host` <div> que envuelve a
+    // cada `.game-card` (ver applyVisibility() en lobbyRenderer.tsx),
+    // no la propia `.game-card` — así el grid layoutea bien el hueco
+    // colapsado. El selector `:not([style*="display: none"])` solo
+    // mira el atributo `style` inline de `.game-card` en sí, que nunca
+    // cambia, así que siempre "ve" las 20 cards sin importar el
+    // filtro. `:visible` de Playwright evalúa el estilo COMPUTADO
+    // (heredando display:none del padre oculto), que es lo que
+    // realmente hay que verificar acá.
+    const visibleCards = page.locator('.game-card:visible');
     const visibleCount = await visibleCards.count();
     expect(visibleCount).toBeGreaterThan(0);
   });
@@ -72,8 +82,12 @@ test.describe('Lobby - Critical Flows', () => {
     // Esperar filtrado
     await page.waitForTimeout(200);
 
-    // Verificar que solo se muestra el juego buscado
-    const visibleCards = page.locator('.game-card:not([style*="display: none"])');
+    // Verificar que solo se muestra el juego buscado. Ver nota de
+    // arriba (test 'should filter games by category'): hay que usar
+    // `:visible` (estilo computado), no mirar el atributo `style`
+    // inline de `.game-card`, que vive en el `host` padre y nunca en
+    // la card misma.
+    const visibleCards = page.locator('.game-card:visible');
     await expect(visibleCards).toHaveCount(1);
 
     const cardName = visibleCards.locator('.card-name').first();
@@ -159,8 +173,10 @@ test.describe('Lobby - Critical Flows', () => {
 
     // Verificar que todas las tarjetas vuelven a ser visibles. Mismo
     // criterio de umbral que en el primer test: 19 juegos reales,
-    // no hardcodear un número mayor arbitrario.
-    const visibleCards = page.locator('.game-card:not([style*="display: none"])');
+    // no hardcodear un número mayor arbitrario. Ver nota sobre
+    // `:visible` vs `[style*="display: none"]` en 'should filter
+    // games by category' más arriba en este archivo.
+    const visibleCards = page.locator('.game-card:visible');
     const visibleCount = await visibleCards.count();
     expect(visibleCount).toBeGreaterThanOrEqual(19);
   });
