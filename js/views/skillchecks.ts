@@ -9,14 +9,14 @@
  * Los 9 cubos seguían el mismo patrón visual (icono + título) casi
  * palabra por palabra: ahora se generan desde SKILL_CUBES. De paso se
  * agregó role="button"/tabindex/aria-label a cada uno — antes eran
- * <div data-game="..."> con un click listener en skillchecksHub.logic.ts
- * y nada más, así que todo este menú (la puerta de entrada a los
- * juegos de skillcheck) era invisible para navegación por teclado.
+ * <div data-game="..."> con un click listener y nada más, así que
+ * todo este menú (la puerta de entrada a los juegos de skillcheck)
+ * era invisible para navegación por teclado.
  */
 import type { ViewTemplate } from '../types/game.js';
 
 interface SkillCube {
-  /** Debe coincidir con la key del mapa `map` en skillchecksHub.logic.ts. */
+  /** Debe coincidir con la key usada por el selector de skillcheck para abrir el juego. */
   game: string;
   icon: string;
   title: string;
@@ -42,7 +42,7 @@ const SKILL_CUBES: SkillCube[] = [
   { game: 'pipealign', icon: '🔧', title: 'Pipe Align', alt: '🔧 Pipe Align' },
 ];
 
-/** Un cubo del selector: ícono + título, activable por click, Enter o Space (ver skillchecksHub.logic.ts). */
+/** Un cubo del selector: ícono + título, activable por click, Enter o Space. */
 function renderCube(c: SkillCube, index: number): string {
   const staggerDelay = index * 0.05; // 50ms delay per card
   return `

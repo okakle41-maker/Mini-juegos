@@ -26,8 +26,7 @@ import type { GameConfig } from '../types/game.js';
 
 /** Ids de GameRegistry agrupados bajo la card "Skill Check", en el
  *  orden en que deben listarse dentro del menú flotante — mismo orden
- *  que tenían los cubos en SKILL_CUBES (js/views/skillchecks.ts) y el
- *  mapa `map` de la extinta skillchecksHub.logic.ts, para no
+ *  que tenían los cubos en SKILL_CUBES (js/views/skillchecks.ts), para no
  *  reordenar algo que el usuario ya conocía visualmente. Único punto
  *  de verdad, igual que CLASSICS_HUB_GAME_IDS en classicsHub.ts. */
 export const SKILLCHECKS_HUB_GAME_IDS: readonly string[] = [
