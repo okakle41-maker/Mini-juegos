@@ -74,7 +74,18 @@ function computePosition(anchorRect: DOMRect): { top: number; left: number; open
 
   const top = openUpward
     ? Math.max(VIEWPORT_MARGIN, anchorRect.top - ANCHOR_GAP)
-    : anchorRect.bottom + ANCHOR_GAP;
+    // Clamp faltante originalmente: sin este Math.min, una card cerca
+    // del final de una página larga (probable en el lobby real, con
+    // ~16 cards + "Módulo del Día" + barra de filtros) podía dejar el
+    // popover completo renderizado por debajo del viewport visible —
+    // el navegador SÍ lo scrollea al hacer scrollIntoView antes del
+    // click, pero position:fixed no se mueve con ese scroll, así que
+    // el ítem seguía "fuera del viewport" para Playwright
+    // (`element is outside of the viewport`, timeout en el click).
+    // ESTIMATED_MENU_HEIGHT es la misma estimación usada arriba para
+    // decidir el lado; no se conoce la altura real hasta pintar, pero
+    // clampear con la estimación es siempre mejor que no clampear.
+    : Math.min(anchorRect.bottom + ANCHOR_GAP, viewportHeight - ESTIMATED_MENU_HEIGHT - VIEWPORT_MARGIN);
 
   // Centrado horizontal respecto a la card, clampeado para no salirse
   // del viewport por ninguno de los dos lados.

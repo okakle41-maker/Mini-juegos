@@ -126,7 +126,22 @@ test.describe('Lobby - Critical Flows', () => {
   test('should navigate to game view on card click', async ({ page }) => {
     await page.waitForSelector('#gameList');
 
-    const firstCard = page.locator('.game-card').first();
+    // Excluye las cards "hub" (classics-hub, skillchecks): a
+    // diferencia de cualquier otra card, esas dos NO navegan directo a
+    // una vista — abren un popover (GameGroupMenu, ver
+    // js/utils/gameGroupMenuController.tsx) con los juegos que
+    // agrupan, sin que exista ningún <section id="classics-hub">/
+    // <section id="skillchecks"> al que navegar. Ese flujo distinto ya
+    // tiene su propia cobertura dedicada en los tests
+    // 'classics-hub card opens...' / 'skillchecks card opens...' más
+    // abajo en este archivo — este test cubre el caso general
+    // (cualquier OTRA card navega directo), así que si .first() cae
+    // justo en una de las dos hub (depende del orden de registro en
+    // GameRegistry) el test fallaba probando el comportamiento
+    // equivocado para esa card puntual.
+    const firstCard = page
+      .locator('.game-card:not([data-game-id="classics-hub"]):not([data-game-id="skillchecks"])')
+      .first();
     // El id real de la vista destino es el mismo gameId que identifica
     // la card (data-game-id) — no una versión "slugificada" del
     // nombre visible. ViewManager.showView(gameId) hace
