@@ -11,7 +11,7 @@ import type { ViewTemplate } from '../types/game.js';
 const template = (): string => {
   return `
   <div class="game-view-inner">
-    <button class="back-btn" data-back-to="skillchecks"></button>
+    <button class="back-btn" data-back-to="home"></button>
     <div id="bouncebar-root"></div>
   </div>
 `;

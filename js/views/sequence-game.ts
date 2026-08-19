@@ -11,7 +11,7 @@ import type { ViewTemplate } from '../types/game.js';
 const template = (): string => {
   return `
     <div class="sequence-card">
-        <button class="back-btn" data-back-to="skillchecks" data-back-label="← Volver"></button>
+        <button class="back-btn" data-back-to="home" data-back-label="← Volver"></button>
         <h2>Sequence</h2>
         <!-- HUD -->
         <div class="sequence-hud">

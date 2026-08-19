@@ -20,7 +20,7 @@ import type { ViewTemplate } from '../types/game.js';
 function renderHeader(): string {
   return `
     <div class="pt-header">
-        <button class="back-btn" data-back-to="skillchecks" data-back-label="← Volver"></button>
+        <button class="back-btn" data-back-to="home" data-back-label="← Volver"></button>
         <div>
             <div class="pt-title">Progress Timing</div>
             <div class="pt-subtitle">Configura la dificultad antes de comenzar</div>

@@ -2,7 +2,7 @@ import type { ViewTemplate } from '../types/game.js';
 
 const template = (): string => `
   <div class="game-view-inner scx-view">
-    <button class="back-btn" data-back-to="skillchecks" data-back-label="← Volver"></button>
+    <button class="back-btn" data-back-to="home" data-back-label="← Volver"></button>
     <div class="scx-card scx-card--wide">
       <h2>Target Pop</h2>
       <p class="scx-sub">Tocá los blancos antes de que desaparezcan</p>

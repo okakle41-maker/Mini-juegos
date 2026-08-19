@@ -13,7 +13,7 @@ const template = (): string => {
 
     <div class="rhythm-card">
 
-        <button class="back-btn" data-back-to="skillchecks" data-back-label="← Volver"></button>
+        <button class="back-btn" data-back-to="home" data-back-label="← Volver"></button>
 
         <h2>Rhythm Click</h2>
 

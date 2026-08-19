@@ -559,4 +559,41 @@ describe('GameRegistry.prefetch — precarga en hover/focus', () => {
     await GameRegistry.ensureInit('ensureinit-flaky');
     expect(logic).toHaveBeenCalledTimes(2);
   });
+
+  /**
+   * Regresión del bug de CSS encontrado al migrar Skill Check (ver
+   * js/games/Skillcheck.ts, js/games/rapidlines.ts): 'circle-game' y
+   * 'rapidlines-game' son los dos únicos, de los 15 juegos agrupados
+   * bajo la extinta card "Skill Check", cuyo CSS real (.circle-*,
+   * .rapid-hud, #rapidArena, etc.) vivía en css/Skillcheck.css
+   * declarado en el GameConfig del HUB ('skillchecks'), no en el
+   * GameConfig de cada juego — así que solo se inyectaba como efecto
+   * colateral de pasar antes por la vieja grilla de cubos.
+   * ensureInit(gameId) solo llama injectCSS(game.css) usando el `css`
+   * del GameConfig del juego que se está iniciando — nunca el de otro
+   * — así que al migrar la navegación a un popover que nunca llama
+   * ensureInit('skillchecks'), ese efecto colateral dejó de dispararse
+   * y el HUD de ambos juegos quedó sin estilos ("el hud no carga").
+   */
+  it("'circle-game' y 'rapidlines-game' declaran su propio css (no dependen de otro GameConfig)", async () => {
+    const { existsSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    await import('../js/games/index'); // registra los GameConfig reales
+    const { default: GameRegistry } = await import('../js/core/gameRegistry');
+
+    for (const id of ['circle-game', 'rapidlines-game']) {
+      const game = GameRegistry.get(id);
+      expect(game, `GameConfig no encontrado para "${id}"`).toBeDefined();
+      expect(
+        game?.css,
+        `"${id}" no declara ningún css propio — su HUD solo se verá con estilos si algo más lo inyecta antes (el bug original).`
+      ).toBeTruthy();
+
+      const cssPath = resolve(__dirname, '..', game!.css!);
+      expect(
+        existsSync(cssPath),
+        `game.css="${game!.css}" declarado en "${id}" no existe en disco (${cssPath}).`
+      ).toBe(true);
+    }
+  });
 });

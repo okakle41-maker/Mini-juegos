@@ -2,7 +2,7 @@ import type { ViewTemplate } from '../types/game.js';
 
 const template = (): string => `
   <div class="game-view-inner scx-view">
-    <button class="back-btn" data-back-to="skillchecks" data-back-label="← Volver"></button>
+    <button class="back-btn" data-back-to="home" data-back-label="← Volver"></button>
     <div class="scx-card">
       <h2>Pipe Align</h2>
       <p class="scx-sub">Girá los tubos hasta conectar entrada y salida</p>

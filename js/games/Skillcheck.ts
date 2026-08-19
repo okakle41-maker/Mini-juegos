@@ -12,6 +12,14 @@
 // js/views/skillchecks.ts) y su lógica quedaron eliminadas — mismo
 // destino final para cada juego (ViewManager.showView(id del juego
 // elegido)), solo cambia cómo se llega ahí desde el lobby.
+//
+// Los 15 juegos agrupados tenían su botón "Volver" apuntando a
+// data-back-to="skillchecks" (para volver a esa grilla) — se
+// actualizaron a data-back-to="home" (mismo id que usa
+// ViewManager.backToMenu() como fallback por defecto) ya que
+// "skillchecks" dejó de ser una vista navegable: sin ese cambio,
+// backToMenu('skillchecks') llamaba a showView('skillchecks'), que
+// falla silenciosamente al no encontrar ningún elemento con ese id.
 
 import GameRegistry from '../core/gameRegistry.js';
 import type { GameConfig } from '../types/game.js';
@@ -74,6 +82,13 @@ const circleGame: GameConfig = {
   difficulty:  3,
   hidden:      true,     // sub-view, not shown as lobby card
   leaderboard: { format: (v: number) => `${v} pts` },
+  // Antes de la migración al menú flotante, este juego nunca declaró
+  // su propio `css` — su estilo (.circle-card, .circle-ring,
+  // #circleNeedle, etc.) vivía en css/Skillcheck.css, cargado como
+  // efecto colateral del GameConfig del hub ('skillchecks', que ya no
+  // navega/inicializa nunca, ver skillchecksGame más arriba). Ver
+  // css/skillcheckGames.css para el detalle completo del bug.
+  css:         'css/skillcheckGames.css',
 
   init: () => {
     throw new Error('[circle-game] init directo no debería llamarse: usar logic()');
