@@ -19,6 +19,9 @@ const gameConfig: GameConfig = {
   description: 'Mecanismo procedural de engranajes, pestillos, imanes y contrapesos. Descubre cómo abrir el cerrojo principal.',
   difficulty:  4,
   css:         'css/mechlock.css',
+  // Ver nota equivalente en bombdefusal.ts: agrupado bajo "Clásicos"
+  // (js/games/classicsHub.ts), ya no es card suelta del lobby.
+  hidden:      true,
 
   init: () => {
     throw new Error('[mechlock] init directo no debería llamarse: usar logic()');

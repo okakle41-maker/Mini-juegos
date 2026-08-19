@@ -53,7 +53,6 @@ export const viewTemplates: Record<string, ViewTemplateLoader> = {
   'signal_triangulation': () => import('../views/signalTriangulation.js'),
   'fragmented_labyrinth': () => import('../views/fragmentedLabyrinth.js'),
   'simon': () => import('../views/simon.js'),
-  'skillchecks': () => import('../views/skillchecks.js'),
   'snippet-race': () => import('../views/snippet-race.js'),
   'soup': () => import('../views/soup.js'),
   'targetpop': () => import('../views/targetpop.js'),

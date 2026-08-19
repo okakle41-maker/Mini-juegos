@@ -49,7 +49,6 @@ const VIEW_TO_LOGIC_FILE: Record<string, string> = {
   'letters': 'lettersFall.logic.ts',
   'sequence-game': 'sequence.logic.ts',
   'ring-puzzle': 'ringpuzzle.logic.ts',
-  'skillchecks': 'skillchecksHub.logic.ts',
   'snippet-race': 'snippetRace.logic.ts',
   'signal_triangulation': 'signalTriangulation.logic.ts',
   'ship_control': 'shipControl.logic.ts',

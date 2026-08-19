@@ -94,12 +94,14 @@ interface RenderOptions {
   games?: GameConfig[];
   /** Callback opcional que reemplaza el comportamiento por defecto de hacer
    *  click/Enter en una card (ViewManager.showView(gameId)). Recibe el
-   *  GameConfig de la card clickeada para que el llamador decida qué hacer
-   *  — p.ej. abrir un panel de configuración previo en vez de navegar
-   *  directo al juego (usado por la vista "Lobby Online" para los
-   *  cooperativos de 4 jugadores: Signal Triangulation y Centro de
-   *  Control, que requieren crear/elegir una partida antes de entrar). */
-  onCardClick?: (game: GameConfig) => void;
+   *  GameConfig de la card clickeada y el elemento DOM que originó el
+   *  click (el botón .card-open-btn de la card en la grilla, o el CTA
+   *  #modOfDayCta si viene de "Módulo del Día") para que el llamador
+   *  decida qué hacer — p.ej. abrir un panel de configuración previo
+   *  en vez de navegar directo al juego (usado por "Lobby Online" para
+   *  los cooperativos de 4 jugadores) o anclar un popover a ese
+   *  elemento (ver gameGroupMenuController.ts). */
+  onCardClick?: (game: GameConfig, anchorEl: HTMLElement) => void;
 }
 
 const DEFAULT_HEADER_COUNT_IDS = ['modsCountHeader', 'modsCountPill', 'modsCountStats'];
@@ -119,7 +121,7 @@ class LobbyRenderer {
   // de verdad: una card se muestra solo si matchea AMBOS criterios.
   private searchQuery = '';
   private lastOptions: RenderOptions = {};
-  private onCardClick: ((game: GameConfig) => void) | null = null;
+  private onCardClick: ((game: GameConfig, anchorEl: HTMLElement) => void) | null = null;
 
   render(options: RenderOptions = {}): void {
     this.lastOptions = options;
@@ -457,8 +459,8 @@ class LobbyRenderer {
       const openBtn = card.querySelector<HTMLButtonElement>('.card-open-btn');
       const gameConfig = GameRegistry.get(gameId);
       const openCard = () => {
-        if (this.onCardClick && gameConfig) {
-          this.onCardClick(gameConfig);
+        if (this.onCardClick && gameConfig && openBtn) {
+          this.onCardClick(gameConfig, openBtn);
         } else {
           ViewManager.showView(gameId);
         }
@@ -599,7 +601,7 @@ class LobbyRenderer {
         difficulty={featured.difficulty}
         hasRecentPlay={featuredTimestamp > 0}
         onHoverPrefetch={() => GameRegistry.prefetch(featured.id)}
-        onPlay={() => ViewManager.showView(featured.id)}
+        onPlay={() => this.openFeatured(featured)}
       />,
       this.moduleOfDayEl
     );
@@ -610,6 +612,26 @@ class LobbyRenderer {
       const el = document.getElementById(id);
       if (el) el.textContent = String(total);
     });
+  }
+
+  /** Comportamiento del CTA de "Módulo del Día" — mismo criterio que
+   *  openCard() dentro de renderCards(): si el llamador pasó
+   *  onCardClick, se delega ahí (necesario para que una card "hub"
+   *  destacada como módulo del día —ver gameGroupMenuController.ts—
+   *  abra su menú flotante en vez de navegar directo a una vista que
+   *  ni siquiera existe para ese id); si no, navegación normal. El
+   *  CTA (#modOfDayCta) ya existe en el DOM en el momento del click
+   *  (se resuelve recién acá, no al montar, porque es el único
+   *  momento en que hace falta la referencia real). */
+  private openFeatured(featured: GameConfig): void {
+    if (this.onCardClick) {
+      const ctaEl = document.getElementById('modOfDayCta');
+      if (ctaEl) {
+        this.onCardClick(featured, ctaEl);
+        return;
+      }
+    }
+    ViewManager.showView(featured.id);
   }
 }
 

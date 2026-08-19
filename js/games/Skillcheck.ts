@@ -1,9 +1,44 @@
-// Skillcheck.ts — hub de navegación + Circle mini-game
+// Skillcheck.ts — card agrupadora "Skill Check" + Circle mini-game
 // Migrado al sistema GameRegistry (metadatos + lazy logic).
-// Lógica pesada en skillchecksHub.logic.ts y circleGame.logic.ts.
+// Lógica pesada del mini-game en circleGame.logic.ts.
+//
+// La card "Skill Check" ya no navega a una vista propia de "cubos":
+// se agrupó bajo el mismo mecanismo de menú flotante que "Clásicos"
+// (ver js/games/classicsHub.ts para la explicación completa del
+// patrón, y js/utils/gameGroupMenuController.tsx). Al clickearla,
+// LobbyRenderer abre un popover con los juegos listados en
+// SKILLCHECKS_HUB_GAME_IDS; elegir uno navega recién ahí. La vista
+// "skillchecks" (grilla de cubos que existía antes en
+// js/views/skillchecks.ts) y su lógica quedaron eliminadas — mismo
+// destino final para cada juego (ViewManager.showView(id del juego
+// elegido)), solo cambia cómo se llega ahí desde el lobby.
 
 import GameRegistry from '../core/gameRegistry.js';
 import type { GameConfig } from '../types/game.js';
+
+/** Ids de GameRegistry agrupados bajo la card "Skill Check", en el
+ *  orden en que deben listarse dentro del menú flotante — mismo orden
+ *  que tenían los cubos en SKILL_CUBES (js/views/skillchecks.ts) y el
+ *  mapa `map` de la extinta skillchecksHub.logic.ts, para no
+ *  reordenar algo que el usuario ya conocía visualmente. Único punto
+ *  de verdad, igual que CLASSICS_HUB_GAME_IDS en classicsHub.ts. */
+export const SKILLCHECKS_HUB_GAME_IDS: readonly string[] = [
+  'rapidlines-game',
+  'circle-game',
+  'maze-game',
+  'keyspam-game',
+  'sequence-game',
+  'rhythmclick',
+  'progresstiming',
+  'multipoint',
+  'bouncebar',
+  'holdrelease',
+  'targetpop',
+  'chordkeys',
+  'orbitcatch',
+  'lanedodge',
+  'pipealign',
+];
 
 // ── Hub: SkillChecks ────────────────────────────────────────
 const skillchecksGame: GameConfig = {
@@ -15,15 +50,13 @@ const skillchecksGame: GameConfig = {
   num:         '08',
   description: 'Colección de minijuegos de habilidad y reflejos.',
   difficulty:  3,
-  css:         'css/Skillcheck.css',
 
   init: () => {
-    throw new Error('[skillchecks] init directo no debería llamarse: usar logic()');
+    throw new Error('[skillchecks] init directo no debería llamarse: esta card abre un menú flotante, no navega a una vista propia.');
   },
   stop: () => {
-    throw new Error('[skillchecks] stop directo no debería llamarse: usar logic()');
+    throw new Error('[skillchecks] stop directo no debería llamarse: esta card abre un menú flotante, no navega a una vista propia.');
   },
-  logic: () => import('./skillchecksHub.logic.js'),
 };
 
 GameRegistry.register(skillchecksGame);

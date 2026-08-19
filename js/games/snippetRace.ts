@@ -18,6 +18,9 @@ const gameConfig: GameConfig = {
   description: 'Completá o corregí fragmentos de código. Velocidad y precisión cuentan.',
   difficulty:  3,
   css:         'css/snippet-race.css',
+  // Ver nota equivalente en bombdefusal.ts: agrupado bajo "Clásicos"
+  // (js/games/classicsHub.ts), ya no es card suelta del lobby.
+  hidden:      true,
   leaderboard: { format: (v: number) => `${v} pts` },
 
   init: () => {

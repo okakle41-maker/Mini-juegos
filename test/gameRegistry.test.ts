@@ -62,8 +62,18 @@ const VIEWS_WITHOUT_GAME = ['configuracion', 'cuenta', 'estadisticas', 'manual',
  * HTML standalone en vez de una sección data-lazy de index.html (ver
  * vite.config.ts para el patrón de entry point múltiple). Vacía por
  * ahora: el único caso que hubo, "radar" (radar.html), fue eliminado.
+ *
+ * 'classics-hub' (ver js/games/classicsHub.ts) y 'skillchecks' (ver
+ * js/games/Skillcheck.ts) son un caso distinto: no son páginas
+ * standalone, son cards que INTENCIONALMENTE nunca navegan a ninguna
+ * vista propia — al clickearlas, LobbyRenderer abre un menú flotante
+ * (GameGroupMenu, vía onCardClick en app.ts) con los juegos que
+ * agrupan, y la elección real de destino ocurre recién ahí
+ * (ViewManager.showView(idDelJuegoElegido), que sí tiene su propia
+ * entrada normal en viewTemplates.ts). init()/stop() de ambas tiran
+ * error a propósito si algo llega a invocarlos.
  */
-const GAMES_WITHOUT_LAZY_VIEW: string[] = [];
+const GAMES_WITHOUT_LAZY_VIEW: string[] = ['classics-hub', 'skillchecks'];
 
 describe('Contrato GameRegistry (juegos reales)', () => {
   let games: GameConfig[];

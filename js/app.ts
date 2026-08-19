@@ -10,6 +10,9 @@ import GameHelpers from './utils/gameHelpers.js';
 import LobbyRenderer from './lobbyRenderer.js';
 import { devLog } from './core/devLog.js';
 import { fixSocialMetaImages } from './core/socialMeta.js';
+import { createGameGroupClickHandler } from './utils/gameGroupMenuController.js';
+import { CLASSICS_HUB_GAME_IDS } from './games/classicsHub.js';
+import { SKILLCHECKS_HUB_GAME_IDS } from './games/Skillcheck.js';
 
 // Import system modules
 import { errorBoundary } from './errorBoundary.js';
@@ -105,8 +108,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mostrar vista inicial
     ViewManager.showView('home');
 
-    // Renderizar tarjetas de módulos y barra de filtros
-    LobbyRenderer.render();
+    // Renderizar tarjetas de módulos y barra de filtros. onCardClick
+    // Renderizar tarjetas de módulos y barra de filtros. onCardClick
+    // intercepta cards "hub" ("Clásicos" y "Skill Check", ver
+    // classicsHub.ts/Skillcheck.ts) para abrir su menú flotante de
+    // juegos agrupados en vez de navegar directo — ver
+    // gameGroupMenuController.ts. Cualquier otra card navega
+    // exactamente igual que antes (mismo fallback dentro del propio
+    // handler), y lo mismo aplica si una de estas dos cards resulta
+    // ser el destacado de "Módulo del Día" (mismo onCardClick,
+    // reusado ahí — ver openFeatured en lobbyRenderer.tsx).
+    LobbyRenderer.render({
+      onCardClick: createGameGroupClickHandler({
+        'classics-hub': CLASSICS_HUB_GAME_IDS,
+        'skillchecks': SKILLCHECKS_HUB_GAME_IDS,
+      })
+    });
 
     devLog('[App] Inicialización completada correctamente');
     // Debug temporal: comprobar registro de juegos y visibilidad

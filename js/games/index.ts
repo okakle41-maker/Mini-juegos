@@ -33,7 +33,7 @@ export { default as pairs } from './pairs.js';
 export { default as ringpuzzle } from './ringpuzzle.js';
 export { default as typix } from './typix.js';
 export { default as snippetRace } from './snippetRace.js';
-export { default as skillchecks, circleGame } from './Skillcheck.js';
+export { default as skillchecks, circleGame, SKILLCHECKS_HUB_GAME_IDS } from './Skillcheck.js';
 export { default as multipoint, bouncebarGame } from './multipoint.js';
 export {
   holdrelease,
@@ -61,3 +61,4 @@ export { default as bombdefusal } from './bombdefusal.js';
 export { default as reactor } from './reactor.js';
 export { default as mechlock } from './mechlock.js';
 export { default as virusOverload } from './virusOverload.js';
+export { default as classicsHub, CLASSICS_HUB_GAME_IDS } from './classicsHub.js';

@@ -15,16 +15,17 @@ test.describe('Lobby - Critical Flows', () => {
     // Chromium pero no daba margen suficiente en los otros motores.
     await page.waitForSelector('#gameList', { timeout: 30000 });
 
-    // Verificar que hay tarjetas de juego. El lobby muestra 19 juegos
-    // (27 archivos totales, menos ~13 configs con hidden:true de
-    // sub-vistas de skillcheck, más algunos archivos que registran más
-    // de un juego). Se usa >= 19 en vez de un valor mayor para no
+    // Verificar que hay tarjetas de juego. El lobby muestra 16 juegos
+    // (Bomb Defusal, Reactor Nuclear, Cerradura Mecánica, Virus
+    // Overload y Snippet Race pasaron a estar agrupados bajo la card
+    // "Clásicos" — hidden:true en sus GameConfig, ver js/games/
+    // classicsHub.ts). Se usa >= 16 en vez de un valor mayor para no
     // acoplar el test al conteo exacto de módulos del proyecto (que
     // cambia con cada juego agregado/quitado), mientras sigue
     // detectando que el lobby casi no renderizó nada.
     const gameCards = page.locator('.game-card');
     const count = await gameCards.count();
-    expect(count).toBeGreaterThanOrEqual(19);
+    expect(count).toBeGreaterThanOrEqual(16);
 
     // Verificar que cada tarjeta tiene elementos esperados.
     // Nota: la clase real es "card-icon-lg" (ver buildCardHTML en
@@ -172,12 +173,113 @@ test.describe('Lobby - Critical Flows', () => {
     await expect(searchInput).toHaveValue('');
 
     // Verificar que todas las tarjetas vuelven a ser visibles. Mismo
-    // criterio de umbral que en el primer test: 19 juegos reales,
+    // criterio de umbral que en el primer test: 16 juegos reales,
     // no hardcodear un número mayor arbitrario. Ver nota sobre
     // `:visible` vs `[style*="display: none"]` en 'should filter
     // games by category' más arriba en este archivo.
     const visibleCards = page.locator('.game-card:visible');
     const visibleCount = await visibleCards.count();
-    expect(visibleCount).toBeGreaterThanOrEqual(19);
+    expect(visibleCount).toBeGreaterThanOrEqual(16);
+  });
+
+  test('classics-hub card opens a floating menu with its 5 games, and picking one navigates to it', async ({ page }) => {
+    await page.waitForSelector('#gameList', { timeout: 30000 });
+
+    // Click en la card "Clásicos" (ver js/games/classicsHub.ts): a
+    // diferencia de cualquier otra card, esta NO navega directo —
+    // abre el popover GameGroupMenu (ver js/components/GameGroupMenu.tsx)
+    // en vez de mostrar la vista del juego.
+    const classicsCard = page.locator('.game-card[data-game-id="classics-hub"] .card-open-btn');
+    await expect(classicsCard).toBeVisible();
+    await classicsCard.click();
+
+    const menu = page.locator('.game-group-menu');
+    await expect(menu).toBeVisible();
+
+    // Los 5 juegos agrupados deben estar listados, cada uno como su
+    // propio ítem clickeable — ver CLASSICS_HUB_GAME_IDS en
+    // classicsHub.ts para el único punto de verdad de esta lista.
+    const items = menu.locator('.game-group-menu-item');
+    await expect(items).toHaveCount(5);
+    await expect(menu).toContainText('Bomb Defusal');
+    await expect(menu).toContainText('Reactor Nuclear');
+    await expect(menu).toContainText('Cerradura Mecánica');
+    await expect(menu).toContainText('Virus Overload');
+    await expect(menu).toContainText('Snippet Race');
+
+    // Elegir "Reactor Nuclear" navega a la vista de ESE juego (no a
+    // ninguna vista propia de "Clásicos", que no existe) y cierra el
+    // menú.
+    await menu.getByText('Reactor Nuclear').click();
+    await expect(menu).not.toBeVisible();
+    // Cada vista es <div id="{gameId}" class="view">, visible cuando
+    // ViewManager.showView(gameId) la activa (ver showView() en
+    // js/core/viewManager.ts) — el id del elemento es el id del juego,
+    // sin ningún selector/atributo intermedio que adivinar.
+    await expect(page.locator('#reactor')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('classics-hub floating menu closes on Escape without navigating', async ({ page }) => {
+    await page.waitForSelector('#gameList', { timeout: 30000 });
+
+    const classicsCard = page.locator('.game-card[data-game-id="classics-hub"] .card-open-btn');
+    await classicsCard.click();
+
+    const menu = page.locator('.game-group-menu');
+    await expect(menu).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(menu).not.toBeVisible();
+
+    // El lobby sigue siendo la vista activa — Escape cerró el menú,
+    // no navegó a ningún juego.
+    await expect(page.locator('#gameList')).toBeVisible();
+  });
+
+  test('classics-hub floating menu closes on outside click without navigating', async ({ page }) => {
+    await page.waitForSelector('#gameList', { timeout: 30000 });
+
+    const classicsCard = page.locator('.game-card[data-game-id="classics-hub"] .card-open-btn');
+    await classicsCard.click();
+
+    const menu = page.locator('.game-group-menu');
+    await expect(menu).toBeVisible();
+
+    // Click bien afuera del popover — la esquina superior izquierda
+    // del viewport es un punto seguro que no debería solapar con el
+    // menú (que se ancla junto a la card clickeada, no ahí).
+    await page.mouse.click(5, 5);
+    await expect(menu).not.toBeVisible();
+    await expect(page.locator('#gameList')).toBeVisible();
+  });
+
+  test('skillchecks card opens a floating menu with its 15 games, and picking one navigates to it', async ({ page }) => {
+    await page.waitForSelector('#gameList', { timeout: 30000 });
+
+    // Migrado del hub de "cubos" (js/views/skillchecks.ts, ya
+    // eliminado) al mismo mecanismo de menú flotante que "Clásicos" —
+    // ver js/games/Skillcheck.ts y SKILLCHECKS_HUB_GAME_IDS.
+    const skillchecksCard = page.locator('.game-card[data-game-id="skillchecks"] .card-open-btn');
+    await expect(skillchecksCard).toBeVisible();
+    await skillchecksCard.click();
+
+    const menu = page.locator('.game-group-menu');
+    await expect(menu).toBeVisible();
+
+    const items = menu.locator('.game-group-menu-item');
+    await expect(items).toHaveCount(15);
+    await expect(menu).toContainText('Rapid Lines');
+    await expect(menu).toContainText('Circle');
+    await expect(menu).toContainText('Maze');
+    await expect(menu).toContainText('Key Spam');
+    await expect(menu).toContainText('Pipe Align');
+
+    // Elegir "Maze" navega a la vista de ESE juego y cierra el menú —
+    // <section id="maze-game">, mismo criterio que el test de
+    // "Clásicos" arriba (el id del elemento es el id del juego, ver
+    // showView() en js/core/viewManager.ts).
+    await menu.getByText('Maze', { exact: true }).click();
+    await expect(menu).not.toBeVisible();
+    await expect(page.locator('#maze-game')).toBeVisible({ timeout: 10000 });
   });
 });

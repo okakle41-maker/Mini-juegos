@@ -19,6 +19,9 @@ const gameConfig: GameConfig = {
   description: 'Sobrevive a la infección del sistema. 4 fases progresivas con 20 minijuegos únicos.',
   difficulty: 5,
   css: 'css/virusOverload.css',
+  // Ver nota equivalente en bombdefusal.ts: agrupado bajo "Clásicos"
+  // (js/games/classicsHub.ts), ya no es card suelta del lobby.
+  hidden: true,
   leaderboard: { format: (v: number) => `${v} pts` },
 
   init: () => {
