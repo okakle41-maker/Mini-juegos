@@ -80,7 +80,16 @@ function initMusicPlayer(): void {
 
   // Restore volume
   const savedVol = safeStorage.getNumber(LS_VOL, 0.5);
-  const wasPaused = safeStorage.getString(LS_PAUSED, '0') === '1';
+  // Default '1' (pausado): la música debe empezar SIEMPRE desactivada
+  // salvo que el usuario mismo la haya dejado sonando en una sesión
+  // anterior (LS_PAUSED='0' persistido explícitamente al hacer play/
+  // pause — ver syncPlayUI). Antes el default era '0' ("no estaba
+  // pausado"), así que en la primera visita de cualquier persona
+  // (sin nada guardado todavía) doUnlock() interpretaba eso como "el
+  // usuario la dejó sonando" y arrancaba el audio automáticamente en
+  // el primer click/tecla en cualquier parte de la página — sin que
+  // nadie hubiera tocado nunca el botón de play.
+  const wasPaused = safeStorage.getString(LS_PAUSED, '1') === '1';
   audio.volume = savedVol;
 
   trackSelect.innerHTML = TRACKS.map(
