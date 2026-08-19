@@ -1,0 +1,409 @@
+/* ══════════════════════════════════════════════════════════════════
+   css/skillcheckGames.css
+   ----------------------------------------------------------------------
+   Estilos de "Circle" (circle-game) y "Rapid Lines" (rapidlines-game)
+   — los dos únicos juegos, de los 15 que agrupaba la extinta card
+   "Skill Check" (ver js/games/Skillcheck.ts), cuyo CSS vivía en el
+   extinto css/Skillcheck.css en vez de tener su propio archivo
+   dedicado (a diferencia de maze.css, keyspam.css, rhythmclick.css,
+   etc., que sí eran independientes desde antes).
+
+   El resto de css/Skillcheck.css (#skillchecks, .skillcheck-selector,
+   .skill-cube, .cube-icon, .bottom-glow) estilizaba únicamente la
+   grilla de "cubos" de la vista js/views/skillchecks.ts, eliminada al
+   migrar la navegación al menú flotante (GameGroupMenu, ver
+   js/utils/gameGroupMenuController.tsx) — ese código murió con la
+   vista y no se recupera acá.
+
+   Antes de esa migración, este CSS se cargaba como efecto colateral:
+   el ÚNICO GameConfig que declaraba `css: 'css/Skillcheck.css'` era
+   el del hub ('skillchecks'), así que el estilo de Circle/Rapid Lines
+   solo se inyectaba si el usuario pasaba primero por la grilla de
+   cubos (GameRegistry.injectCSS() lo dejaba en el <head> para el
+   resto de la sesión). Al navegar directo por el popover sin pasar
+   nunca por 'skillchecks', ese efecto colateral dejó de dispararse y
+   el HUD de ambos juegos quedó sin estilos.
+   Arreglado asignando este archivo como `css` directo en los propios
+   GameConfig de 'circle-game' y 'rapidlines-game' — mismo patrón lazy
+   que ya usan maze-game/keyspam-game con sus respectivos CSS.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Circle Game ── */
+.circle-card {
+  width: 100%;
+  max-width: 700px;
+  margin: auto;
+  text-align: center;
+}
+
+.circle-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 40px 0;
+}
+
+.circle-ring {
+  width: 320px;
+  height: 320px;
+  position: relative;
+  border-radius: 50%;
+  border: 8px solid rgba(127, 97, 57, 0.35);
+  background: linear-gradient(180deg, rgba(127, 97, 57, 0.04), rgba(9, 4, 0, 0.6));
+  box-shadow:
+    0 0 35px rgba(127, 97, 57, 0.18),
+    inset 0 0 35px rgba(127, 97, 57, 0.1);
+}
+
+/* ── Success Zone ── */
+#circleTarget {
+  position: absolute;
+  width: 50px;
+  height: 12px;
+  background: linear-gradient(90deg, #633f30, #9d7046);
+  border-radius: 999px;
+  box-shadow:
+    0 0 12px #9d7046,
+    0 0 25px rgba(127, 97, 57, 0.5);
+  left: 50%;
+  top: 50%;
+}
+
+/* ── Needle ── */
+#circleNeedle {
+  position: absolute;
+  width: 6px;
+  height: 135px;
+  background: linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.8));
+  border-radius: 999px;
+  left: 50%;
+  top: 50%;
+  margin-left: -3px;
+  margin-top: -135px;
+  transform-origin: 50% 100%;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+}
+
+/* ── Center Dot ── */
+.circle-ring::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+}
+
+/* ── Start Button ── */
+#startCircle {
+  margin-top: 20px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #633f30, #855b3e);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(133, 91, 62, 0.45);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+#startCircle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(133, 91, 62, 0.55);
+}
+
+/* ── Result Message ── */
+#circleResult {
+  margin-top: 20px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #9d7046;
+  text-shadow: 0 0 12px rgba(127, 97, 57, 0.45);
+}
+
+/* ── Stats ── */
+.circle-stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-top: 25px;
+}
+
+.circle-stats div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+}
+
+.circle-stats span {
+  margin-top: 8px;
+  color: #9d7046;
+  font-size: 1.8rem;
+  font-weight: 700;
+  text-shadow: 0 0 15px rgba(127, 97, 57, 0.55);
+}
+
+/* ── Rapid Lines ── */
+.rapid-card {
+  width: 100%;
+  max-width: 1100px;
+  margin: auto;
+  text-align: center;
+}
+
+.rapid-hud {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.rapid-hud .hud-box {
+  min-width: 130px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(127, 97, 57, 0.35);
+  background: rgba(127, 97, 57, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.rapid-hud .hud-box span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.rapid-hud .hud-box strong {
+  display: block;
+  margin-top: 8px;
+  color: #9d7046;
+  font-size: 2rem;
+  text-shadow: 0 0 15px rgba(127, 97, 57, 0.55);
+}
+
+#rapidArena {
+  position: relative;
+  width: min(800px, 100%);
+  aspect-ratio: 4 / 3;
+  max-height: 600px;
+  margin: auto;
+  border-radius: 18px;
+  border: 2px solid rgba(127, 97, 57, 0.28);
+  background: linear-gradient(180deg, rgba(127, 97, 57, 0.04), rgba(9, 4, 0, 0.85));
+  overflow: hidden;
+  box-shadow: inset 0 0 80px rgba(127, 97, 57, 0.06);
+}
+/* Corner accents */
+#rapidArena::before,
+#rapidArena::after {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--accent-orange);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 10;
+}
+#rapidArena::before { top: 10px; left: 10px; border-right: none; border-bottom: none; border-radius: 4px 0 0 0; }
+#rapidArena::after { bottom: 10px; right: 10px; border-left: none; border-top: none; border-radius: 0 0 4px 0; }
+
+#rapidCenter {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #996c47, #774e39);
+  box-shadow:
+    0 0 20px rgba(127, 97, 57, 1),
+    0 0 55px rgba(127, 97, 57, 0.5);
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+#startRapid {
+  margin-top: 25px;
+}
+
+#rapidResult {
+  margin-top: 18px;
+  color: var(--text);
+  font-size: 1.1rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+/* ── Rapid Arrow ── */
+.rapid-arrow {
+  position: absolute;
+  width: 220px;
+  height: 8px;
+  background: linear-gradient(90deg, #633f30, #9d7046);
+  border-radius: 999px;
+  box-shadow:
+    0 0 15px rgba(127, 97, 57, 0.8),
+    0 0 40px rgba(127, 97, 57, 0.4);
+  transform-origin: center center;
+}
+
+.rapid-arrow::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-left: 24px solid #9d7046;
+  border-top: 16px solid transparent;
+  border-bottom: 16px solid transparent;
+  filter: drop-shadow(0 0 10px #9d7046);
+}
+
+/* ── Rapid Config ── */
+.rapid-config {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 18px;
+  margin: 25px auto;
+  max-width: 900px;
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-item label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.config-item input {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(127, 97, 57, 0.35);
+  background: rgba(0, 0, 0, 0.45);
+  color: #9d7046;
+  text-align: center;
+  font-size: 1rem;
+  font-family: var(--font-mono);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.config-item input:focus {
+  border-color: rgba(127, 97, 57, 0.55);
+  box-shadow: 0 0 12px rgba(133, 91, 62, 0.2);
+  outline: none;
+}
+
+.config-buttons {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 10px;
+}
+
+.config-buttons button {
+  padding: 12px 28px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #633f30, #855b3e);
+  color: white;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(133, 91, 62, 0.45);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.config-buttons button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(133, 91, 62, 0.55);
+}
+
+#resetRapidConfig {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+#resetRapidConfig:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Rapid Hit Text ── */
+.rapid-hit-text {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
+  font-weight: 800;
+  pointer-events: none;
+  transition:
+    transform 0.7s ease,
+    opacity 0.7s ease;
+  text-shadow:
+    0 0 15px currentColor,
+    0 0 35px currentColor;
+}
+
+/* ── Rapid Effects ── */
+#rapidEffects {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.rapid-hit {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  z-index: 100;
+  text-shadow:
+    0 0 12px currentColor,
+    0 0 30px currentColor,
+    0 0 50px currentColor;
+  /* NOTA: `rapidHit` no tiene @keyframes definido en ningún CSS del
+     proyecto — ya era así en el css/Skillcheck.css original (no es
+     algo introducido por esta migración). Sin la definición, la
+     animación simplemente no anima (el elemento aparece/desaparece
+     sin transición) en vez de tirar error; se deja igual que estaba
+     para no tocar comportamiento fuera del alcance de este fix. */
+  animation: rapidHit 0.65s forwards;
+}
+
+.rapid-particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(0, 0) scale(1);
+  transition:
+    transform 0.6s ease-out,
+    opacity 0.6s ease-out;
+  box-shadow:
+    0 0 10px currentColor,
+    0 0 25px currentColor;
+}
+
+.hidden {
+  display: none !important;
+}
