@@ -518,8 +518,15 @@ export function init(rawUi: GameUi): void {
   keydownHandler = (e: KeyboardEvent) => {
     if (!state.playing) return;
     const key = e.key.toLowerCase();
-    if (key === 'arrowup' || key === 'w') { e.preventDefault(); moveCursor(-state.size); }
-    else if (key === 'arrowdown' || key === 's') { e.preventDefault(); moveCursor(state.size); }
+    // idxOf(r, c) = (size-1-r)*size + (size-1-c): tanto filas como
+    // columnas están invertidas respecto al índice de anillo (mismo
+    // motivo por el que columnas usa +1 para "izquierda" y -1 para
+    // "derecha" más abajo, ver comentario de spanIndices). Por fila
+    // pasa lo mismo: subir una fila (r-1) SUMA `size` al índice de
+    // anillo, no lo resta. Con el signo original invertido, W/S
+    // movían el cursor una fila hacia el lado contrario al indicado.
+    if (key === 'arrowup' || key === 'w') { e.preventDefault(); moveCursor(state.size); }
+    else if (key === 'arrowdown' || key === 's') { e.preventDefault(); moveCursor(-state.size); }
     else if (key === 'arrowleft' || key === 'a') { e.preventDefault(); moveCursor(1); }
     else if (key === 'arrowright' || key === 'd') { e.preventDefault(); moveCursor(-1); }
     else if (key === 'enter' || key === ' ') { e.preventDefault(); attemptConfirm(); }
