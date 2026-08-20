@@ -73,7 +73,24 @@ function computePosition(anchorRect: DOMRect): { top: number; left: number; open
   const openUpward = spaceBelow < ESTIMATED_MENU_HEIGHT + ANCHOR_GAP && anchorRect.top > ESTIMATED_MENU_HEIGHT + ANCHOR_GAP;
 
   const top = openUpward
-    ? Math.max(VIEWPORT_MARGIN, anchorRect.top - ANCHOR_GAP)
+    // Al abrir hacia arriba, el popover debe crecer desde su borde
+    // INFERIOR hacia arriba, terminando justo encima de la card (con
+    // ANCHOR_GAP de separación) — no desde su borde superior como en
+    // el caso "hacia abajo". El bug original solo hacía
+    // `anchorRect.top - ANCHOR_GAP` como si fuera la esquina
+    // superior del popover: como el componente se posiciona con
+    // `top`/`left` (no `bottom`), eso dejaba el menú entero
+    // renderizado creciendo HACIA ABAJO desde ese punto — es decir,
+    // tapando la card en vez de aparecer arriba de ella — y si la
+    // card estaba cerca del borde superior del viewport (tras
+    // scrollIntoView, común en páginas largas), `anchorRect.top -
+    // ANCHOR_GAP` podía terminar siendo un valor negativo o
+    // insuficiente, dejando el popover (o parte de él) fuera del
+    // viewport visible. Restar ESTIMATED_MENU_HEIGHT posiciona el
+    // borde superior del popover donde debe estar para que su borde
+    // inferior quede pegado a la card, igual que se calcula
+    // `openUpward` más arriba (misma estimación, ver comentario ahí).
+    ? Math.max(VIEWPORT_MARGIN, anchorRect.top - ANCHOR_GAP - ESTIMATED_MENU_HEIGHT)
     // Clamp faltante originalmente: sin este Math.min, una card cerca
     // del final de una página larga (probable en el lobby real, con
     // ~16 cards + "Módulo del Día" + barra de filtros) podía dejar el
